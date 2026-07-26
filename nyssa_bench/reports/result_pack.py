@@ -266,6 +266,22 @@ def _publication_caveats(summaries: list[dict[str, Any]], video_count: int, poli
                 f"- `{policy}` has low recovery yield relative to intervention use; "
                 f"recovery success rate is {rate:.4f}."
             )
+    success_rates = _policy_success_rates(summaries)
+    requested_variants = {policy.rsplit(":", 1)[-1] for policy in policies if ":" in policy}
+    verifier_rates = _policy_metric_rates(summaries, "verifier_rejection_rate")
+    for variant in sorted(requested_variants & {"verifier", "verifier_recovery"}):
+        if verifier_rates.get(variant, 0.0) == 0.0 and success_rates.get(variant, 0.0) < 0.95:
+            caveats.append(
+                f"- `{variant}` enabled the verifier but rejected no actions despite unresolved failures; "
+                "treat this as an inactive verifier, not a verifier ablation."
+            )
+    recovery_attempts = _policy_metric_rates(summaries, "recovery_attempt_count")
+    for variant in sorted(requested_variants & {"recovery", "verifier_recovery"}):
+        if recovery_attempts.get(variant, 0.0) == 0.0 and success_rates.get(variant, 0.0) < 0.95:
+            caveats.append(
+                f"- `{variant}` enabled recovery but attempted none despite unresolved failures; "
+                "treat this as an inactive recovery path, not a recovery ablation."
+            )
     if not caveats:
         return "- No publication caveats detected by the result-pack writer."
     return "\n".join(caveats)

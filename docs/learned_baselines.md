@@ -61,7 +61,15 @@ random and scripted baselines in validated result artifacts.
 ## RoboMimic BC
 
 RoboMimic is the next learned baseline after the linear smoke test. Export the
-imported planner demonstrations to one RoboMimic HDF5 and config per task:
+state-aligned planner rollouts to one RoboMimic HDF5 and config per task. The
+source must contain live observations paired with actions; action-only planner
+imports are rejected by observation coverage and feature variance checks.
+
+Use held-out simulator seeds for evaluation. A result pack can provide aligned
+training observations, but evaluating on seeds already present in that pack is
+data leakage and must not be reported as policy generalization.
+
+Export one source directory or result ZIP:
 
 ```bash
 uv run nyssa export-task-robomimic \
@@ -88,7 +96,9 @@ uv run nyssa train-robomimic \
 
 After training, evaluate directly from the task export directory. The
 `task_robomimic` policy discovers the latest `model_epoch_*.pth` checkpoint for
-each task under the generated RoboMimic output tree:
+each task under the generated RoboMimic output tree and derives the live
+observation feature dimension from RoboMimic checkpoint metadata. Use
+`NYSSA_ROBOMIMIC_FEATURE_DIM` only to override missing or incorrect metadata:
 
 ```bash
 NYSSA_TASK_ROBOMIMIC_DIR=datasets/maniskill_robomimic_by_task \

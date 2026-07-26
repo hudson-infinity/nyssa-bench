@@ -560,7 +560,16 @@ commands. For stronger learned baselines, use the RoboMimic export and
 `robomimic` or `task_robomimic` policy adapters documented there.
 
 For task-routed RoboMimic training, export one dataset and config per task from
-the same imported demos or result zip:
+state-aligned rollout episodes containing live policy observations. Action-only
+motion-planning imports are not sufficient. The exporter rejects sources with
+less than 95% observation payload coverage or degenerate features and records
+per-task quality statistics in `task_robomimic_manifest.json`.
+
+Evaluate checkpoints from result-pack training sources on simulator seeds that
+do not occur in those sources. Reusing training rollout seeds is acceptable for
+a pipeline smoke test but invalidates a public generalization claim.
+
+Export one source directory or result ZIP:
 
 ```bash
 uv run nyssa export-task-robomimic \
@@ -574,7 +583,9 @@ uv run nyssa export-task-robomimic \
 
 Train the generated configs, then evaluate from the export directory directly.
 `task_robomimic` recursively discovers the latest per-task
-`model_epoch_*.pth` files, so manual checkpoint copying is optional:
+`model_epoch_*.pth` files and reads each checkpoint's observation feature
+dimension, so manual checkpoint copying and
+`NYSSA_ROBOMIMIC_FEATURE_DIM` are normally unnecessary:
 
 ```bash
 uv run nyssa train-robomimic --config configs/generated/maniskill_robomimic_by_task/maniskill_pick_cube_bc.json

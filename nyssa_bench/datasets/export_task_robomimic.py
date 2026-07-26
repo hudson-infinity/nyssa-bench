@@ -7,7 +7,7 @@ from typing import Any
 from nyssa_bench.baselines.robomimic_bc import write_robomimic_bc_config
 from nyssa_bench.baselines.simple_bc import load_episode_sources, task_checkpoint_key
 from nyssa_bench.core.episode import EpisodeResult, StepRecord
-from nyssa_bench.datasets.export_robomimic import export_robomimic_hdf5
+from nyssa_bench.datasets.export_robomimic import export_robomimic_hdf5, validate_robomimic_observations
 
 
 def export_task_robomimic(
@@ -34,6 +34,16 @@ def export_task_robomimic(
     if not grouped:
         raise ValueError("No task-labeled episodes found for RoboMimic export")
 
+    episode_results = {task: _episode_results(task_episodes) for task, task_episodes in grouped.items()}
+    observation_quality = {
+        task: validate_robomimic_observations(
+            results,
+            feature_dim=feature_dim,
+            context=f"Task '{task}' RoboMimic dataset",
+        )
+        for task, results in episode_results.items()
+    }
+
     output_dir = Path(out_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     cfg_dir = Path(config_dir) if config_dir is not None else output_dir / "configs"
@@ -43,7 +53,7 @@ def export_task_robomimic(
     for task_key, task_episodes in sorted(grouped.items()):
         hdf5_path = output_dir / f"{task_key}.hdf5"
         config_path = cfg_dir / f"{task_key}_bc.json"
-        export_robomimic_hdf5(_episode_results(task_episodes), hdf5_path, feature_dim=feature_dim)
+        export_robomimic_hdf5(episode_results[task_key], hdf5_path, feature_dim=feature_dim)
         write_robomimic_bc_config(
             data=hdf5_path,
             out=config_path,
@@ -58,10 +68,11 @@ def export_task_robomimic(
 
     manifest_path = output_dir / "task_robomimic_manifest.json"
     manifest = {
-        "format": "nyssa-task-robomimic-export-v1",
+        "format": "nyssa-task-robomimic-export-v2",
         "sources": [str(Path(source)) for source in sources],
         "feature_dim": feature_dim,
         "success_only": success_only,
+        "observation_quality": observation_quality,
         "tasks": {
             task: {label: path.as_posix() for label, path in paths.items()} for task, paths in artifacts.items()
         },

@@ -11,6 +11,8 @@ from nyssa_bench.baselines.robomimic_bc import create_robomimic_policy, load_rob
 from nyssa_bench.policies.base import Policy
 from nyssa_bench.policies.loaders import call_model, load_callable_from_env, normalize_action, require_model
 
+DEFAULT_ROBOMIMIC_FEATURE_DIM = 256
+
 
 class RoboMimicPolicy(Policy):
     def __init__(self, model: Any | None = None) -> None:
@@ -20,7 +22,7 @@ class RoboMimicPolicy(Policy):
             policy_name="RoboMimicPolicy",
             env_var="NYSSA_ROBOMIMIC_POLICY",
         )
-        self.feature_dim = int(os.getenv("NYSSA_ROBOMIMIC_FEATURE_DIM", "256"))
+        self.feature_dim = _feature_dim_override()
 
     def reset(self, task: Any | None = None, seed: int | None = None) -> None:
         _reset_robomimic_model(self.model)
@@ -34,7 +36,7 @@ class TaskRoboMimicPolicy(Policy):
 
     def __init__(self) -> None:
         self.checkpoint_dir = Path(os.getenv("NYSSA_TASK_ROBOMIMIC_DIR", "checkpoints/robomimic_by_task"))
-        self.feature_dim = int(os.getenv("NYSSA_ROBOMIMIC_FEATURE_DIM", "256"))
+        self.feature_dim = _feature_dim_override()
         self.current_task_id: str | None = None
         self._models: dict[str, Any] = {}
 
@@ -56,10 +58,32 @@ class TaskRoboMimicPolicy(Policy):
         return self._models[key]
 
 
-def _robomimic_action(model: Any, observation: dict[str, Any], *, feature_dim: int) -> Any:
-    flat_observation = {"flat": flatten_observation(observation, feature_dim)}
+def _robomimic_action(model: Any, observation: dict[str, Any], *, feature_dim: int | None) -> Any:
+    resolved_feature_dim = _model_feature_dim(model, override=feature_dim)
+    flat_observation = {"flat": flatten_observation(observation, resolved_feature_dim)}
     action = _call_robomimic_model(model, flat_observation)
     return fit_action_to_observation(action, observation)
+
+
+def _feature_dim_override() -> int | None:
+    value = os.getenv("NYSSA_ROBOMIMIC_FEATURE_DIM")
+    if value is None:
+        return None
+    feature_dim = int(value)
+    if feature_dim <= 0:
+        raise ValueError("NYSSA_ROBOMIMIC_FEATURE_DIM must be a positive integer")
+    return feature_dim
+
+
+def _model_feature_dim(model: Any, *, override: int | None) -> int:
+    if override is not None:
+        return override
+    value = getattr(model, "_nyssa_flat_feature_dim", None)
+    try:
+        feature_dim = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_ROBOMIMIC_FEATURE_DIM
+    return feature_dim if feature_dim > 0 else DEFAULT_ROBOMIMIC_FEATURE_DIM
 
 
 def _reset_robomimic_model(model: Any) -> None:

@@ -16,11 +16,16 @@ def action_bounds(observation: dict[str, Any]) -> tuple[np.ndarray, np.ndarray, 
 
 
 def flatten_observation(observation: dict[str, Any], max_dim: int = 256) -> np.ndarray:
-    values: list[float] = []
-    _collect_numbers(observation.get("raw", observation), values)
+    values = observation_numeric_values(observation)
     if len(values) >= max_dim:
         return np.asarray(values[:max_dim], dtype=float)
     return np.asarray([*values, *([0.0] * (max_dim - len(values)))], dtype=float)
+
+
+def observation_numeric_values(observation: dict[str, Any]) -> list[float]:
+    values: list[float] = []
+    _collect_numbers(observation.get("raw", observation), values)
+    return values
 
 
 def normalize_action(action: Any, size: int) -> np.ndarray:

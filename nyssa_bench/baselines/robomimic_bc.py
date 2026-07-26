@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import os
 import json
+import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,10 @@ def load_robomimic_checkpoint(path: str | Path | None = None) -> Any:
         from robomimic.utils.file_utils import policy_from_checkpoint
     except ImportError as exc:
         raise RuntimeError("RoboMimic integration requires: uv sync --extra robomimic") from exc
-    policy, _ = policy_from_checkpoint(ckpt_path=str(checkpoint))
+    policy, checkpoint_data = policy_from_checkpoint(ckpt_path=str(checkpoint))
+    feature_dim = _flat_feature_dim_from_checkpoint(checkpoint_data)
+    if feature_dim is not None:
+        setattr(policy, "_nyssa_flat_feature_dim", feature_dim)
     return policy
 
 
@@ -135,3 +139,24 @@ def _checkpoint_set(output_dir: Path) -> set[Path]:
     if not output_dir.exists():
         return set()
     return set(output_dir.rglob("model_epoch_*.pth"))
+
+
+def _flat_feature_dim_from_checkpoint(checkpoint_data: Any) -> int | None:
+    if not isinstance(checkpoint_data, dict):
+        return None
+    shape_metadata = checkpoint_data.get("shape_metadata")
+    if not isinstance(shape_metadata, dict):
+        return None
+    all_shapes = shape_metadata.get("all_shapes")
+    if not isinstance(all_shapes, dict):
+        return None
+    flat_shape = all_shapes.get("flat")
+    if flat_shape is None:
+        return None
+    try:
+        dimensions = tuple(int(value) for value in flat_shape)
+    except (TypeError, ValueError):
+        return None
+    if not dimensions or any(value <= 0 for value in dimensions):
+        return None
+    return math.prod(dimensions)
