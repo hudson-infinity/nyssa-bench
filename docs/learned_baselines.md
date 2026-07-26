@@ -86,8 +86,27 @@ uv run nyssa train-robomimic \
   --config configs/generated/maniskill_robomimic_by_task/maniskill_stack_cube_bc.json
 ```
 
-After training, place or symlink the best checkpoints into the task-routed
-checkpoint directory:
+After training, evaluate directly from the task export directory. The
+`task_robomimic` policy discovers the latest `model_epoch_*.pth` checkpoint for
+each task under the generated RoboMimic output tree:
+
+```bash
+NYSSA_TASK_ROBOMIMIC_DIR=datasets/maniskill_robomimic_by_task \
+MUJOCO_GL=egl \
+PYOPENGL_PLATFORM=egl \
+uv run nyssa ablate \
+  --suite maniskill_planner_bc_v0 \
+  --engine maniskill \
+  --policy task_robomimic \
+  --seeds 0 \
+  --episodes 20 \
+  --variants base \
+  --expert-provider maniskill-scripted \
+  --out benchmark_results/maniskill_task_robomimic_smoke \
+  --capture-replay
+```
+
+Direct files still work if you prefer a curated checkpoint folder:
 
 ```txt
 checkpoints/robomimic_by_task/maniskill_pick_cube.pth
@@ -95,7 +114,7 @@ checkpoints/robomimic_by_task/maniskill_stack_cube.pth
 checkpoints/robomimic_by_task/maniskill_push_cube.pth
 ```
 
-Then evaluate:
+Use the curated folder by changing only the environment variable:
 
 ```bash
 NYSSA_TASK_ROBOMIMIC_DIR=checkpoints/robomimic_by_task \

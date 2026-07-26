@@ -564,6 +564,30 @@ uv run nyssa export-task-robomimic \
   --batch-size 64
 ```
 
+Train the generated configs, then evaluate from the export directory directly.
+`task_robomimic` recursively discovers the latest per-task
+`model_epoch_*.pth` files, so manual checkpoint copying is optional:
+
+```bash
+uv run nyssa train-robomimic --config configs/generated/maniskill_robomimic_by_task/maniskill_pick_cube_bc.json
+uv run nyssa train-robomimic --config configs/generated/maniskill_robomimic_by_task/maniskill_push_cube_bc.json
+uv run nyssa train-robomimic --config configs/generated/maniskill_robomimic_by_task/maniskill_stack_cube_bc.json
+
+NYSSA_TASK_ROBOMIMIC_DIR=datasets/maniskill_robomimic_by_task \
+MUJOCO_GL=egl \
+PYOPENGL_PLATFORM=egl \
+uv run nyssa ablate \
+  --suite maniskill_planner_bc_v0 \
+  --engine maniskill \
+  --policy task_robomimic \
+  --seeds 0 \
+  --episodes 20 \
+  --variants base \
+  --expert-provider maniskill-scripted \
+  --out benchmark_results/maniskill_task_robomimic_smoke \
+  --capture-replay
+```
+
 Validate optional simulator backends:
 
 ```bash

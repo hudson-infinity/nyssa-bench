@@ -546,6 +546,50 @@ def test_robomimic_policy_flattens_and_clips_action():
     assert action.tolist() == [1.0, -1.0]
 
 
+def test_task_robomimic_policy_discovers_latest_nested_checkpoint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import numpy as np
+
+    from nyssa_bench.policies import robomimic_adapter
+    from nyssa_bench.policies.robomimic_adapter import TaskRoboMimicPolicy
+
+    output_dir = (
+        tmp_path
+        / "datasets"
+        / "maniskill_robomimic_by_task"
+        / "checkpoints"
+        / "maniskill_pick_cube"
+        / "nyssa_maniskill_pick_cube_bc"
+        / "models"
+    )
+    output_dir.mkdir(parents=True)
+    (output_dir / "model_epoch_1.pth").write_bytes(b"old")
+    latest = output_dir / "model_epoch_3.pth"
+    latest.write_bytes(b"new")
+    loaded_paths: list[Path] = []
+
+    class DummyRoboMimic:
+        def start_episode(self) -> None:
+            return None
+
+        def get_action(self, obs):
+            return np.asarray([0.25, -0.25])
+
+    def load_checkpoint(path: Path):
+        loaded_paths.append(path)
+        return DummyRoboMimic()
+
+    monkeypatch.setenv("NYSSA_TASK_ROBOMIMIC_DIR", str(tmp_path / "datasets" / "maniskill_robomimic_by_task"))
+    monkeypatch.setattr(robomimic_adapter, "load_robomimic_checkpoint", load_checkpoint)
+
+    policy = TaskRoboMimicPolicy()
+    task = type("Task", (), {"task_id": "maniskill_pick_cube_joint"})()
+    policy.reset(task=task)
+    action = policy.act(_observation_with_action_size(2))
+
+    assert loaded_paths == [latest]
+    assert action.tolist() == [0.25, -0.25]
+
+
 def test_task_routed_linear_bc_uses_task_checkpoint(tmp_path: Path):
     import numpy as np
 

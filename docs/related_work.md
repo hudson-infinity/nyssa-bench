@@ -109,6 +109,25 @@ Open X-Embodiment, DROID, BridgeData V2, RH20T, AgiBot World, LeRobot,
 OpenVLA, Octo, SmolVLA, pi0, RDT, GR00T N1, Diffusion Policy, and MimicGen
 define the policy/data landscape NyssaBench should evaluate against later.
 
+As of the July 2026 open-source landscape, the highest-leverage integrations are
+not new hand-written learners. They are compatibility paths to existing stacks:
+
+- ManiSkill official baselines for PPO, SAC, TD-MPC2, behavior cloning, diffusion
+  policy, and VLA policies, with GPU-parallel simulation and public result logs.
+  NyssaBench should treat these as strong upstream baselines and add failure,
+  stressor, replay, and public-claim validation around them.
+- RoboMimic for low-dimensional and visual imitation learning baselines such as
+  BC, BC-RNN, BC-Transformer, BC-GMM, and Diffusion Policy. NyssaBench should
+  keep exporting clean HDF5 datasets and loading trained checkpoints rather than
+  duplicating RoboMimic training internals.
+- LeRobot for modern ACT, diffusion, VQ-BeT, multitask DiT, VLA, reward-model,
+  and real-robot dataset workflows. NyssaBench should support LeRobot-format
+  export/import and evaluate LeRobot policies through a stable adapter.
+- LIBERO, Meta-World, RLBench, RoboCasa365, and Open X-Embodiment as task and
+  dataset ecosystems that already define scale, diversity, transfer splits, or
+  real-robot data mixtures. NyssaBench should align its result tiers, suite
+  metadata, and adapter contracts with these ecosystems.
+
 Immediate baseline order should stay simple:
 
 1. random policy as a weak sanity check
@@ -174,4 +193,3 @@ RoboArena ranks policies in the real world. SIMPLER, PolaRiS, and RobotArena
 Infinity validate sim and real-to-sim evaluation. ManiSkill, RoboCasa,
 RoboTwin, and RoboVerse provide simulation and task ecosystems. NyssaBench
 should be the reliability measurement layer across those systems.
-

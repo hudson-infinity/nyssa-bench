@@ -82,7 +82,7 @@ def write_results_markdown(
 
 ## Publication Caveats
 
-{_publication_caveats(summaries, video_count)}
+{_publication_caveats(summaries, video_count, policies)}
 
 ## Artifacts
 
@@ -238,14 +238,33 @@ def _policy_from_run_dir(run_dir: str) -> str:
     return "unknown"
 
 
-def _publication_caveats(summaries: list[dict[str, Any]], video_count: int) -> str:
+def _publication_caveats(summaries: list[dict[str, Any]], video_count: int, policies: list[str]) -> str:
     caveats: list[str] = []
     if video_count == 0:
         caveats.append("- Replay videos are absent; do not describe this pack as video-backed.")
+    if any(policy.startswith("demo_replay_policy") for policy in policies):
+        caveats.append(
+            "- `demo_replay_policy` is a teacher replay or oracle-reference baseline, not a learned deployable policy."
+        )
     for policy, rate in _policy_success_rates(summaries).items():
-        if policy != "random" and rate <= 0.01:
+        if policy == "random":
+            continue
+        if rate < 0.05:
+            caveats.append(f"- `{policy}` is a failed learned/control baseline in this pack; success rate is {rate:.4f}.")
+        elif rate < 0.20:
+            caveats.append(f"- `{policy}` is a weak baseline in this pack; success rate is {rate:.4f}.")
+    for policy, rate in _policy_metric_rates(summaries, "expert_intervention_rate").items():
+        if rate > 0.25:
             caveats.append(
-                f"- `{policy}` is not a strong baseline in this pack; success rate is {rate:.4f}."
+                f"- `{policy}` relies on frequent expert intervention in this pack; "
+                f"intervention rate is {rate:.4f}."
+            )
+    for policy, rate in _policy_metric_rates(summaries, "recovery_success_rate").items():
+        intervention = _policy_metric_rates(summaries, "expert_intervention_rate").get(policy, 0.0)
+        if intervention > 0.0 and rate < 0.05:
+            caveats.append(
+                f"- `{policy}` has low recovery yield relative to intervention use; "
+                f"recovery success rate is {rate:.4f}."
             )
     if not caveats:
         return "- No publication caveats detected by the result-pack writer."
@@ -262,3 +281,15 @@ def _policy_success_rates(summaries: list[dict[str, Any]]) -> dict[str, float]:
         item[0] += successes
         item[1] += episodes
     return {policy: successes / episodes if episodes else 0.0 for policy, (successes, episodes) in totals.items()}
+
+
+def _policy_metric_rates(summaries: list[dict[str, Any]], metric_name: str) -> dict[str, float]:
+    totals: dict[str, list[float]] = {}
+    for summary in summaries:
+        policy = str(summary.get("policy") or _policy_from_run_dir(summary.get("_run_dir", "")))
+        episodes = int(summary.get("episodes", 0))
+        metrics = summary.get("metrics") or {}
+        item = totals.setdefault(policy, [0.0, 0.0])
+        item[0] += float(metrics.get(metric_name, 0.0)) * episodes
+        item[1] += float(episodes)
+    return {policy: weighted / episodes if episodes else 0.0 for policy, (weighted, episodes) in totals.items()}

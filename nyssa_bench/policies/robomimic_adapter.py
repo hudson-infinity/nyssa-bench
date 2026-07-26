@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +51,7 @@ class TaskRoboMimicPolicy(Policy):
     def _model_for_task(self, task_id: str) -> Any:
         key = _checkpoint_key(task_id)
         if key not in self._models:
-            path = self.checkpoint_dir / f"{key}.pth"
+            path = _find_task_checkpoint(self.checkpoint_dir, key)
             self._models[key] = load_robomimic_checkpoint(path)
         return self._models[key]
 
@@ -86,3 +88,89 @@ def _checkpoint_key(task_id: str) -> str:
         "maniskill_push_cube_joint": "maniskill_push_cube",
     }
     return aliases.get(task_id, task_id.removesuffix("_joint"))
+
+
+def _find_task_checkpoint(checkpoint_dir: Path, task_key: str) -> Path:
+    direct = checkpoint_dir / f"{task_key}.pth"
+    if direct.exists():
+        return direct
+
+    candidates = _task_checkpoint_candidates(checkpoint_dir, task_key)
+    if candidates:
+        return _latest_model_epoch(candidates)
+
+    expected = [
+        direct,
+        checkpoint_dir / "checkpoints" / task_key,
+        checkpoint_dir / task_key,
+    ]
+    expected_text = ", ".join(path.as_posix() for path in expected)
+    raise RuntimeError(
+        f"RoboMimic checkpoint not found for task '{task_key}' under {checkpoint_dir}. "
+        "Set NYSSA_TASK_ROBOMIMIC_DIR to either a directory containing task .pth files "
+        "or the output directory from `nyssa export-task-robomimic`. "
+        f"Expected one of: {expected_text}."
+    )
+
+
+def _task_checkpoint_candidates(checkpoint_dir: Path, task_key: str) -> list[Path]:
+    candidates: list[Path] = []
+    candidates.extend(_manifest_checkpoint_candidates(checkpoint_dir, task_key))
+    if checkpoint_dir.exists():
+        task_token = task_key.lower()
+        for path in checkpoint_dir.rglob("*.pth"):
+            text = path.as_posix().lower()
+            if task_token in text and (path.name.startswith("model_epoch_") or path.stem == task_key):
+                candidates.append(path)
+    return sorted(set(candidates))
+
+
+def _manifest_checkpoint_candidates(checkpoint_dir: Path, task_key: str) -> list[Path]:
+    manifest_path = checkpoint_dir / "task_robomimic_manifest.json"
+    if not manifest_path.exists():
+        return []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    tasks = manifest.get("tasks", {})
+    if not isinstance(tasks, dict):
+        return []
+    task_artifacts = tasks.get(task_key)
+    if not isinstance(task_artifacts, dict):
+        return []
+    config_path_value = task_artifacts.get("config")
+    if not config_path_value:
+        return []
+    config_path = _resolve_manifest_path(checkpoint_dir, str(config_path_value))
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    output_dir = Path(str(config.get("train", {}).get("output_dir", "")))
+    if not output_dir.exists():
+        return []
+    return [path for path in output_dir.rglob("model_epoch_*.pth") if path.is_file()]
+
+
+def _resolve_manifest_path(base_dir: Path, value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute() or path.exists():
+        return path
+    for candidate in (base_dir / value, base_dir.parent / value):
+        if candidate.exists():
+            return candidate
+    return path
+
+
+def _latest_model_epoch(candidates: list[Path]) -> Path:
+    def key(path: Path) -> tuple[int, float, str]:
+        match = re.search(r"model_epoch_(\d+)\.pth$", path.name)
+        epoch = int(match.group(1)) if match else -1
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            mtime = 0.0
+        return epoch, mtime, path.as_posix()
+
+    return max(candidates, key=key)
