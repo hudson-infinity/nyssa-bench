@@ -1,23 +1,35 @@
 # Installation
 
-Use `uv` for the fastest local setup:
+Use `uv` to install the canonical stable development and benchmark environment:
 
 ```bash
-uv sync --extra dev --extra mujoco --extra video --extra reports
+uv sync --extra all --extra dev
 uv run nyssa list-suites
 uv run pytest -q
 uv run ruff check .
 ```
 
-Optional simulator and dataset extras are installed only when needed:
+The `all` extra includes every supported stable runtime stack and excludes the
+experimental Genesis dependency. `uv sync` performs an exact sync by default,
+so a later invocation that omits extras can remove packages installed by an
+earlier invocation. Repeat `uv sync --extra all --extra dev` after dependency
+updates instead of treating multiple exact sync commands as additive.
+
+For a dedicated lightweight environment, select one complete workflow:
 
 ```bash
 uv sync --extra dev --extra maniskill --extra video --extra reports
 uv sync --extra dev --extra mujoco --extra video --extra reports
-uv sync --extra dev --extra dataset --extra reports --extra video
 ```
 
-Use `mujoco` for the lightest real backend path and `maniskill` for manipulation tasks.
+Use `mujoco` for the lightest real backend path and `maniskill` for manipulation
+tasks. To add packages to an existing lean environment without removing
+previously installed extras, use `--inexact` and include all additions in one
+command:
+
+```bash
+uv sync --inexact --extra dataset --extra lerobot --extra robomimic --extra vla --extra diffusion
+```
 
 ## ManiSkill motion-planning ABI
 
@@ -91,7 +103,7 @@ If you are not using `uv`, the equivalent pip command is:
 
 ```bash
 python -m venv .venv
-python -m pip install -e ".[dev,mujoco,video,reports]"
+python -m pip install -e ".[all,dev]"
 ```
 
 ## Extras

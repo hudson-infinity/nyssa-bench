@@ -25,13 +25,17 @@ NYSSA_DIFFUSION_POLICY=my_project.policies:create_diffusion_policy uv run nyssa 
 NYSSA_OPENVLA_POLICY=my_project.policies:create_openvla_policy uv run nyssa run --policy openvla ...
 ```
 
-Install optional policy stacks as needed:
+Install all supported policy stacks as part of the canonical environment:
 
 ```bash
-uv sync --extra lerobot
-uv sync --extra robomimic
-uv sync --extra vla
-uv sync --extra diffusion
+uv sync --extra all --extra dev
+```
+
+For an existing lightweight environment, add only the policy stacks while
+preserving its simulator dependencies:
+
+```bash
+uv sync --inexact --extra lerobot --extra robomimic --extra vla --extra diffusion
 ```
 
 The `vla` extra covers common PyTorch/Transformers dependencies. Install OpenVLA model code and checkpoints from the upstream project when running a real OpenVLA policy.

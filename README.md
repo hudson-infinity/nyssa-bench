@@ -45,17 +45,31 @@ source .venv/bin/activate
 python --version
 ```
 
-Then install the extras for the workflow you want to run. Use MuJoCo for the
-quick smoke commands below:
+Install the canonical stable benchmark environment:
+
+```bash
+uv sync --extra all --extra dev
+```
+
+`uv sync` is exact by default. A later sync that omits an extra can remove
+packages installed by an earlier sync, so repeat the canonical command after
+pulling dependency changes. Do not run separate exact sync commands as additive
+installation steps.
+
+For a dedicated lightweight environment, select one complete workflow in a
+single command:
 
 ```bash
 uv sync --extra dev --extra mujoco --extra dataset --extra video --extra reports
+uv sync --extra dev --extra maniskill --extra dataset --extra video --extra reports
 ```
 
-Use ManiSkill for the focused manipulation result pack:
+Use the first command for MuJoCo-only work or the second for ManiSkill-only
+work. To add policy stacks to an existing lean environment without removing its
+installed packages, use one inexact sync:
 
 ```bash
-uv sync --extra dev --extra maniskill --extra dataset --extra video --extra reports
+uv sync --inexact --extra lerobot --extra robomimic --extra vla --extra diffusion
 ```
 
 If an older environment already installed NumPy 2, reinstall the planning stack
@@ -66,14 +80,8 @@ uv pip install "numpy==1.26.4"
 uv pip install --force-reinstall --no-build-isolation --no-cache-dir "toppra==0.6.3"
 ```
 
-Optional policy/report/export stacks:
-
-```bash
-uv sync --extra dev --extra dataset --extra reports --extra video
-uv sync --extra dev --extra lerobot --extra robomimic --extra vla --extra diffusion
-```
-
-Plain `python -m pip install -e ".[dev,mujoco,dataset,video,reports]"` still works if you are not using `uv`.
+Plain `python -m pip install -e ".[all,dev]"` still works if you are not using
+`uv`.
 
 Simulator video capture also requires system rendering libraries. On
 Ubuntu/Debian GPU machines, install and verify them before running public
