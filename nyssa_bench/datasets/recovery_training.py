@@ -9,6 +9,7 @@ from typing import Any
 
 from nyssa_bench.baselines.features import action_bounds
 from nyssa_bench.baselines.simple_bc import task_checkpoint_key, train_linear_bc
+from nyssa_bench.datasets.recovery import RECOVERY_TARGET_SOURCES
 
 
 @dataclass(frozen=True)
@@ -55,21 +56,120 @@ def collect_recovery_episode_paths(sources: list[str | Path]) -> list[Path]:
 def load_recovery_episodes(paths: list[str | Path], *, min_steps: int = 1) -> list[dict[str, Any]]:
     episodes: list[dict[str, Any]] = []
     for path in paths:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        source_path = Path(path)
+        data = json.loads(source_path.read_text(encoding="utf-8"))
         if not isinstance(data, list):
             raise ValueError(f"Recovery episodes file must contain a list: {path}")
-        for item in data:
+        for episode_index, item in enumerate(data):
             if not isinstance(item, dict):
                 continue
             steps = item.get("steps", [])
-            if not isinstance(steps, list) or len(steps) < min_steps:
+            if not isinstance(steps, list):
+                continue
+            eligible_steps = []
+            for step_index, step in enumerate(steps):
+                if not isinstance(step, dict):
+                    continue
+                training_step = _eligible_training_step(
+                    step,
+                    source_path=source_path,
+                    episode_index=episode_index,
+                    step_index=step_index,
+                )
+                if training_step is not None:
+                    eligible_steps.append(training_step)
+            if len(eligible_steps) < min_steps:
                 continue
             episode = dict(item)
-            episode["steps"] = steps
+            episode["steps"] = eligible_steps
             episodes.append(episode)
     if not episodes:
-        raise ValueError("No recovery episodes with enough steps were found")
+        raise ValueError("No eligible expert or recovery targets with enough steps were found")
     return episodes
+
+
+def _eligible_training_step(
+    step: dict[str, Any],
+    *,
+    source_path: Path,
+    episode_index: int,
+    step_index: int,
+) -> dict[str, Any] | None:
+    location = f"{source_path}: episode {episode_index}, step {step_index}"
+    has_target_schema = any(
+        key in step for key in ("target_action", "target_source", "target_valid", "record_type")
+    )
+    if has_target_schema:
+        return _eligible_v2_training_step(step, location=location)
+    return _eligible_legacy_training_step(step, location=location)
+
+
+def _eligible_v2_training_step(step: dict[str, Any], *, location: str) -> dict[str, Any] | None:
+    required = {"target_action", "target_source", "target_valid"}
+    missing = sorted(required.difference(step))
+    if missing:
+        raise ValueError(f"Incomplete recovery target metadata at {location}: missing {', '.join(missing)}")
+
+    target_valid = step["target_valid"]
+    if type(target_valid) is not bool:
+        raise ValueError(f"Recovery target_valid must be a boolean at {location}")
+
+    target_source = step["target_source"]
+    target_action = step["target_action"]
+    record_type = step.get("record_type")
+    if not target_valid:
+        if target_action is not None or target_source is not None:
+            raise ValueError(f"Invalid recovery context must not contain a supervised target at {location}")
+        if record_type not in {None, "negative_context"}:
+            raise ValueError(f"Invalid recovery record_type at {location}: {record_type!r}")
+        return None
+
+    if target_source not in RECOVERY_TARGET_SOURCES:
+        raise ValueError(f"Ineligible recovery target source at {location}: {target_source!r}")
+    if target_action is None:
+        raise ValueError(f"Eligible recovery target is missing target_action at {location}")
+    if record_type not in {None, "supervised_target"}:
+        raise ValueError(f"Invalid recovery record_type at {location}: {record_type!r}")
+    executed_action_source = step.get("executed_action_source")
+    if executed_action_source is not None and executed_action_source != target_source:
+        raise ValueError(
+            f"Recovery target source does not match the executed action source at {location}: "
+            f"{target_source!r} != {executed_action_source!r}"
+        )
+
+    training_step = dict(step)
+    training_step["action"] = target_action
+    return training_step
+
+
+def _eligible_legacy_training_step(step: dict[str, Any], *, location: str) -> dict[str, Any] | None:
+    info = step.get("info")
+    info = info if isinstance(info, dict) else {}
+    action_source = str(info.get("action_source") or "").strip().lower()
+    if not action_source:
+        if info.get("recovery_applied") or info.get("recovery_cached_action"):
+            action_source = "recovery"
+        elif info.get("expert_intervention"):
+            action_source = "expert"
+    if action_source not in RECOVERY_TARGET_SOURCES:
+        return None
+
+    target_action = step.get("action")
+    if target_action is None:
+        raise ValueError(f"Eligible legacy recovery target is missing action at {location}")
+    training_step = dict(step)
+    training_step.update(
+        {
+            "executed_action": target_action,
+            "executed_action_source": action_source,
+            "target_action": target_action,
+            "target_source": action_source,
+            "target_valid": True,
+            "target_invalid_reason": None,
+            "record_type": "supervised_target",
+        }
+    )
+    return training_step
 
 
 def train_recovery_bc(

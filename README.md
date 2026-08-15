@@ -319,14 +319,21 @@ uv run nyssa run \
 Each recovery-aware run writes:
 
 - `dataset_manifest.json`: provenance, task contracts, artifact hashes.
-- `recovery_dataset/manifest.json`: intervention/recovery dataset summary.
-- `recovery_dataset/episodes.jsonl`: expert intervention and recovery steps.
+- `recovery_dataset/manifest.json`: counts of supervised recovery targets and negative/context records.
+- `recovery_dataset/episodes.jsonl`: recovery context with explicit executed-action and target provenance.
 - `failure_gallery.html`: representative failed episodes and replay links.
 - `metrics.json`: success, intervention, recovery, verifier, action-chunk, and compute metrics.
 
 Train the next task-routed BC checkpoints directly from one run directory or an
 entire ablation result root. This is the safe default for multi-task suites such
 as MuJoCo control, where tasks can have different action dimensions:
+
+Recovery dataset v2 records unsuccessful recovery attempts as
+`record_type: negative_context` with `target_valid: false`. Only actions whose
+`target_source` is `expert` or `recovery` are eligible for BC training; rejected
+policy actions remain auditable as `executed_action` and are never used as
+supervised targets. Legacy datasets are accepted only when their step metadata
+proves the action source.
 
 ```bash
 uv run nyssa train-recovery-bc \
