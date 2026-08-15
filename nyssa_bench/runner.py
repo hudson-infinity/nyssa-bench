@@ -37,6 +37,9 @@ from nyssa_bench.utils.reproducibility import (
     write_json,
 )
 
+EPISODE_SEED_STRIDE = 1_000_000
+EPISODE_SEED_FORMAT = "nyssa-episode-seed-v2"
+
 
 class PolicyRunner:
     """Evaluation harness for NyssaBench suites."""
@@ -56,6 +59,12 @@ class PolicyRunner:
         policy_action_horizon: int = 1,
         policy_execution_horizon: int = 1,
     ) -> None:
+        if int(episodes) <= 0:
+            raise ValueError("episodes must be a positive integer")
+        if int(episodes) > EPISODE_SEED_STRIDE:
+            raise ValueError(f"episodes must not exceed {EPISODE_SEED_STRIDE} per task")
+        if int(seed) < 0:
+            raise ValueError("seed must be a non-negative integer")
         self.policy_ref = policy
         self.engine_name = engine
         self.episodes = episodes
@@ -84,7 +93,7 @@ class PolicyRunner:
             for task in suite.tasks:
                 engine.load_task(task)
                 for episode_index in range(self.episodes):
-                    episode_seed = self.seed + len(results)
+                    episode_seed = _episode_seed(self.seed, episode_index)
                     if hasattr(policy, "reset"):
                         policy.reset(task=task, seed=episode_seed)
                     expert_provider.reset(task=task, seed=episode_seed, engine=engine)
@@ -122,6 +131,13 @@ class PolicyRunner:
             "engine_name": self.engine_name,
             "episodes_per_task": self.episodes,
             "seed": self.seed,
+            "seed_protocol": {
+                "format": EPISODE_SEED_FORMAT,
+                "run_seed": self.seed,
+                "episode_seed_stride": EPISODE_SEED_STRIDE,
+                "formula": "run_seed * episode_seed_stride + episode_index",
+                "shared_across_tasks": True,
+            },
             "started_at": started_at,
             "finished_at": utc_now(),
             "wall_time_seconds": wall_time_seconds,
@@ -179,6 +195,8 @@ class PolicyRunner:
         recovery_attempt_count = 0
         recovery_success_count = 0
         verifier_rejection_count = 0
+        action_assessment_count = 0
+        action_rejection_count = 0
         policy_action_chunk_count = 0
         policy_cached_action_count = 0
         recovery_plan_action_count = 0
@@ -220,31 +238,33 @@ class PolicyRunner:
                 "recovery_applied": False,
                 "recovery_success": False,
                 "verifier_rejected": False,
+                "action_assessed": False,
+                "action_rejected": False,
                 "policy_action_chunk_size": chunk_size,
                 "policy_cached_action": chunk_size == 0 and action_source == "policy",
                 "recovery_cached_action": action_source == "recovery",
                 "action_source": action_source,
             }
-            if self.enable_verifier and action_source != "recovery":
+            if (self.enable_verifier or self.enable_recovery) and action_source != "recovery":
                 score = expert_provider.score_action(observation, action, task=task, engine=engine)
-                expert_info["verifier"] = score.to_dict()
+                score_payload = score.to_dict()
+                action_assessment_count += 1
+                expert_info["action_assessed"] = True
+                expert_info["action_assessment"] = score_payload
+                if self.enable_verifier:
+                    expert_info["verifier"] = score_payload
                 if not score.accepted:
-                    verifier_rejection_count += 1
-                    expert_info["verifier_rejected"] = True
-                    expert_action = expert_provider.act(observation, task=task, engine=engine)
-                    if expert_action is not None:
-                        action = expert_action
-                        pending_actions = []
-                        pending_action_source = None
-                        expert_intervention_count += 1
-                        expert_info["expert_intervention"] = True
-                        expert_info["action_source"] = "expert"
-            if self.enable_recovery and expert_info["verifier_rejected"]:
+                    action_rejection_count += 1
+                    expert_info["action_rejected"] = True
+                    if self.enable_verifier:
+                        verifier_rejection_count += 1
+                        expert_info["verifier_rejected"] = True
+            if self.enable_recovery and expert_info["action_rejected"]:
                 recovery_attempt_count += 1
                 expert_info["recovery_attempted"] = True
                 recovery_plan = expert_provider.recover(
                     state=_safe_get_state(engine, observation=observation),
-                    failure=expert_info.get("verifier", {}).get("reason"),
+                    failure=expert_info.get("action_assessment", {}).get("reason"),
                     task=task,
                     engine=engine,
                 )
@@ -264,6 +284,15 @@ class PolicyRunner:
                     recovery_details = getattr(expert_provider, "last_recovery_details", None)
                     if isinstance(recovery_details, dict):
                         expert_info["recovery_plan"] = recovery_details
+            if self.enable_verifier and expert_info["action_rejected"] and not expert_info["recovery_applied"]:
+                expert_action = expert_provider.act(observation, task=task, engine=engine)
+                if expert_action is not None:
+                    action = expert_action
+                    pending_actions = []
+                    pending_action_source = None
+                    expert_intervention_count += 1
+                    expert_info["expert_intervention"] = True
+                    expert_info["action_source"] = "expert"
             next_observation, reward, terminated, truncated, info = engine.step(action)
             info = {**info, **expert_info}
             if self.out and self.capture_replay:
@@ -308,6 +337,12 @@ class PolicyRunner:
             else 0.0,
             "verifier_rejection_count": float(verifier_rejection_count),
             "verifier_rejection_rate": float(verifier_rejection_count / len(steps)) if steps else 0.0,
+            "action_assessment_count": float(action_assessment_count),
+            "action_assessment_rate": float(action_assessment_count / len(steps)) if steps else 0.0,
+            "action_rejection_count": float(action_rejection_count),
+            "action_rejection_rate": float(action_rejection_count / action_assessment_count)
+            if action_assessment_count
+            else 0.0,
             "policy_action_chunk_count": float(policy_action_chunk_count),
             "policy_cached_action_count": float(policy_cached_action_count),
             "policy_cached_action_rate": float(policy_cached_action_count / len(steps)) if steps else 0.0,
@@ -371,6 +406,7 @@ class PolicyRunner:
             "engine": self.engine_name,
             "episodes_per_task": self.episodes,
             "seed": self.seed,
+            "seed_protocol": self.run_metadata.get("seed_protocol"),
             "expert_provider": self.run_metadata.get("expert_provider", {"provider_id": "none"}),
             "recovery_enabled": self.enable_recovery,
             "verifier_enabled": self.enable_verifier,
@@ -413,6 +449,14 @@ class PolicyRunner:
         )
         replay_viewer_placeholder(self.out)
         report.save(self.out / "report.html")
+
+
+def _episode_seed(run_seed: int, episode_index: int) -> int:
+    if run_seed < 0 or episode_index < 0:
+        raise ValueError("run_seed and episode_index must be non-negative")
+    if episode_index >= EPISODE_SEED_STRIDE:
+        raise ValueError(f"episode_index must be smaller than {EPISODE_SEED_STRIDE}")
+    return run_seed * EPISODE_SEED_STRIDE + episode_index
 
 
 def _safe_render(engine: Any) -> Any:

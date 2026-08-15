@@ -29,7 +29,11 @@ def write_results_markdown(
     )
     primary_failures = _primary_failures(summaries)
     video_count = _count_video_files(run_dirs)
-    public_claim_status = "validated" if summaries and all(
+    seed_protocol_valid = len(set(seeds)) <= 1 or all(
+        (summary.get("_seed_protocol") or {}).get("format") == "nyssa-episode-seed-v2"
+        for summary in summaries
+    )
+    public_claim_status = "validated" if summaries and seed_protocol_valid and all(
         (summary.get("public_claim_validation") or {}).get("status") == "validated" for summary in summaries
     ) else "not validated"
     out_dir = Path(out_dir)
@@ -128,6 +132,7 @@ def write_experiment_manifest(
         "engine": engine,
         "policies": policies,
         "seeds": seeds,
+        "episode_seed_protocol": "nyssa-episode-seed-v2",
         "episodes_per_task": episodes_per_task,
         "run_dirs": [run_dir.as_posix() for run_dir in run_dirs],
         "artifacts": {key: value.as_posix() for key, value in artifacts.items()},
@@ -138,6 +143,7 @@ def write_experiment_manifest(
 
 def _summarize_runs(run_dirs: list[Path]) -> list[dict[str, Any]]:
     import json
+    import yaml
 
     summaries: list[dict[str, Any]] = []
     for run_dir in run_dirs:
@@ -146,6 +152,15 @@ def _summarize_runs(run_dirs: list[Path]) -> list[dict[str, Any]]:
             continue
         summary = json.loads(path.read_text(encoding="utf-8"))
         summary["_run_dir"] = Path(run_dir).as_posix()
+        run_path = Path(run_dir) / "run.yaml"
+        if run_path.exists():
+            try:
+                run_metadata = yaml.safe_load(run_path.read_text(encoding="utf-8")) or {}
+            except (OSError, yaml.YAMLError):
+                run_metadata = {}
+            if isinstance(run_metadata, dict):
+                summary["_run_seed"] = run_metadata.get("seed")
+                summary["_seed_protocol"] = run_metadata.get("seed_protocol")
         summaries.append(summary)
     return summaries
 
@@ -245,6 +260,15 @@ def _publication_caveats(summaries: list[dict[str, Any]], video_count: int, poli
     if any(policy.startswith("demo_replay_policy") for policy in policies):
         caveats.append(
             "- `demo_replay_policy` is a teacher replay or oracle-reference baseline, not a learned deployable policy."
+        )
+    run_seeds = {summary.get("_run_seed") for summary in summaries if summary.get("_run_seed") is not None}
+    if len(run_seeds) > 1 and any(
+        (summary.get("_seed_protocol") or {}).get("format") != "nyssa-episode-seed-v2"
+        for summary in summaries
+    ):
+        caveats.append(
+            "- Multiple run seeds are present without `nyssa-episode-seed-v2`; adjacent legacy run seeds may "
+            "share most simulator episodes, so this pack is not independent multi-seed evidence."
         )
     for policy, rate in _policy_success_rates(summaries).items():
         if policy == "random":

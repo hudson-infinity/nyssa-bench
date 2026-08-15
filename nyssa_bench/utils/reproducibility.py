@@ -35,7 +35,24 @@ def environment_metadata() -> dict[str, Any]:
 
 
 def package_versions() -> dict[str, str]:
-    names = ["nyssa-bench", "pyyaml", "pytest", "gymnasium", "mujoco", "mani-skill", "lerobot"]
+    names = [
+        "nyssa-bench",
+        "numpy",
+        "pydantic",
+        "pyyaml",
+        "gymnasium",
+        "mujoco",
+        "mani-skill",
+        "sapien",
+        "torch",
+        "torchvision",
+        "robomimic",
+        "lerobot",
+        "diffusers",
+        "transformers",
+        "h5py",
+        "imageio",
+    ]
     versions: dict[str, str] = {}
     for name in names:
         try:

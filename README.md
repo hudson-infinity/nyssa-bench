@@ -563,11 +563,29 @@ For task-routed RoboMimic training, export one dataset and config per task from
 state-aligned rollout episodes containing live policy observations. Action-only
 motion-planning imports are not sufficient. The exporter rejects sources with
 less than 95% observation payload coverage or degenerate features and records
-per-task quality statistics in `task_robomimic_manifest.json`.
+per-task quality statistics in `task_robomimic_manifest.json`. It also maps
+every bounded simulator action to RoboMimic's required `[-1, 1]` training range
+and records the original per-task bounds. At evaluation, `task_robomimic`
+checks those bounds against the live environment and maps predictions back to
+the simulator action space. The manifest records training episode seeds, and
+the task policy refuses to evaluate those seeds unless
+`NYSSA_ALLOW_TRAINING_SEED_EVAL=1` is explicitly set for a nonpublishable
+diagnostic run.
+
+RoboMimic datasets exported before manifest format
+`nyssa-task-robomimic-export-v3` contain raw actions and must be re-exported and
+retrained. Increasing epochs on those older checkpoints cannot repair the
+action-space mismatch.
 
 Evaluate checkpoints from result-pack training sources on simulator seeds that
 do not occur in those sources. Reusing training rollout seeds is acceptable for
 a pipeline smoke test but invalidates a public generalization claim.
+
+Run seed values are namespaces, not the first element of an overlapping range.
+Under `nyssa-episode-seed-v2`, run seed `1` produces simulator episode seeds
+starting at `1000000`, while every task within that run receives the same seed
+sequence for paired analysis. Result packs generated before this protocol must
+be rerun before making an independent multi-seed claim.
 
 Export one source directory or result ZIP:
 
@@ -599,7 +617,7 @@ uv run nyssa ablate \
   --suite maniskill_planner_bc_v0 \
   --engine maniskill \
   --policy task_robomimic \
-  --seeds 0 \
+  --seeds 10000 \
   --episodes 20 \
   --variants base \
   --expert-provider maniskill-scripted \

@@ -42,6 +42,17 @@ def test_publication_caveats_do_not_flag_inactive_mechanisms_for_solved_policy()
     assert "inactive recovery" not in caveats
 
 
+def test_publication_caveats_flag_legacy_overlapping_seed_protocol():
+    summaries = [
+        {**_summary("base", success_rate=0.5), "_run_seed": 0},
+        {**_summary("base", success_rate=0.5), "_run_seed": 1},
+    ]
+
+    caveats = _publication_caveats(summaries, video_count=2, policies=["policy:base"])
+
+    assert "not independent multi-seed evidence" in caveats
+
+
 def _summary(policy: str, *, success_rate: float) -> dict:
     return {
         "policy": policy,

@@ -7,7 +7,11 @@ from typing import Any
 from nyssa_bench.baselines.robomimic_bc import write_robomimic_bc_config
 from nyssa_bench.baselines.simple_bc import load_episode_sources, task_checkpoint_key
 from nyssa_bench.core.episode import EpisodeResult, StepRecord
-from nyssa_bench.datasets.export_robomimic import export_robomimic_hdf5, validate_robomimic_observations
+from nyssa_bench.datasets.export_robomimic import (
+    export_robomimic_hdf5,
+    validate_robomimic_actions,
+    validate_robomimic_observations,
+)
 
 
 def export_task_robomimic(
@@ -43,6 +47,10 @@ def export_task_robomimic(
         )
         for task, results in episode_results.items()
     }
+    action_transforms = {
+        task: validate_robomimic_actions(results, context=f"Task '{task}' RoboMimic dataset")
+        for task, results in episode_results.items()
+    }
 
     output_dir = Path(out_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -68,13 +76,19 @@ def export_task_robomimic(
 
     manifest_path = output_dir / "task_robomimic_manifest.json"
     manifest = {
-        "format": "nyssa-task-robomimic-export-v2",
+        "format": "nyssa-task-robomimic-export-v3",
         "sources": [str(Path(source)) for source in sources],
         "feature_dim": feature_dim,
         "success_only": success_only,
         "observation_quality": observation_quality,
         "tasks": {
-            task: {label: path.as_posix() for label, path in paths.items()} for task, paths in artifacts.items()
+            task: {
+                **{label: path.as_posix() for label, path in paths.items()},
+                "action_transform": action_transforms[task],
+                "training_episode_count": len(episode_results[task]),
+                "training_episode_seeds": sorted({episode.seed for episode in episode_results[task]}),
+            }
+            for task, paths in artifacts.items()
         },
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

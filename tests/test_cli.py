@@ -35,10 +35,21 @@ def _observation() -> dict[str, Any]:
     return {"raw": [0.0], "action_space": {"type": "box", "shape": [1], "low": [-1.0], "high": [1.0]}}
 
 
-def _observation_with_action_size(size: int, raw: list[float] | None = None) -> dict[str, Any]:
+def _observation_with_action_size(
+    size: int,
+    raw: Any | None = None,
+    *,
+    low: list[float] | None = None,
+    high: list[float] | None = None,
+) -> dict[str, Any]:
     return {
         "raw": raw if raw is not None else [0.0],
-        "action_space": {"type": "box", "shape": [size], "low": [-1.0] * size, "high": [1.0] * size},
+        "action_space": {
+            "type": "box",
+            "shape": [size],
+            "low": low if low is not None else [-1.0] * size,
+            "high": high if high is not None else [1.0] * size,
+        },
     }
 
 
@@ -184,8 +195,10 @@ def test_cli_export_task_robomimic_with_dataset_extra(tmp_path: Path):
                             "observation": _observation_with_action_size(
                                 2,
                                 raw={"obs": [0.25, -0.25], "env_states": [9.0, 9.0]},
+                                low=[-3.0, -1.0],
+                                high=[1.0, 3.0],
                             ),
-                            "action": [0.1, 0.2],
+                            "action": [-1.0, 2.0],
                             "reward": 1.0,
                             "terminated": True,
                             "truncated": False,
@@ -237,14 +250,19 @@ def test_cli_export_task_robomimic_with_dataset_extra(tmp_path: Path):
         assert handle["data"].attrs["total"] == 1
         assert handle["data"]["demo_0"]["obs"]["flat"].shape == (1, 4)
         assert handle["data"]["demo_0"]["obs"]["flat"][0].tolist() == [0.25, -0.25, 0.0, 0.0]
+        assert handle["data"]["demo_0"]["actions"][0].tolist() == [0.0, 0.5]
+        hdf5_transform = json.loads(handle["data"].attrs["nyssa_action_transform"])
+        assert hdf5_transform["low"] == [-3.0, -1.0]
     config = json.loads(config_path.read_text(encoding="utf-8"))
     assert config["train"]["data"] == str(hdf5_path.resolve())
     assert config["train"]["num_epochs"] == 2
     manifest = json.loads((out_dir / "task_robomimic_manifest.json").read_text(encoding="utf-8"))
     quality = manifest["observation_quality"]["maniskill_pick_cube"]
-    assert manifest["format"] == "nyssa-task-robomimic-export-v2"
+    assert manifest["format"] == "nyssa-task-robomimic-export-v3"
     assert quality["observation_payload_coverage"] == 1.0
     assert quality["active_feature_dimensions"] == 0
+    assert manifest["tasks"]["maniskill_pick_cube"]["action_transform"] == hdf5_transform
+    assert manifest["tasks"]["maniskill_pick_cube"]["training_episode_seeds"] == [0]
 
 
 def test_cli_export_task_robomimic_rejects_missing_observations(tmp_path: Path):
@@ -552,7 +570,7 @@ def test_linear_bc_resizes_action_to_live_action_space():
     assert action.tolist() == [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
 
 
-def test_robomimic_policy_flattens_and_clips_action():
+def test_robomimic_policy_flattens_and_denormalizes_action():
     import numpy as np
 
     from nyssa_bench.policies.robomimic_adapter import RoboMimicPolicy
@@ -567,7 +585,7 @@ def test_robomimic_policy_flattens_and_clips_action():
 
         def get_action(self, obs):
             self.last_obs = obs
-            return np.asarray([2.0, -2.0, 0.5])
+            return np.asarray([2.0, -2.0])
 
     model = DummyRoboMimic()
     policy = RoboMimicPolicy(model=model)
@@ -588,6 +606,18 @@ def test_robomimic_policy_flattens_and_clips_action():
     assert set(model.last_obs) == {"flat"}
     assert model.last_obs["flat"].shape == (256,)
     assert action.tolist() == [1.0, -1.0]
+
+
+def test_robomimic_action_normalization_round_trip():
+    import numpy as np
+
+    from nyssa_bench.baselines.features import denormalize_action_from_unit, normalize_action_to_unit
+
+    observation = _observation_with_action_size(2, low=[-3.0, -1.0], high=[1.0, 3.0])
+    unit = normalize_action_to_unit(np.asarray([-1.0, 2.0]), observation)
+
+    assert unit.tolist() == [0.0, 0.5]
+    assert denormalize_action_from_unit(unit, observation).tolist() == [-1.0, 2.0]
 
 
 def test_task_robomimic_policy_discovers_latest_nested_checkpoint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -637,6 +667,111 @@ def test_task_robomimic_policy_discovers_latest_nested_checkpoint(tmp_path: Path
     assert loaded_paths == [latest]
     assert observed_shapes == [(512,)]
     assert action.tolist() == [0.25, -0.25]
+
+
+def test_task_robomimic_policy_enforces_manifest_action_transform(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    import numpy as np
+
+    from nyssa_bench.policies import robomimic_adapter
+    from nyssa_bench.policies.robomimic_adapter import TaskRoboMimicPolicy
+
+    checkpoint_dir = tmp_path / "robomimic_by_task"
+    checkpoint_dir.mkdir()
+    (checkpoint_dir / "maniskill_pick_cube.pth").write_bytes(b"checkpoint")
+    transform = {
+        "format": "nyssa-action-minmax-v1",
+        "shape": [2],
+        "low": [-3.0, -1.0],
+        "high": [1.0, 3.0],
+    }
+    (checkpoint_dir / "task_robomimic_manifest.json").write_text(
+        json.dumps({"tasks": {"maniskill_pick_cube": {"action_transform": transform}}}),
+        encoding="utf-8",
+    )
+
+    class DummyRoboMimic:
+        _nyssa_flat_feature_dim = 4
+
+        def get_action(self, obs):
+            return np.asarray([0.0, 0.5])
+
+    monkeypatch.setenv("NYSSA_TASK_ROBOMIMIC_DIR", str(checkpoint_dir))
+    monkeypatch.setattr(robomimic_adapter, "load_robomimic_checkpoint", lambda path: DummyRoboMimic())
+
+    policy = TaskRoboMimicPolicy()
+    task = type("Task", (), {"task_id": "maniskill_pick_cube_joint"})()
+    policy.reset(task=task)
+    observation = _observation_with_action_size(2, low=[-3.0, -1.0], high=[1.0, 3.0])
+
+    assert policy.act(observation).tolist() == [-1.0, 2.0]
+    assert policy.metadata()["action_contract_tasks"] == ["maniskill_pick_cube"]
+
+
+def test_task_robomimic_policy_rejects_live_action_contract_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    import numpy as np
+
+    from nyssa_bench.policies import robomimic_adapter
+    from nyssa_bench.policies.robomimic_adapter import TaskRoboMimicPolicy
+
+    checkpoint_dir = tmp_path / "robomimic_by_task"
+    checkpoint_dir.mkdir()
+    (checkpoint_dir / "maniskill_pick_cube.pth").write_bytes(b"checkpoint")
+    transform = {
+        "format": "nyssa-action-minmax-v1",
+        "shape": [2],
+        "low": [-3.0, -1.0],
+        "high": [1.0, 3.0],
+    }
+    (checkpoint_dir / "task_robomimic_manifest.json").write_text(
+        json.dumps({"tasks": {"maniskill_pick_cube": {"action_transform": transform}}}),
+        encoding="utf-8",
+    )
+
+    class DummyRoboMimic:
+        def get_action(self, obs):
+            return np.asarray([0.0, 0.0])
+
+    monkeypatch.setenv("NYSSA_TASK_ROBOMIMIC_DIR", str(checkpoint_dir))
+    monkeypatch.setattr(robomimic_adapter, "load_robomimic_checkpoint", lambda path: DummyRoboMimic())
+    policy = TaskRoboMimicPolicy()
+    policy.reset(task=type("Task", (), {"task_id": "maniskill_pick_cube_joint"})())
+
+    with pytest.raises(ValueError, match="Live action bounds"):
+        policy.act(_observation_with_action_size(2, low=[-2.0, -1.0], high=[1.0, 3.0]))
+
+
+def test_task_robomimic_policy_rejects_training_seed_evaluation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from nyssa_bench.policies.robomimic_adapter import TaskRoboMimicPolicy
+
+    checkpoint_dir = tmp_path / "robomimic_by_task"
+    checkpoint_dir.mkdir()
+    (checkpoint_dir / "maniskill_pick_cube.pth").write_bytes(b"checkpoint")
+    (checkpoint_dir / "task_robomimic_manifest.json").write_text(
+        json.dumps(
+            {
+                "tasks": {
+                    "maniskill_pick_cube": {
+                        "training_episode_seeds": [3_000_000, 3_000_001],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("NYSSA_TASK_ROBOMIMIC_DIR", str(checkpoint_dir))
+    policy = TaskRoboMimicPolicy()
+
+    with pytest.raises(RuntimeError, match="occurs in the RoboMimic training source"):
+        policy.reset(
+            task=type("Task", (), {"task_id": "maniskill_pick_cube_joint"})(),
+            seed=3_000_000,
+        )
 
 
 def test_robomimic_checkpoint_metadata_provides_flat_feature_dim():
@@ -1079,7 +1214,7 @@ with h5py.File(raw_task_dir / f"{env_id}.h5", "w") as handle:
     )
     raw_dir = tmp_path / "raw"
     out = tmp_path / "imported"
-    template = f"python {generator} {{env_id}} {{raw_task_dir}}"
+    template = f"{{python}} {generator} {{env_id}} {{raw_task_dir}}"
 
     assert (
         main(

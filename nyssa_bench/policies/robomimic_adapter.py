@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from nyssa_bench.baselines.features import fit_action_to_observation, flatten_observation
+from nyssa_bench.baselines.features import denormalize_action_from_unit, flatten_observation
 from nyssa_bench.baselines.robomimic_bc import create_robomimic_policy, load_robomimic_checkpoint
 from nyssa_bench.policies.base import Policy
 from nyssa_bench.policies.loaders import call_model, load_callable_from_env, normalize_action, require_model
@@ -39,16 +39,43 @@ class TaskRoboMimicPolicy(Policy):
         self.feature_dim = _feature_dim_override()
         self.current_task_id: str | None = None
         self._models: dict[str, Any] = {}
+        self._action_transforms, self._training_seeds = _load_task_manifest_metadata(self.checkpoint_dir)
 
     def reset(self, task: Any | None = None, seed: int | None = None) -> None:
         self.current_task_id = str(getattr(task, "task_id", "")) or None
         if self.current_task_id:
+            task_key = _checkpoint_key(self.current_task_id)
+            if (
+                seed is not None
+                and int(seed) in self._training_seeds.get(task_key, set())
+                and not _allow_training_seed_evaluation()
+            ):
+                raise RuntimeError(
+                    f"Evaluation seed {seed} for task '{task_key}' occurs in the RoboMimic training source. "
+                    "Use a held-out run seed, or set NYSSA_ALLOW_TRAINING_SEED_EVAL=1 only for a diagnostic smoke test."
+                )
             _reset_robomimic_model(self._model_for_task(self.current_task_id))
 
     def act(self, observation: dict[str, Any]) -> Any:
         if not self.current_task_id:
             raise RuntimeError("Task-routed RoboMimic policy was used before reset(task=...)")
-        return _robomimic_action(self._model_for_task(self.current_task_id), observation, feature_dim=self.feature_dim)
+        task_key = _checkpoint_key(self.current_task_id)
+        return _robomimic_action(
+            self._model_for_task(self.current_task_id),
+            observation,
+            feature_dim=self.feature_dim,
+            expected_action_contract=self._action_transforms.get(task_key),
+        )
+
+    def metadata(self) -> dict[str, Any]:
+        return {
+            "policy_class": self.__class__.__name__,
+            "checkpoint_dir": self.checkpoint_dir.as_posix(),
+            "feature_dim_override": self.feature_dim,
+            "action_output_space": "normalized_-1_1",
+            "action_contract_tasks": sorted(self._action_transforms),
+            "training_seed_counts": {task: len(seeds) for task, seeds in sorted(self._training_seeds.items())},
+        }
 
     def _model_for_task(self, task_id: str) -> Any:
         key = _checkpoint_key(task_id)
@@ -58,11 +85,21 @@ class TaskRoboMimicPolicy(Policy):
         return self._models[key]
 
 
-def _robomimic_action(model: Any, observation: dict[str, Any], *, feature_dim: int | None) -> Any:
+def _robomimic_action(
+    model: Any,
+    observation: dict[str, Any],
+    *,
+    feature_dim: int | None,
+    expected_action_contract: dict[str, Any] | None = None,
+) -> Any:
     resolved_feature_dim = _model_feature_dim(model, override=feature_dim)
     flat_observation = {"flat": flatten_observation(observation, resolved_feature_dim)}
     action = _call_robomimic_model(model, flat_observation)
-    return fit_action_to_observation(action, observation)
+    return denormalize_action_from_unit(
+        action,
+        observation,
+        expected_contract=expected_action_contract,
+    )
 
 
 def _feature_dim_override() -> int | None:
@@ -175,6 +212,42 @@ def _manifest_checkpoint_candidates(checkpoint_dir: Path, task_key: str) -> list
     if not output_dir.exists():
         return []
     return [path for path in output_dir.rglob("model_epoch_*.pth") if path.is_file()]
+
+
+def _load_task_manifest_metadata(
+    checkpoint_dir: Path,
+) -> tuple[dict[str, dict[str, Any]], dict[str, set[int]]]:
+    manifest_path = checkpoint_dir / "task_robomimic_manifest.json"
+    if not manifest_path.exists():
+        return {}, {}
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Cannot read RoboMimic task manifest: {manifest_path}") from exc
+    tasks = manifest.get("tasks", {})
+    if not isinstance(tasks, dict):
+        raise RuntimeError(f"RoboMimic task manifest has invalid tasks mapping: {manifest_path}")
+    transforms: dict[str, dict[str, Any]] = {}
+    training_seeds: dict[str, set[int]] = {}
+    for task_key, artifacts in tasks.items():
+        if not isinstance(artifacts, dict):
+            continue
+        transform = artifacts.get("action_transform")
+        if isinstance(transform, dict):
+            transforms[str(task_key)] = transform
+        seeds = artifacts.get("training_episode_seeds")
+        if isinstance(seeds, list):
+            try:
+                training_seeds[str(task_key)] = {int(seed) for seed in seeds}
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"RoboMimic task manifest has invalid training seeds for task '{task_key}'"
+                ) from exc
+    return transforms, training_seeds
+
+
+def _allow_training_seed_evaluation() -> bool:
+    return os.getenv("NYSSA_ALLOW_TRAINING_SEED_EVAL", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _resolve_manifest_path(base_dir: Path, value: str) -> Path:
