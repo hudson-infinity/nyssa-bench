@@ -25,7 +25,7 @@ from nyssa_bench.reports.comparison import compare_runs, save_comparison_report,
 from nyssa_bench.reports.html_report import Report
 from nyssa_bench.reports.result_pack import write_experiment_manifest, write_results_markdown
 from nyssa_bench.reports.scorecard import write_scorecard
-from nyssa_bench.runner import PolicyRunner
+from nyssa_bench.runner import DEFAULT_RECOVERY_ATTRIBUTION_HORIZON, PolicyRunner
 from nyssa_bench.metrics.run_claims import PUBLIC_CLAIM_ENGINES
 from nyssa_bench.baselines.robomimic_bc import train_robomimic, write_robomimic_bc_config
 
@@ -54,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
     run_parser.add_argument("--enable-verifier", action="store_true")
     run_parser.add_argument("--policy-action-horizon", type=int, default=1)
     run_parser.add_argument("--policy-execution-horizon", type=int, default=1)
+    run_parser.add_argument(
+        "--recovery-attribution-horizon", type=int, default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON
+    )
 
     report_parser = subparsers.add_parser("report")
     report_parser.add_argument("run")
@@ -100,6 +103,9 @@ def main(argv: list[str] | None = None) -> int:
     experiment_parser.add_argument("--enable-verifier", action="store_true")
     experiment_parser.add_argument("--policy-action-horizon", type=int, default=1)
     experiment_parser.add_argument("--policy-execution-horizon", type=int, default=1)
+    experiment_parser.add_argument(
+        "--recovery-attribution-horizon", type=int, default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON
+    )
 
     ablate_parser = subparsers.add_parser("ablate")
     ablate_parser.add_argument("--suite", required=True)
@@ -121,6 +127,9 @@ def main(argv: list[str] | None = None) -> int:
     ablate_parser.add_argument("--capture-replay", action="store_true")
     ablate_parser.add_argument("--policy-action-horizon", type=int, default=1)
     ablate_parser.add_argument("--policy-execution-horizon", type=int, default=1)
+    ablate_parser.add_argument(
+        "--recovery-attribution-horizon", type=int, default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON
+    )
 
     train_bc_parser = subparsers.add_parser("train-bc")
     train_bc_parser.add_argument("episodes", nargs="+")
@@ -229,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
             enable_verifier=args.enable_verifier,
             policy_action_horizon=args.policy_action_horizon,
             policy_execution_horizon=args.policy_execution_horizon,
+            recovery_attribution_horizon=args.recovery_attribution_horizon,
         )
         report = runner.evaluate(suite)
         print(f"report: {Path(args.out) / 'report.html'}")
@@ -446,6 +456,7 @@ def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
                 enable_verifier=args.enable_verifier,
                 policy_action_horizon=args.policy_action_horizon,
                 policy_execution_horizon=args.policy_execution_horizon,
+                recovery_attribution_horizon=args.recovery_attribution_horizon,
             )
             runner.evaluate(suite)
             run_dirs.append(run_dir)
@@ -522,6 +533,7 @@ def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
                 enable_verifier=enable_verifier,
                 policy_action_horizon=args.policy_action_horizon,
                 policy_execution_horizon=args.policy_execution_horizon,
+                recovery_attribution_horizon=args.recovery_attribution_horizon,
             )
             runner.evaluate(suite)
             run_dirs.append(run_dir)

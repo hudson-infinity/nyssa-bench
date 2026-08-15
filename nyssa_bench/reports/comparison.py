@@ -49,6 +49,11 @@ def compare_runs(run_dirs: list[str | Path]) -> dict[str, Any]:
                 "primary_failure_mode": item.get("primary_failure_mode"),
                 "expert_intervention_rate": (item.get("metrics") or {}).get("expert_intervention_rate", 0.0),
                 "recovery_success_rate": (item.get("metrics") or {}).get("recovery_success_rate", 0.0),
+                "recovery_success_count": (item.get("metrics") or {}).get("recovery_success_count", 0.0),
+                "recovery_applied_count": (item.get("metrics") or {}).get("recovery_applied_count", 0.0),
+                "recovery_episode_success_rate": (item.get("metrics") or {}).get(
+                    "recovery_episode_success_rate", 0.0
+                ),
                 "verifier_rejection_rate": (item.get("metrics") or {}).get("verifier_rejection_rate", 0.0),
                 "wall_time_seconds": (item.get("compute") or {}).get("wall_time_seconds", 0.0),
             }
@@ -82,7 +87,9 @@ def _comparison_html(comparison: dict[str, Any]) -> str:
         f"<td>{html.escape(str(item.get('benchmark_tier') or 'unknown'))}</td>"
         f"<td>{html.escape(str(item.get('public_claim_status') or 'unknown'))}</td>"
         f"<td>{float(item.get('expert_intervention_rate', 0.0)) * 100:.1f}%</td>"
-        f"<td>{float(item.get('recovery_success_rate', 0.0)) * 100:.1f}%</td>"
+        f"<td>{float(item.get('recovery_success_rate', 0.0)) * 100:.1f}% "
+        f"({int(float(item.get('recovery_success_count', 0.0)))}/"
+        f"{int(float(item.get('recovery_applied_count', 0.0)))})</td>"
         f"<td>{float(item.get('verifier_rejection_rate', 0.0)) * 100:.1f}%</td>"
         f"<td>{float(item.get('wall_time_seconds', 0.0)):.1f}s</td>"
         f"<td>{html.escape(str(item.get('primary_failure_mode') or 'none'))}</td>"
@@ -104,7 +111,7 @@ def _comparison_html(comparison: dict[str, Any]) -> str:
   <h1>Policy Comparison</h1>
   <table>
     <thead>
-        <tr><th>Rank</th><th>Run</th><th>Success</th><th>95% CI</th><th>Prototype reliability</th><th>Tier</th><th>Claim status</th><th>Expert intervention</th><th>Recovery success</th><th>Verifier rejection</th><th>Wall time</th><th>Primary failure</th></tr>
+        <tr><th>Rank</th><th>Run</th><th>Success</th><th>95% CI</th><th>Prototype reliability</th><th>Tier</th><th>Claim status</th><th>Expert intervention</th><th>Recovery success (successful/applied)</th><th>Verifier rejection</th><th>Wall time</th><th>Primary failure</th></tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>

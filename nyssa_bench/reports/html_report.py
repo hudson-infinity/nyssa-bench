@@ -33,6 +33,11 @@ class Report:
         compute = self.summary.get("compute", {})
         intervention_rate = float(metrics.get("expert_intervention_rate", 0.0)) * 100
         recovery_rate = float(metrics.get("recovery_success_rate", 0.0)) * 100
+        recovery_success_count = int(float(metrics.get("recovery_success_count", 0.0)))
+        recovery_applied_count = int(float(metrics.get("recovery_applied_count", 0.0)))
+        recovery_episode_rate = float(metrics.get("recovery_episode_success_rate", 0.0)) * 100
+        recovery_episode_success_count = int(float(metrics.get("recovery_episode_success_count", 0.0)))
+        recovery_episode_applied_count = int(float(metrics.get("recovery_episode_applied_count", 0.0)))
         verifier_rejection_rate = float(metrics.get("verifier_rejection_rate", 0.0)) * 100
         failure_counts = self.summary.get("failure_counts", {})
         per_task = self.summary.get("per_task", {})
@@ -66,7 +71,8 @@ class Report:
     <div class="metric"><div>Benchmark tier</div><div class="value">{html.escape(str(benchmark_tier))}</div></div>
     <div class="metric"><div>Public claim</div><div class="value">{html.escape(str(self.summary.get("public_claim", False)))}</div></div>
     <div class="metric"><div>Expert intervention</div><div class="value">{intervention_rate:.1f}%</div></div>
-    <div class="metric"><div>Recovery success</div><div class="value">{recovery_rate:.1f}%</div></div>
+    <div class="metric"><div>Recovery attempt success ({recovery_success_count}/{recovery_applied_count} applied)</div><div class="value">{recovery_rate:.1f}%</div></div>
+    <div class="metric"><div>Recovery episode success ({recovery_episode_success_count}/{recovery_episode_applied_count} episodes)</div><div class="value">{recovery_episode_rate:.1f}%</div></div>
     <div class="metric"><div>Verifier rejection</div><div class="value">{verifier_rejection_rate:.1f}%</div></div>
   </section>
 

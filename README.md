@@ -335,6 +335,16 @@ policy actions remain auditable as `executed_action` and are never used as
 supervised targets. Legacy datasets are accepted only when their step metadata
 proves the action source.
 
+Recovery outcomes use `nyssa-recovery-outcomes-v1`. An attempt is counted when
+recovery is requested, but `recovery_success_rate` uses only attempts with a
+non-empty applied plan as its denominator. Success is attributed only when the
+task success predicate becomes true before a newer attempt and within the
+configured step window. The window starts at the first recovery action and is
+the larger of the configured horizon (five transitions by default) or the full
+recovery-plan length. `recovery_episode_success_rate` separately uses episodes
+with at least one applied recovery as its denominator. Configure the window for
+`run`, `experiment`, or `ablate` with `--recovery-attribution-horizon`.
+
 ```bash
 uv run nyssa train-recovery-bc \
   benchmark_results/mujoco_ablation_smoke \
@@ -353,6 +363,7 @@ uv run nyssa ablate \
   --episodes 5 \
   --variants base verifier recovery verifier_recovery \
   --expert-provider mujoco-heuristic \
+  --recovery-attribution-horizon 5 \
   --out benchmark_results/mujoco_recovery_bc_ablation_smoke \
   --no-replay
 ```

@@ -132,6 +132,10 @@ def _load_scorecard_result(run_dir: Path) -> dict[str, Any]:
         "success_rate_ci95": metrics.get("success_rate_ci95", [0.0, 0.0]),
         "expert_intervention_rate": aggregate_metrics.get("expert_intervention_rate", 0.0),
         "recovery_success_rate": aggregate_metrics.get("recovery_success_rate", 0.0),
+        "recovery_success_count": aggregate_metrics.get("recovery_success_count", 0.0),
+        "recovery_applied_count": aggregate_metrics.get("recovery_applied_count", 0.0),
+        "recovery_episode_success_rate": aggregate_metrics.get("recovery_episode_success_rate", 0.0),
+        "recovery_outcomes": metrics.get("recovery_outcomes", metadata.get("recovery_outcomes")),
         "verifier_rejection_rate": aggregate_metrics.get("verifier_rejection_rate", 0.0),
         "prototype_reliability_score": metrics.get(
             "prototype_reliability_score", metrics.get("sim_to_real_score", 0.0)

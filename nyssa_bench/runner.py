@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,35 @@ from nyssa_bench.utils.reproducibility import (
 
 EPISODE_SEED_STRIDE = 1_000_000
 EPISODE_SEED_FORMAT = "nyssa-episode-seed-v2"
+DEFAULT_RECOVERY_ATTRIBUTION_HORIZON = 5
+RECOVERY_OUTCOME_FORMAT = "nyssa-recovery-outcomes-v1"
+RECOVERY_ATTRIBUTION_CRITERION = "task_success_within_bounded_window_before_next_attempt"
+
+
+@dataclass
+class _RecoveryAttempt:
+    attempt_id: int
+    start_step: int
+    horizon_steps: int
+    applied: bool = False
+    plan_length: int = 0
+    outcome: str = "pending"
+    outcome_step: int | None = None
+    event_step_indices: list[int] = field(default_factory=list)
+    window_step_indices: list[int] = field(default_factory=list)
+
+    @property
+    def attribution_steps(self) -> int:
+        return max(1, self.horizon_steps, self.plan_length)
+
+    @property
+    def deadline_step(self) -> int:
+        return self.start_step + self.attribution_steps - 1
+
+    def resolve(self, outcome: str, step_index: int) -> None:
+        if self.outcome == "pending":
+            self.outcome = outcome
+            self.outcome_step = step_index
 
 
 class PolicyRunner:
@@ -58,6 +88,7 @@ class PolicyRunner:
         enable_verifier: bool = False,
         policy_action_horizon: int = 1,
         policy_execution_horizon: int = 1,
+        recovery_attribution_horizon: int = DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     ) -> None:
         if int(episodes) <= 0:
             raise ValueError("episodes must be a positive integer")
@@ -65,6 +96,8 @@ class PolicyRunner:
             raise ValueError(f"episodes must not exceed {EPISODE_SEED_STRIDE} per task")
         if int(seed) < 0:
             raise ValueError("seed must be a non-negative integer")
+        if int(recovery_attribution_horizon) <= 0:
+            raise ValueError("recovery_attribution_horizon must be a positive integer")
         self.policy_ref = policy
         self.engine_name = engine
         self.episodes = episodes
@@ -77,6 +110,7 @@ class PolicyRunner:
         self.enable_verifier = enable_verifier
         self.policy_action_horizon = max(1, int(policy_action_horizon))
         self.policy_execution_horizon = max(1, int(policy_execution_horizon))
+        self.recovery_attribution_horizon = int(recovery_attribution_horizon)
         self.episode_results: list[EpisodeResult] = []
         self.run_metadata: dict[str, Any] = {}
         self._failure_mapper = FailureMapper()
@@ -106,6 +140,14 @@ class PolicyRunner:
 
         self.episode_results = results
         summary = aggregate_episodes(results)
+        recovery_outcomes = {
+            "format": RECOVERY_OUTCOME_FORMAT,
+            "attribution_horizon_steps": self.recovery_attribution_horizon,
+            "attribution_criterion": RECOVERY_ATTRIBUTION_CRITERION,
+            "attempt_success_rate_denominator": "applied_recovery_attempts",
+            "episode_success_rate_denominator": "episodes_with_applied_recovery",
+        }
+        summary["recovery_outcomes"] = recovery_outcomes
         wall_time_seconds = time.perf_counter() - started_perf
         summary["compute"] = {
             "wall_time_seconds": wall_time_seconds,
@@ -144,6 +186,7 @@ class PolicyRunner:
             "expert_provider": expert_provider.metadata(),
             "recovery_enabled": self.enable_recovery,
             "verifier_enabled": self.enable_verifier,
+            "recovery_outcomes": recovery_outcomes,
             "policy_metadata": _policy_metadata(policy),
             "action_sequence": {
                 "action_horizon": self.policy_action_horizon,
@@ -192,8 +235,8 @@ class PolicyRunner:
         frames: list[Any] = []
         last_info: dict[str, Any] = {}
         expert_intervention_count = 0
-        recovery_attempt_count = 0
-        recovery_success_count = 0
+        recovery_attempts: list[_RecoveryAttempt] = []
+        active_recovery_attempt: _RecoveryAttempt | None = None
         verifier_rejection_count = 0
         action_assessment_count = 0
         action_rejection_count = 0
@@ -203,13 +246,17 @@ class PolicyRunner:
         recovery_cached_action_count = 0
         pending_actions: list[Any] = []
         pending_action_source: str | None = None
+        pending_recovery_attempt_id: int | None = None
+        pending_recovery_action_index = 1
         step_limit = self.max_steps or getattr(engine, "max_steps", 1000)
         if self.out and self.capture_replay:
             frame = _safe_render(engine)
             if frame is not None:
                 frames.append(frame)
 
-        for _ in range(step_limit):
+        for step_index in range(step_limit):
+            recovery_attempt_id: int | None = None
+            recovery_plan_action_index: int | None = None
             if pending_actions:
                 action = pending_actions.pop(0)
                 action_source = pending_action_source or "pending"
@@ -217,8 +264,13 @@ class PolicyRunner:
                     policy_cached_action_count += 1
                 elif action_source == "recovery":
                     recovery_cached_action_count += 1
+                    recovery_attempt_id = pending_recovery_attempt_id
+                    recovery_plan_action_index = pending_recovery_action_index
+                    pending_recovery_action_index += 1
                 if not pending_actions:
                     pending_action_source = None
+                    pending_recovery_attempt_id = None
+                    pending_recovery_action_index = 1
                 chunk_size = 0
             else:
                 raw_action = policy.act(observation)
@@ -237,6 +289,19 @@ class PolicyRunner:
                 "recovery_attempted": False,
                 "recovery_applied": False,
                 "recovery_success": False,
+                "recovery_attempt_id": recovery_attempt_id,
+                "recovery_attribution_attempt_id": active_recovery_attempt.attempt_id
+                if active_recovery_attempt is not None
+                else None,
+                "recovery_plan_action_index": recovery_plan_action_index,
+                "recovery_outcome": None,
+                "recovery_outcome_step": None,
+                "recovery_plan_outcome": None,
+                "recovery_plan_success": False,
+                "recovery_attribution_start_step": None,
+                "recovery_attribution_end_step": None,
+                "recovery_attribution_horizon_steps": None,
+                "recovery_attribution_criterion": None,
                 "verifier_rejected": False,
                 "action_assessed": False,
                 "action_rejected": False,
@@ -260,8 +325,20 @@ class PolicyRunner:
                         verifier_rejection_count += 1
                         expert_info["verifier_rejected"] = True
             if self.enable_recovery and expert_info["action_rejected"]:
-                recovery_attempt_count += 1
+                if active_recovery_attempt is not None:
+                    active_recovery_attempt.resolve("superseded", max(active_recovery_attempt.start_step, step_index - 1))
+                    active_recovery_attempt = None
+                recovery_attempt = _RecoveryAttempt(
+                    attempt_id=len(recovery_attempts) + 1,
+                    start_step=step_index,
+                    horizon_steps=self.recovery_attribution_horizon,
+                    event_step_indices=[step_index],
+                )
+                recovery_attempts.append(recovery_attempt)
+                recovery_attempt_id = recovery_attempt.attempt_id
                 expert_info["recovery_attempted"] = True
+                expert_info["recovery_attempt_id"] = recovery_attempt_id
+                expert_info["recovery_attribution_attempt_id"] = recovery_attempt_id
                 recovery_plan = expert_provider.recover(
                     state=_safe_get_state(engine, observation=observation),
                     failure=expert_info.get("action_assessment", {}).get("reason"),
@@ -270,26 +347,36 @@ class PolicyRunner:
                 )
                 if recovery_plan:
                     recovery_plan = list(recovery_plan)
+                    recovery_attempt.applied = True
+                    recovery_attempt.plan_length = len(recovery_plan)
+                    active_recovery_attempt = recovery_attempt
                     action = recovery_plan[0]
                     pending_actions = recovery_plan[1:]
                     pending_action_source = "recovery" if pending_actions else None
+                    pending_recovery_attempt_id = recovery_attempt_id if pending_actions else None
+                    pending_recovery_action_index = 1
                     recovery_plan_action_count += len(recovery_plan)
                     if not expert_info["expert_intervention"]:
                         expert_intervention_count += 1
                     expert_info["expert_intervention"] = True
                     expert_info["recovery_applied"] = True
                     expert_info["action_source"] = "recovery"
+                    expert_info["recovery_plan_action_index"] = 0
                     expert_info["recovery_plan_length"] = len(recovery_plan)
                     expert_info["recovery_plan_pending_count"] = len(pending_actions)
                     recovery_details = getattr(expert_provider, "last_recovery_details", None)
                     if isinstance(recovery_details, dict):
                         expert_info["recovery_plan"] = recovery_details
+                else:
+                    recovery_attempt.resolve("not_applied", step_index)
             if self.enable_verifier and expert_info["action_rejected"] and not expert_info["recovery_applied"]:
                 expert_action = expert_provider.act(observation, task=task, engine=engine)
                 if expert_action is not None:
                     action = expert_action
                     pending_actions = []
                     pending_action_source = None
+                    pending_recovery_attempt_id = None
+                    pending_recovery_action_index = 1
                     expert_intervention_count += 1
                     expert_info["expert_intervention"] = True
                     expert_info["action_source"] = "expert"
@@ -309,11 +396,32 @@ class PolicyRunner:
                     info=info,
                 )
             )
+            if recovery_attempt_id is not None:
+                attempt = recovery_attempts[recovery_attempt_id - 1]
+                if step_index not in attempt.event_step_indices:
+                    attempt.event_step_indices.append(step_index)
+            if active_recovery_attempt is not None:
+                active_recovery_attempt.window_step_indices.append(step_index)
+                if bool(info.get("success", False)):
+                    active_recovery_attempt.resolve("success", step_index)
+                    active_recovery_attempt = None
+                elif terminated:
+                    active_recovery_attempt.resolve("episode_terminated", step_index)
+                    active_recovery_attempt = None
+                elif truncated:
+                    active_recovery_attempt.resolve("episode_truncated", step_index)
+                    active_recovery_attempt = None
+                elif step_index >= active_recovery_attempt.deadline_step:
+                    active_recovery_attempt.resolve("window_expired", step_index)
+                    active_recovery_attempt = None
             observation = next_observation
             last_info = info
             if terminated or truncated:
                 break
 
+        if active_recovery_attempt is not None:
+            active_recovery_attempt.resolve("episode_ended", max(0, len(steps) - 1))
+        _annotate_recovery_outcomes(steps, recovery_attempts)
         success = bool(last_info.get("success", False))
         classification = self._failure_mapper.classify(
             last_info,
@@ -323,7 +431,14 @@ class PolicyRunner:
             truncated=bool(last_info.get("truncated", False)) or (bool(steps[-1].truncated) if steps else False),
         )
         failure_label = None if success else classification.label
-        recovery_success_count = 1 if recovery_attempt_count and success else 0
+        recovery_attempt_count = len(recovery_attempts)
+        recovery_applied_count = sum(1 for attempt in recovery_attempts if attempt.applied)
+        recovery_success_count = sum(1 for attempt in recovery_attempts if attempt.outcome == "success")
+        recovery_failure_count = recovery_applied_count - recovery_success_count
+        recovery_not_applied_count = recovery_attempt_count - recovery_applied_count
+        recovery_episode_attempt_count = int(recovery_attempt_count > 0)
+        recovery_episode_applied_count = int(recovery_applied_count > 0)
+        recovery_episode_success_count = int(recovery_success_count > 0)
         metrics = {
             "completion_time": float(last_info.get("completion_time", len(steps))),
             "path_efficiency": float(last_info.get("path_efficiency", 0.0)),
@@ -331,9 +446,18 @@ class PolicyRunner:
             "expert_intervention_count": float(expert_intervention_count),
             "expert_intervention_rate": float(expert_intervention_count / len(steps)) if steps else 0.0,
             "recovery_attempt_count": float(recovery_attempt_count),
+            "recovery_applied_count": float(recovery_applied_count),
             "recovery_success_count": float(recovery_success_count),
-            "recovery_success_rate": float(recovery_success_count / recovery_attempt_count)
-            if recovery_attempt_count
+            "recovery_failure_count": float(recovery_failure_count),
+            "recovery_not_applied_count": float(recovery_not_applied_count),
+            "recovery_success_rate": float(recovery_success_count / recovery_applied_count)
+            if recovery_applied_count
+            else 0.0,
+            "recovery_episode_attempt_count": float(recovery_episode_attempt_count),
+            "recovery_episode_applied_count": float(recovery_episode_applied_count),
+            "recovery_episode_success_count": float(recovery_episode_success_count),
+            "recovery_episode_success_rate": float(recovery_episode_success_count / recovery_episode_applied_count)
+            if recovery_episode_applied_count
             else 0.0,
             "verifier_rejection_count": float(verifier_rejection_count),
             "verifier_rejection_rate": float(verifier_rejection_count / len(steps)) if steps else 0.0,
@@ -410,6 +534,7 @@ class PolicyRunner:
             "expert_provider": self.run_metadata.get("expert_provider", {"provider_id": "none"}),
             "recovery_enabled": self.enable_recovery,
             "verifier_enabled": self.enable_verifier,
+            "recovery_outcomes": self.run_metadata.get("recovery_outcomes"),
             "action_sequence": self.run_metadata.get(
                 "action_sequence",
                 {"action_horizon": 1, "execution_horizon": 1, "receding_horizon": False},
@@ -449,6 +574,34 @@ class PolicyRunner:
         )
         replay_viewer_placeholder(self.out)
         report.save(self.out / "report.html")
+
+
+def _annotate_recovery_outcomes(steps: list[StepRecord], attempts: list[_RecoveryAttempt]) -> None:
+    for attempt in attempts:
+        relevant_steps = sorted(set(attempt.window_step_indices + attempt.event_step_indices))
+        for step_index in relevant_steps:
+            if step_index < 0 or step_index >= len(steps):
+                continue
+            info = steps[step_index].info
+            info.update(
+                {
+                    "recovery_attribution_attempt_id": attempt.attempt_id,
+                    "recovery_outcome": attempt.outcome,
+                    "recovery_outcome_step": attempt.outcome_step,
+                    "recovery_attribution_start_step": attempt.start_step,
+                    "recovery_attribution_end_step": attempt.deadline_step,
+                    "recovery_attribution_horizon_steps": attempt.attribution_steps,
+                    "recovery_attribution_criterion": RECOVERY_ATTRIBUTION_CRITERION,
+                    "recovery_success": attempt.outcome == "success",
+                }
+            )
+        for step_index in attempt.event_step_indices:
+            if step_index < 0 or step_index >= len(steps):
+                continue
+            info = steps[step_index].info
+            info["recovery_attempt_id"] = attempt.attempt_id
+            info["recovery_plan_outcome"] = attempt.outcome if attempt.applied else None
+            info["recovery_plan_success"] = attempt.applied and attempt.outcome == "success"
 
 
 def _episode_seed(run_seed: int, episode_index: int) -> int:
