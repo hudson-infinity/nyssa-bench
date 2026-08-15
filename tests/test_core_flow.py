@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -454,7 +455,56 @@ def test_runner_recovery_only_variant_uses_rejection_trigger_without_verifier(tm
     assert '"verifier_rejected": false' in episode
 
 
+def test_runner_keeps_failed_recovery_as_context_without_bc_target(tmp_path: Path):
+    from nyssa_bench.datasets.recovery_training import load_recovery_episodes
+
+    class NoPlanRecoveryExpert(ExpertProvider):
+        provider_id = "no_plan_recovery"
+
+        def score_action(self, observation, action, *, task, engine=None):
+            return ExpertActionScore(accepted=False, confidence=1.0, reason="no_plan")
+
+        def act(self, observation, *, task, engine=None):
+            raise AssertionError("recovery-only must not apply the verifier fallback action")
+
+        def recover(self, *, state, failure, task, engine=None):
+            return None
+
+    get_plugin_registry().engines["no_plan_recovery_unit"] = UnitEngine
+    runner = PolicyRunner(
+        policy="random",
+        engine="no_plan_recovery_unit",
+        episodes=1,
+        seed=123,
+        out=tmp_path,
+        expert_provider=NoPlanRecoveryExpert(),
+        enable_verifier=False,
+        enable_recovery=True,
+        capture_replay=False,
+    )
+
+    runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+
+    manifest = json.loads((tmp_path / "recovery_dataset" / "manifest.json").read_text(encoding="utf-8"))
+    episodes_path = tmp_path / "recovery_dataset" / "episodes.json"
+    recovery_episodes = json.loads(episodes_path.read_text(encoding="utf-8"))
+    recovery_step = recovery_episodes[0]["steps"][0]
+    assert manifest["format"] == "nyssa-recovery-dataset-v2"
+    assert manifest["target_steps"] == 0
+    assert manifest["context_steps"] == 1
+    assert recovery_step["record_type"] == "negative_context"
+    assert recovery_step["executed_action_source"] == "policy"
+    assert recovery_step["target_action"] is None
+    assert recovery_step["target_source"] is None
+    assert recovery_step["target_valid"] is False
+    assert recovery_step["target_invalid_reason"] == "rejected_policy_action"
+    with pytest.raises(ValueError, match="No eligible expert or recovery targets"):
+        load_recovery_episodes([episodes_path])
+
+
 def test_runner_executes_recovery_macro_plan(tmp_path: Path):
+    from nyssa_bench.datasets.recovery_training import load_recovery_episodes
+
     class MacroRecoveryEngine(UnitEngine):
         max_steps = 3
 
@@ -508,6 +558,15 @@ def test_runner_executes_recovery_macro_plan(tmp_path: Path):
     episode = (tmp_path / "episodes.json").read_text(encoding="utf-8")
     assert '"action_source": "recovery"' in episode
     assert '"recovery_plan_label": "unit_macro"' in episode
+    recovery_path = tmp_path / "recovery_dataset" / "episodes.json"
+    recovery_dataset = json.loads(recovery_path.read_text(encoding="utf-8"))
+    recovery_steps = recovery_dataset[0]["steps"]
+    assert len(recovery_steps) == 2
+    assert all(step["target_valid"] is True for step in recovery_steps)
+    assert all(step["target_source"] == "recovery" for step in recovery_steps)
+    assert [step["target_action"] for step in recovery_steps] == [0.25, 0.75]
+    training_steps = load_recovery_episodes([recovery_path])[0]["steps"]
+    assert [step["action"] for step in training_steps] == [0.25, 0.75]
 
 
 def test_builtin_expert_providers_emit_actions():

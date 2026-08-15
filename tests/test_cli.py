@@ -478,8 +478,18 @@ def test_cli_train_recovery_bc_by_task(tmp_path: Path):
     recovery_dir.joinpath("episodes.json").write_text(
         json.dumps(
             [
-                {"task_id": "mujoco_reacher", "steps": [{"observation": _observation(), "action": [0.1]}]},
-                {"task_id": "maniskill_pick_cube_joint", "steps": [{"observation": _observation(), "action": [0.2]}]},
+                {
+                    "task_id": "mujoco_reacher",
+                    "steps": [
+                        {"observation": _observation(), "action": [0.1], "info": {"action_source": "recovery"}}
+                    ],
+                },
+                {
+                    "task_id": "maniskill_pick_cube_joint",
+                    "steps": [
+                        {"observation": _observation(), "action": [0.2], "info": {"action_source": "recovery"}}
+                    ],
+                },
             ]
         ),
         encoding="utf-8",
@@ -500,11 +510,23 @@ def test_cli_train_recovery_bc_auto_routes_mixed_action_spaces_by_task(tmp_path:
             [
                 {
                     "task_id": "mujoco_reacher",
-                    "steps": [{"observation": _observation_with_action_size(2), "action": [0.1, 0.2]}],
+                    "steps": [
+                        {
+                            "observation": _observation_with_action_size(2),
+                            "action": [0.1, 0.2],
+                            "info": {"action_source": "recovery"},
+                        }
+                    ],
                 },
                 {
                     "task_id": "mujoco_inverted_pendulum",
-                    "steps": [{"observation": _observation_with_action_size(1), "action": [0.3]}],
+                    "steps": [
+                        {
+                            "observation": _observation_with_action_size(1),
+                            "action": [0.3],
+                            "info": {"action_source": "recovery"},
+                        }
+                    ],
                 },
             ]
         ),
@@ -528,11 +550,23 @@ def test_cli_train_recovery_bc_global_rejects_mixed_action_spaces(tmp_path: Path
             [
                 {
                     "task_id": "mujoco_reacher",
-                    "steps": [{"observation": _observation_with_action_size(2), "action": [0.1, 0.2]}],
+                    "steps": [
+                        {
+                            "observation": _observation_with_action_size(2),
+                            "action": [0.1, 0.2],
+                            "info": {"action_source": "recovery"},
+                        }
+                    ],
                 },
                 {
                     "task_id": "mujoco_inverted_pendulum",
-                    "steps": [{"observation": _observation_with_action_size(1), "action": [0.3]}],
+                    "steps": [
+                        {
+                            "observation": _observation_with_action_size(1),
+                            "action": [0.3],
+                            "info": {"action_source": "recovery"},
+                        }
+                    ],
                 },
             ]
         ),
