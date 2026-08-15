@@ -78,11 +78,16 @@ def write_scorecard(
     scorecard_date: str | None = None,
     comparison_report: str | Path | None = None,
     leaderboard: str | Path | None = None,
+    allow_incompatible: bool = False,
 ) -> dict[str, Path]:
     comparison_path = Path(comparison_report) if comparison_report else None
     leaderboard_path = Path(leaderboard) if leaderboard else None
 
-    comparison = compare_runs(run_dirs) if comparison_path or leaderboard_path else None
+    comparison = (
+        compare_runs(run_dirs, allow_incompatible=allow_incompatible)
+        if comparison_path or leaderboard_path
+        else None
+    )
     if comparison_path and comparison:
         save_comparison_report(comparison, comparison_path)
     if leaderboard_path and comparison:
@@ -95,6 +100,17 @@ def write_scorecard(
         comparison_report=comparison_path,
         leaderboard=leaderboard_path,
     )
+    if comparison:
+        scorecard["comparison"] = {
+            "comparable": comparison["comparable"],
+            "mode": comparison["comparison_mode"],
+            "contract": comparison["comparison_contract"],
+            "contract_sha256": comparison["comparison_contract_sha256"],
+            "mismatches": comparison["mismatches"],
+        }
+        if not comparison["comparable"]:
+            scorecard["status"] = "exploratory_non_comparable"
+            scorecard["public_claim"] = False
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(scorecard, indent=2) + "\n", encoding="utf-8")
