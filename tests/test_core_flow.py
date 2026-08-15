@@ -444,7 +444,7 @@ def test_runner_recovery_only_variant_uses_rejection_trigger_without_verifier(tm
         capture_replay=False,
     )
 
-    report = runner.evaluate(Suite.load("maniskill_smoke_v0"))
+    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
 
     assert engine.last_action == 0.5
     assert report.summary["metrics"]["recovery_attempt_count"] == 1.0
@@ -483,7 +483,7 @@ def test_runner_keeps_failed_recovery_as_context_without_bc_target(tmp_path: Pat
         capture_replay=False,
     )
 
-    runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
 
     manifest = json.loads((tmp_path / "recovery_dataset" / "manifest.json").read_text(encoding="utf-8"))
     episodes_path = tmp_path / "recovery_dataset" / "episodes.json"
@@ -492,12 +492,21 @@ def test_runner_keeps_failed_recovery_as_context_without_bc_target(tmp_path: Pat
     assert manifest["format"] == "nyssa-recovery-dataset-v2"
     assert manifest["target_steps"] == 0
     assert manifest["context_steps"] == 1
+    assert manifest["recovery_attempts"] == 1
+    assert manifest["recovery_applied_attempts"] == 0
+    assert manifest["recovery_successful_attempts"] == 0
+    assert manifest["recovery_attempt_outcomes"] == {"not_applied": 1}
     assert recovery_step["record_type"] == "negative_context"
     assert recovery_step["executed_action_source"] == "policy"
     assert recovery_step["target_action"] is None
     assert recovery_step["target_source"] is None
     assert recovery_step["target_valid"] is False
     assert recovery_step["target_invalid_reason"] == "rejected_policy_action"
+    assert recovery_step["info"]["recovery_outcome"] == "not_applied"
+    assert report.summary["metrics"]["recovery_attempt_count"] == 1.0
+    assert report.summary["metrics"]["recovery_applied_count"] == 0.0
+    assert report.summary["metrics"]["recovery_not_applied_count"] == 1.0
+    assert report.summary["metrics"]["recovery_success_rate"] == 0.0
     with pytest.raises(ValueError, match="No eligible expert or recovery targets"):
         load_recovery_episodes([episodes_path])
 
@@ -537,7 +546,7 @@ def test_runner_executes_recovery_macro_plan(tmp_path: Path):
             return [0.25, 0.75]
 
     get_plugin_registry().engines["macro_recovery_unit"] = MacroRecoveryEngine
-    suite = Suite.load("maniskill_smoke_v0")
+    suite = Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"])
     runner = PolicyRunner(
         policy="random",
         engine="macro_recovery_unit",
@@ -547,6 +556,7 @@ def test_runner_executes_recovery_macro_plan(tmp_path: Path):
         expert_provider=MacroRecoveryExpert(),
         enable_verifier=True,
         enable_recovery=True,
+        recovery_attribution_horizon=1,
         capture_replay=False,
     )
 
@@ -559,14 +569,171 @@ def test_runner_executes_recovery_macro_plan(tmp_path: Path):
     assert '"action_source": "recovery"' in episode
     assert '"recovery_plan_label": "unit_macro"' in episode
     recovery_path = tmp_path / "recovery_dataset" / "episodes.json"
+    recovery_manifest = json.loads(
+        (tmp_path / "recovery_dataset" / "manifest.json").read_text(encoding="utf-8")
+    )
     recovery_dataset = json.loads(recovery_path.read_text(encoding="utf-8"))
     recovery_steps = recovery_dataset[0]["steps"]
     assert len(recovery_steps) == 2
     assert all(step["target_valid"] is True for step in recovery_steps)
     assert all(step["target_source"] == "recovery" for step in recovery_steps)
     assert [step["target_action"] for step in recovery_steps] == [0.25, 0.75]
+    assert all(step["info"]["recovery_outcome"] == "success" for step in recovery_steps)
+    assert all(step["info"]["recovery_plan_success"] is True for step in recovery_steps)
+    assert all(step["info"]["recovery_attribution_horizon_steps"] == 2 for step in recovery_steps)
+    assert recovery_manifest["recovery_attempts"] == 1
+    assert recovery_manifest["recovery_applied_attempts"] == 1
+    assert recovery_manifest["recovery_successful_attempts"] == 1
+    assert recovery_manifest["recovery_success_rate"] == 1.0
     training_steps = load_recovery_episodes([recovery_path])[0]["steps"]
     assert [step["action"] for step in training_steps] == [0.25, 0.75]
+
+
+def test_runner_records_zero_recovery_attempt_outcomes(tmp_path: Path):
+    class AcceptingExpert(ExpertProvider):
+        provider_id = "accepting_unit"
+
+        def score_action(self, observation, action, *, task, engine=None):
+            return ExpertActionScore(accepted=True, confidence=1.0, reason="accepted")
+
+    get_plugin_registry().engines["zero_recovery_unit"] = UnitEngine
+    runner = PolicyRunner(
+        policy="random",
+        engine="zero_recovery_unit",
+        episodes=1,
+        out=tmp_path,
+        expert_provider=AcceptingExpert(),
+        enable_recovery=True,
+        capture_replay=False,
+    )
+
+    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+
+    metrics = report.summary["metrics"]
+    assert metrics["recovery_attempt_count"] == 0.0
+    assert metrics["recovery_applied_count"] == 0.0
+    assert metrics["recovery_success_count"] == 0.0
+    assert metrics["recovery_success_rate"] == 0.0
+    assert metrics["recovery_episode_success_rate"] == 0.0
+
+
+def test_runner_does_not_attribute_success_after_recovery_window(tmp_path: Path):
+    class DelayedSuccessEngine(UnitEngine):
+        max_steps = 4
+
+        def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+            self.step_count = 0
+            return _observation(), {"seed": seed}
+
+        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+            self.step_count += 1
+            success = self.step_count == 3
+            return _observation(), 1.0, success, False, {
+                "success": success,
+                "completion_time": float(self.step_count),
+            }
+
+    class FirstStepRecoveryExpert(ExpertProvider):
+        provider_id = "first_step_recovery"
+
+        def score_action(self, observation, action, *, task, engine=None):
+            return ExpertActionScore(
+                accepted=bool(engine.step_count),
+                confidence=1.0,
+                reason="first_step_only",
+            )
+
+        def recover(self, *, state, failure, task, engine=None):
+            return [0.5]
+
+    get_plugin_registry().engines["delayed_success_unit"] = DelayedSuccessEngine
+    runner = PolicyRunner(
+        policy="random",
+        engine="delayed_success_unit",
+        episodes=1,
+        out=tmp_path,
+        expert_provider=FirstStepRecoveryExpert(),
+        enable_recovery=True,
+        recovery_attribution_horizon=2,
+        capture_replay=False,
+    )
+
+    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+
+    metrics = report.summary["metrics"]
+    assert report.summary["success_rate"] == 1.0
+    assert metrics["recovery_attempt_count"] == 1.0
+    assert metrics["recovery_applied_count"] == 1.0
+    assert metrics["recovery_success_count"] == 0.0
+    assert metrics["recovery_failure_count"] == 1.0
+    assert metrics["recovery_success_rate"] == 0.0
+    assert metrics["recovery_episode_success_rate"] == 0.0
+    steps = runner.episode_results[0].steps
+    assert steps[0].info["recovery_outcome"] == "window_expired"
+    assert steps[0].info["recovery_outcome_step"] == 1
+    assert steps[0].info["recovery_success"] is False
+    assert steps[1].info["recovery_attribution_attempt_id"] == 1
+    assert steps[2].info["recovery_attribution_attempt_id"] is None
+
+
+def test_runner_attributes_only_latest_of_multiple_recovery_attempts(tmp_path: Path):
+    class MultipleRecoveryEngine(UnitEngine):
+        max_steps = 5
+
+        def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+            self.step_count = 0
+            return _observation(), {"seed": seed}
+
+        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+            self.step_count += 1
+            success = self.step_count == 4
+            return _observation(), 1.0, success, False, {
+                "success": success,
+                "completion_time": float(self.step_count),
+            }
+
+    class MultipleRecoveryExpert(ExpertProvider):
+        provider_id = "multiple_recovery"
+
+        def score_action(self, observation, action, *, task, engine=None):
+            rejected = engine.step_count in {0, 2}
+            return ExpertActionScore(accepted=not rejected, confidence=1.0, reason="scheduled")
+
+        def recover(self, *, state, failure, task, engine=None):
+            return [0.25]
+
+    get_plugin_registry().engines["multiple_recovery_unit"] = MultipleRecoveryEngine
+    runner = PolicyRunner(
+        policy="random",
+        engine="multiple_recovery_unit",
+        episodes=1,
+        out=tmp_path,
+        expert_provider=MultipleRecoveryExpert(),
+        enable_recovery=True,
+        recovery_attribution_horizon=3,
+        capture_replay=False,
+    )
+
+    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+
+    metrics = report.summary["metrics"]
+    assert metrics["recovery_attempt_count"] == 2.0
+    assert metrics["recovery_applied_count"] == 2.0
+    assert metrics["recovery_success_count"] == 1.0
+    assert metrics["recovery_failure_count"] == 1.0
+    assert metrics["recovery_success_rate"] == 0.5
+    assert metrics["recovery_episode_applied_count"] == 1.0
+    assert metrics["recovery_episode_success_count"] == 1.0
+    assert metrics["recovery_episode_success_rate"] == 1.0
+    steps = runner.episode_results[0].steps
+    assert steps[0].info["recovery_attempt_id"] == 1
+    assert steps[0].info["recovery_outcome"] == "superseded"
+    assert steps[0].info["recovery_success"] is False
+    assert steps[2].info["recovery_attempt_id"] == 2
+    assert steps[2].info["recovery_outcome"] == "success"
+    assert steps[2].info["recovery_outcome_step"] == 3
+    assert steps[3].info["recovery_attribution_attempt_id"] == 2
+    assert steps[3].info["recovery_success"] is True
 
 
 def test_builtin_expert_providers_emit_actions():

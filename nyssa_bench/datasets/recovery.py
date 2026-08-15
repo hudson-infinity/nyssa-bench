@@ -20,6 +20,10 @@ def write_recovery_dataset(episodes: list[EpisodeResult], out_dir: str | Path) -
     target_steps = 0
     context_steps = 0
     target_sources: dict[str, int] = {}
+    recovery_attempts = 0
+    recovery_applied_attempts = 0
+    recovery_successful_attempts = 0
+    recovery_attempt_outcomes: dict[str, int] = {}
     for episode in episodes:
         recovery_steps = []
         for step_index, step in enumerate(episode.steps):
@@ -35,6 +39,13 @@ def write_recovery_dataset(episodes: list[EpisodeResult], out_dir: str | Path) -
             )
             if not is_recovery_context:
                 continue
+
+            if info.get("recovery_attempted"):
+                recovery_attempts += 1
+                recovery_applied_attempts += int(bool(info.get("recovery_applied")))
+                outcome = str(info.get("recovery_outcome") or "unknown")
+                recovery_attempt_outcomes[outcome] = recovery_attempt_outcomes.get(outcome, 0) + 1
+                recovery_successful_attempts += int(outcome == "success")
 
             target_source = executed_action_source if is_target else None
             target_action = payload["action"] if is_target else None
@@ -81,6 +92,14 @@ def write_recovery_dataset(episodes: list[EpisodeResult], out_dir: str | Path) -
         "target_steps": target_steps,
         "context_steps": context_steps,
         "target_sources": dict(sorted(target_sources.items())),
+        "recovery_attempts": recovery_attempts,
+        "recovery_applied_attempts": recovery_applied_attempts,
+        "recovery_successful_attempts": recovery_successful_attempts,
+        "recovery_success_rate": recovery_successful_attempts / recovery_applied_attempts
+        if recovery_applied_attempts
+        else 0.0,
+        "recovery_success_rate_denominator": "applied_recovery_attempts",
+        "recovery_attempt_outcomes": dict(sorted(recovery_attempt_outcomes.items())),
         "source": "recovery_context_and_supervised_targets",
     }
     manifest_path = recovery_dir / "manifest.json"

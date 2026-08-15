@@ -57,7 +57,7 @@ def write_results_markdown(
 
 ## Results Summary
 
-| Policy | Episodes | Successes | Success rate | Expert intervention | Recovery success | Verifier rejection | Primary failure |
+| Policy | Episodes | Successes | Success rate | Expert intervention | Recovery success (successful/applied) | Verifier rejection | Primary failure |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 {policy_rows}
 
@@ -176,7 +176,8 @@ def _policy_rows(summaries: list[dict[str, Any]]) -> str:
                 "successes": 0,
                 "failures": {},
                 "intervention_weighted": 0.0,
-                "recovery_weighted": 0.0,
+                "recovery_successes": 0.0,
+                "recovery_applied": 0.0,
                 "verifier_weighted": 0.0,
             },
         )
@@ -185,7 +186,9 @@ def _policy_rows(summaries: list[dict[str, Any]]) -> str:
         row["episodes"] += episodes
         row["successes"] += round(float(summary.get("success_rate", 0.0)) * episodes)
         row["intervention_weighted"] += float(metrics.get("expert_intervention_rate", 0.0)) * episodes
-        row["recovery_weighted"] += float(metrics.get("recovery_success_rate", 0.0)) * episodes
+        recovery_successes, recovery_applied = _recovery_success_totals(summary)
+        row["recovery_successes"] += recovery_successes
+        row["recovery_applied"] += recovery_applied
         row["verifier_weighted"] += float(metrics.get("verifier_rejection_rate", 0.0)) * episodes
         for label, count in (summary.get("failure_counts") or {}).items():
             row["failures"][label] = row["failures"].get(label, 0) + int(count)
@@ -195,14 +198,17 @@ def _policy_rows(summaries: list[dict[str, Any]]) -> str:
         successes = int(row["successes"])
         rate = successes / episodes if episodes else 0.0
         intervention_rate = float(row["intervention_weighted"]) / episodes if episodes else 0.0
-        recovery_rate = float(row["recovery_weighted"]) / episodes if episodes else 0.0
+        recovery_applied = float(row["recovery_applied"])
+        recovery_rate = float(row["recovery_successes"]) / recovery_applied if recovery_applied else 0.0
         verifier_rate = float(row["verifier_weighted"]) / episodes if episodes else 0.0
         primary = _primary_failure(row["failures"])
         rows.append(
             f"| `{policy}` | {episodes} | {successes} | {rate:.4f} | "
-            f"{intervention_rate:.4f} | {recovery_rate:.4f} | {verifier_rate:.4f} | `{primary}` |"
+            f"{intervention_rate:.4f} | {recovery_rate:.4f} "
+            f"({int(float(row['recovery_successes']))}/{int(recovery_applied)}) | "
+            f"{verifier_rate:.4f} | `{primary}` |"
         )
-    return "\n".join(rows) if rows else "| n/a | 0 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | n/a |"
+    return "\n".join(rows) if rows else "| n/a | 0 | 0 | 0.0000 | 0.0000 | 0.0000 (0/0) | 0.0000 | n/a |"
 
 
 def _validation_rows(summaries: list[dict[str, Any]]) -> str:
@@ -324,6 +330,19 @@ def _policy_success_rates(summaries: list[dict[str, Any]]) -> dict[str, float]:
 
 
 def _policy_metric_rates(summaries: list[dict[str, Any]], metric_name: str) -> dict[str, float]:
+    if metric_name == "recovery_success_rate":
+        totals: dict[str, list[float]] = {}
+        for summary in summaries:
+            policy = str(summary.get("policy") or _policy_from_run_dir(summary.get("_run_dir", "")))
+            successes, applied = _recovery_success_totals(summary)
+            item = totals.setdefault(policy, [0.0, 0.0])
+            item[0] += successes
+            item[1] += applied
+        return {
+            policy: successes / applied if applied else 0.0
+            for policy, (successes, applied) in totals.items()
+        }
+
     totals: dict[str, list[float]] = {}
     for summary in summaries:
         policy = str(summary.get("policy") or _policy_from_run_dir(summary.get("_run_dir", "")))
@@ -333,3 +352,16 @@ def _policy_metric_rates(summaries: list[dict[str, Any]], metric_name: str) -> d
         item[0] += float(metrics.get(metric_name, 0.0)) * episodes
         item[1] += float(episodes)
     return {policy: weighted / episodes if episodes else 0.0 for policy, (weighted, episodes) in totals.items()}
+
+
+def _recovery_success_totals(summary: dict[str, Any]) -> tuple[float, float]:
+    metrics = summary.get("metrics") or {}
+    if "recovery_applied_count" in metrics:
+        return (
+            float(metrics.get("recovery_success_count", 0.0)),
+            float(metrics.get("recovery_applied_count", 0.0)),
+        )
+
+    episodes = int(summary.get("episodes", 0))
+    attempts = float(metrics.get("recovery_attempt_count", 0.0)) * episodes
+    return float(metrics.get("recovery_success_rate", 0.0)) * attempts, attempts

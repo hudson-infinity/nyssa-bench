@@ -3,6 +3,7 @@ from typing import Any
 import json
 
 import pytest
+import yaml
 
 from nyssa_bench.cli import main
 from nyssa_bench.engines.base import NyssaEngine
@@ -82,11 +83,15 @@ def test_cli_run_and_export(tmp_path: Path):
             "random",
             "--episodes",
             "1",
+            "--recovery-attribution-horizon",
+            "2",
             "--out",
             str(run_dir),
         ]
     ) == 0
     assert (run_dir / "report.html").exists()
+    run_metadata = yaml.safe_load((run_dir / "run.yaml").read_text(encoding="utf-8"))
+    assert run_metadata["recovery_outcomes"]["attribution_horizon_steps"] == 2
     assert main(["report", str(run_dir)]) == 0
 
     assert main(["export", "--run", str(run_dir), "--format", "lerobot"]) == 0
