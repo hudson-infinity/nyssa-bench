@@ -13,11 +13,12 @@ A public NyssaBench benchmark result must include:
 - mapped success predicate
 - at least 100 episodes per task
 - at least 3 seeds per policy in the result pack
+- complete task-by-episode matrix with unique seeds paired across tasks
 - episode artifacts
-- MP4 replay videos for every episode
-- package versions
+- MP4 replay files that exist for every episode
+- selected simulator and policy package versions
 - environment metadata
-- git metadata
+- a recorded git commit from a clean worktree
 - diagnosed failure labels from the environment or `FailureMapper`
 - unsupported stressors reported honestly
 
@@ -29,6 +30,7 @@ The following are useful but not public benchmark results:
 - `--no-replay` runs
 - adapter-contract runs
 - runs with missing video artifacts
+- runs from a dirty or unidentified git revision
 - runs with placeholder policies
 - runs with too few episodes
 - runs with unsupported stressors silently listed as active
@@ -58,4 +60,3 @@ Validation should defend against:
 - treating a heuristic reliability score as real sim-to-real validation
 - calling video-less artifacts replay-first reports
 - treating adapter hooks as evaluated baselines
-

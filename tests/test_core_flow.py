@@ -352,6 +352,27 @@ def test_runner_writes_artifacts(tmp_path: Path):
     assert (tmp_path / "report.html").exists()
 
 
+def test_runner_namespaces_episode_seeds_without_losing_task_pairing(tmp_path: Path):
+    _register_unit_engine()
+    runner = PolicyRunner(
+        policy="random",
+        engine="unit_real",
+        episodes=2,
+        seed=3,
+        out=tmp_path,
+        capture_replay=False,
+    )
+
+    runner.evaluate(Suite.load("maniskill_smoke_v0"))
+
+    seeds_by_task = {
+        task_id: [episode.seed for episode in runner.episode_results if episode.task_id == task_id]
+        for task_id in {episode.task_id for episode in runner.episode_results}
+    }
+    assert set(tuple(seeds) for seeds in seeds_by_task.values()) == {(3_000_000, 3_000_001)}
+    assert runner.run_metadata["seed_protocol"]["format"] == "nyssa-episode-seed-v2"
+
+
 def test_runner_records_expert_verifier_interventions(tmp_path: Path):
     _register_unit_engine()
 
@@ -388,6 +409,49 @@ def test_runner_records_expert_verifier_interventions(tmp_path: Path):
     assert runner.run_metadata["expert_provider"]["provider_id"] == "rejecting_unit"
     episodes = (tmp_path / "episodes.jsonl").read_text(encoding="utf-8").splitlines()
     assert '"verifier_rejected": true' in episodes[0]
+
+
+def test_runner_recovery_only_variant_uses_rejection_trigger_without_verifier(tmp_path: Path):
+    class RecoveryOnlyEngine(UnitEngine):
+        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+            self.last_action = float(np.asarray(action).reshape(-1)[0])
+            return super().step(action)
+
+    class RecoveryOnlyExpert(ExpertProvider):
+        provider_id = "recovery_only"
+
+        def score_action(self, observation, action, *, task, engine=None):
+            return ExpertActionScore(accepted=False, confidence=1.0, reason="recover")
+
+        def act(self, observation, *, task, engine=None):
+            raise AssertionError("recovery-only must not apply the verifier fallback action")
+
+        def recover(self, *, state, failure, task, engine=None):
+            return [0.5]
+
+    engine = RecoveryOnlyEngine()
+    get_plugin_registry().engines["recovery_only_unit"] = lambda: engine
+    runner = PolicyRunner(
+        policy="random",
+        engine="recovery_only_unit",
+        episodes=1,
+        seed=123,
+        out=tmp_path,
+        expert_provider=RecoveryOnlyExpert(),
+        enable_verifier=False,
+        enable_recovery=True,
+        capture_replay=False,
+    )
+
+    report = runner.evaluate(Suite.load("maniskill_smoke_v0"))
+
+    assert engine.last_action == 0.5
+    assert report.summary["metrics"]["recovery_attempt_count"] == 1.0
+    assert report.summary["metrics"]["action_rejection_count"] == 1.0
+    assert report.summary["metrics"]["verifier_rejection_count"] == 0.0
+    episode = (tmp_path / "episodes.json").read_text(encoding="utf-8")
+    assert '"action_rejected": true' in episode
+    assert '"verifier_rejected": false' in episode
 
 
 def test_runner_executes_recovery_macro_plan(tmp_path: Path):
@@ -1015,6 +1079,7 @@ def test_public_claim_requires_replay_video_evidence(tmp_path: Path):
                     failure_label="timeout",
                     failure_label_source="mapper",
                     metrics={},
+                    replay_path="videos/missing.mp4",
                     steps=[
                         StepRecord(
                             observation={},
@@ -1040,6 +1105,7 @@ def test_public_claim_requires_replay_video_evidence(tmp_path: Path):
 
     assert validation.public_claim is False
     assert "replay_video_evidence" in validation.failures
+    assert "git_worktree_clean" in validation.failures
 
 
 def test_stable_validation_import_path():

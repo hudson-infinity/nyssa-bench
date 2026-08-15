@@ -7,7 +7,13 @@ from typing import Any
 
 import numpy as np
 
-from nyssa_bench.baselines.features import flatten_observation, normalize_action, observation_numeric_values
+from nyssa_bench.baselines.features import (
+    action_space_contract,
+    flatten_observation,
+    normalize_action_to_unit,
+    observation_numeric_values,
+    validate_action_space_contract,
+)
 from nyssa_bench.core.episode import EpisodeResult
 
 MIN_OBSERVATION_PAYLOAD_COVERAGE = 0.95
@@ -27,6 +33,7 @@ def export_robomimic_hdf5(
         raise RuntimeError("RoboMimic export requires: uv sync --extra dataset") from exc
 
     validate_robomimic_observations(episodes, feature_dim=feature_dim)
+    action_contract = validate_robomimic_actions(episodes)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(path, "w") as handle:
@@ -40,12 +47,12 @@ def export_robomimic_hdf5(
                 },
             }
         )
+        data.attrs["nyssa_action_transform"] = json.dumps(action_contract)
         total = 0
         for index, episode in enumerate(episodes):
             group = data.create_group(f"demo_{index}")
             observations = [flatten_observation(_without_simulator_state(step.observation), feature_dim) for step in episode.steps]
-            action_size = _action_size(episode)
-            actions = [normalize_action(step.action, action_size) for step in episode.steps]
+            actions = [normalize_action_to_unit(step.action, step.observation).reshape(-1) for step in episode.steps]
             rewards = [step.reward for step in episode.steps]
             dones = [bool(step.terminated or step.truncated) for step in episode.steps]
             if dones:
@@ -67,6 +74,33 @@ def export_robomimic_hdf5(
             total += len(episode.steps)
         data.attrs["total"] = total
     return path
+
+
+def validate_robomimic_actions(
+    episodes: list[EpisodeResult],
+    *,
+    context: str = "RoboMimic dataset",
+) -> dict[str, Any]:
+    expected: dict[str, Any] | None = None
+    step_count = 0
+    for episode in episodes:
+        for step_index, step in enumerate(episode.steps):
+            try:
+                current = action_space_contract(step.observation)
+                if expected is None:
+                    expected = current
+                else:
+                    validate_action_space_contract(current, expected)
+                normalize_action_to_unit(step.action, step.observation)
+            except ValueError as exc:
+                raise ValueError(
+                    f"{context} has an invalid action contract at task={episode.task_id!r}, "
+                    f"episode={episode.episode_index}, step={step_index}: {exc}"
+                ) from exc
+            step_count += 1
+    if expected is None or step_count == 0:
+        raise ValueError(f"{context} has no actions to export")
+    return expected
 
 
 def validate_robomimic_observations(
@@ -126,18 +160,6 @@ def robomimic_observation_quality(episodes: list[EpisodeResult], *, feature_dim:
         "active_feature_dimensions": active_features,
         "feature_variance_max": variance_max,
     }
-
-
-def _action_size(episode: EpisodeResult) -> int:
-    for step in episode.steps:
-        spec = step.observation.get("action_space", {})
-        shape = spec.get("shape")
-        if shape:
-            size = 1
-            for value in shape:
-                size *= int(value)
-            return size
-    return 1
 
 
 def _without_simulator_state(observation: dict[str, Any]) -> dict[str, Any]:

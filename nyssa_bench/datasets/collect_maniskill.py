@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -84,13 +85,20 @@ def _format_command(
     raw_task_dir: Path,
 ) -> str:
     return template.format(
-        python=sys.executable,
-        env_id=env_id,
-        task_id=env_id.replace("-v1", "").replace("-", "_").lower(),
+        python=_shell_argument(sys.executable),
+        env_id=_shell_argument(env_id),
+        task_id=_shell_argument(env_id.replace("-v1", "").replace("-", "_").lower()),
         num_traj=int(num_traj),
-        raw_dir=raw_dir.as_posix(),
-        raw_task_dir=raw_task_dir.as_posix(),
+        raw_dir=_shell_argument(raw_dir),
+        raw_task_dir=_shell_argument(raw_task_dir),
     )
+
+
+def _shell_argument(value: str | Path) -> str:
+    text = str(value)
+    if os.name == "nt":
+        return subprocess.list2cmdline([text])
+    return shlex.quote(text)
 
 
 def _write_collect_manifest(raw_dir: Path, out: Path, runs: list[dict[str, Any]], failures: list[dict[str, Any]]) -> Path:

@@ -17,3 +17,10 @@ Export a run for robomimic BC training:
 ```bash
 uv run nyssa export --run runs/scripted_oracle --format robomimic --out runs/scripted_oracle/robomimic.hdf5
 ```
+
+The RoboMimic exporter requires a finite Box action contract on every step,
+requires consistent action shape and bounds within one HDF5 file, rejects
+out-of-bounds demonstrations, and affinely normalizes actions to `[-1, 1]`.
+The original bounds are stored in the HDF5 `data` group's
+`nyssa_action_transform` attribute. Use `export-task-robomimic` when tasks have
+different action contracts.

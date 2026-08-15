@@ -64,6 +64,15 @@ RoboMimic is the next learned baseline after the linear smoke test. Export the
 state-aligned planner rollouts to one RoboMimic HDF5 and config per task. The
 source must contain live observations paired with actions; action-only planner
 imports are rejected by observation coverage and feature variance checks.
+NyssaBench normalizes bounded environment actions to `[-1, 1]` in the exported
+HDF5, stores the original bounds in both HDF5 and the task manifest, and
+denormalizes policy outputs against the live action space during evaluation.
+This is required for ManiSkill `pd_joint_pos`, whose absolute joint targets are
+not naturally confined to `[-1, 1]`.
+
+Exports created before `nyssa-task-robomimic-export-v3` used raw actions. Delete
+their generated HDF5/config/checkpoint tree, re-export from the aligned source,
+and retrain; the old checkpoint cannot be corrected only at inference time.
 
 Use held-out simulator seeds for evaluation. A result pack can provide aligned
 training observations, but evaluating on seeds already present in that pack is
@@ -108,13 +117,17 @@ uv run nyssa ablate \
   --suite maniskill_planner_bc_v0 \
   --engine maniskill \
   --policy task_robomimic \
-  --seeds 0 \
+  --seeds 10000 \
   --episodes 20 \
   --variants base \
   --expert-provider maniskill-scripted \
   --out benchmark_results/maniskill_task_robomimic_smoke \
   --capture-replay
 ```
+
+The export manifest records training episode seeds. Evaluation fails on a
+recorded training seed by default. Set `NYSSA_ALLOW_TRAINING_SEED_EVAL=1` only
+for an intentional pipeline diagnostic; such a run is not held-out evidence.
 
 Direct files still work if you prefer a curated checkpoint folder:
 
@@ -123,6 +136,12 @@ checkpoints/robomimic_by_task/maniskill_pick_cube.pth
 checkpoints/robomimic_by_task/maniskill_stack_cube.pth
 checkpoints/robomimic_by_task/maniskill_push_cube.pth
 ```
+
+RoboMimic policy outputs are always interpreted as normalized `[-1, 1]`
+actions. Keep `task_robomimic_manifest.json` beside curated task checkpoints so
+the adapter can verify that training and live action bounds agree. Without the
+manifest, the adapter still denormalizes against the live bounds but cannot
+detect a controller or robot mismatch.
 
 Use the curated folder by changing only the environment variable:
 
