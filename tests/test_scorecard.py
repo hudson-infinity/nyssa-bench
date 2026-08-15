@@ -47,7 +47,9 @@ def test_write_scorecard_outputs_related_artifacts(tmp_path: Path):
     assert comparison.exists()
     assert leaderboard.exists()
     ranking = json.loads(leaderboard.read_text(encoding="utf-8"))
-    assert ranking[0]["run_dir"] == run_b.as_posix()
+    assert ranking["format"] == "nyssa-leaderboard-v2"
+    assert ranking["comparable"] is True
+    assert ranking["ranking"][0]["run_dir"] == run_b.as_posix()
 
 
 def test_cli_scorecard(tmp_path: Path):
@@ -76,16 +78,43 @@ def test_cli_scorecard(tmp_path: Path):
     assert json.loads(out.read_text(encoding="utf-8"))["results"][0]["run_dir"] == run_dir.as_posix()
 
 
-def _make_run(run_dir: Path, *, policy: str, success_rate: float = 0.1) -> Path:
+def test_exploratory_scorecard_is_not_a_public_claim(tmp_path: Path):
+    run_a = _make_run(tmp_path / "run_a", policy="bc_policy", engine="mujoco")
+    run_b = _make_run(tmp_path / "run_b", policy="bc_policy", engine="maniskill")
+    out = tmp_path / "scorecard.json"
+
+    write_scorecard(
+        [run_a, run_b],
+        out=out,
+        comparison_report=tmp_path / "comparison.html",
+        leaderboard=tmp_path / "leaderboard.json",
+        allow_incompatible=True,
+    )
+
+    scorecard = json.loads(out.read_text(encoding="utf-8"))
+    assert scorecard["status"] == "exploratory_non_comparable"
+    assert scorecard["public_claim"] is False
+    assert scorecard["comparison"]["comparable"] is False
+    assert scorecard["comparison"]["mismatches"][0]["field"] == "engine_name"
+
+
+def _make_run(run_dir: Path, *, policy: str, success_rate: float = 0.1, engine: str = "mujoco") -> Path:
     run_dir.mkdir(parents=True)
     metadata = {
         "run_id": f"mujoco_control_v0_{policy}_test",
         "suite_id": "mujoco_control_v0",
         "task_ids": ["mujoco_reacher"],
         "policy_name": policy,
-        "engine_name": "mujoco",
+        "engine_name": engine,
         "episodes_per_task": 10,
         "seed": 42,
+        "seed_protocol": {
+            "format": "nyssa-episode-seed-v1",
+            "run_seed": 42,
+            "episode_seed_stride": 10_000_000,
+            "formula": "run_seed * episode_seed_stride + episode_index",
+            "shared_across_tasks": True,
+        },
         "started_at": "2026-06-29T00:00:00+00:00",
         "finished_at": "2026-06-29T00:01:00+00:00",
     }
@@ -127,13 +156,41 @@ def _make_run(run_dir: Path, *, policy: str, success_rate: float = 0.1) -> Path:
     }
     (run_dir / "run.yaml").write_text(yaml.safe_dump(metadata, sort_keys=False), encoding="utf-8")
     (run_dir / "metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
+    (run_dir / "config.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "suite": {"suite_id": "mujoco_control_v0", "tasks": ["mujoco_reacher"]},
+                "engine": engine,
+                "episodes_per_task": 10,
+                "seed_protocol": metadata["seed_protocol"],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "dataset_manifest.json").write_text(
+        json.dumps(
+            {
+                "format": "nyssa-dataset-manifest-v1",
+                "run": metadata,
+                "suite": {"suite_id": "mujoco_control_v0", "tasks": ["mujoco_reacher"]},
+                "tasks": [
+                    {
+                        "task_id": "mujoco_reacher",
+                        "success": {"type": "threshold", "metric": "distance", "value": 0.05},
+                        "randomization": {"seed": True},
+                        "ood_splits": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     for name in [
-        "config.yaml",
         "environment.json",
         "package_versions.json",
         "git_info.json",
         "episodes.jsonl",
-        "dataset_manifest.json",
         "failure_gallery.html",
         "report.html",
     ]:

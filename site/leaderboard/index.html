@@ -7,11 +7,16 @@
     body { font-family: Inter, Arial, sans-serif; margin: 40px; color: #17202a; }
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #d8dee4; padding: 8px; text-align: left; }
+    #status { border-left: 5px solid #238636; background: #f0fff4; padding: 12px 16px; margin: 20px 0; }
+    #status.non-comparable { border-color: #cf222e; background: #fff1f0; }
+    #status[hidden] { display: none; }
+    code { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
   <h1>NyssaBench Leaderboard</h1>
   <p>Static leaderboard shell. Export rankings with <code>nyssa leaderboard ... --out site/leaderboard/leaderboard.json</code>.</p>
+  <section id="status" hidden></section>
   <table>
     <thead><tr><th>Rank</th><th>Run</th><th>Success</th><th>Prototype reliability</th><th>Claim status</th><th>Primary failure</th></tr></thead>
     <tbody id="rows"></tbody>
@@ -19,7 +24,23 @@
   <script>
     fetch("leaderboard.json")
       .then((response) => response.ok ? response.json() : [])
-      .then((rows) => {
+      .then((data) => {
+        const rows = Array.isArray(data) ? data : (data.ranking || []);
+        const status = document.getElementById("status");
+        if (Array.isArray(data)) {
+          status.hidden = false;
+          status.className = "non-comparable";
+          status.innerHTML = "<strong>LEGACY UNVALIDATED LEADERBOARD</strong><p>This artifact has no comparison contract and must not be treated as a validated benchmark ranking.</p>";
+        } else {
+          const comparable = data.comparable !== false;
+          status.hidden = false;
+          status.className = comparable ? "" : "non-comparable";
+          const label = comparable ? "Comparable strict ranking" : "NON-COMPARABLE EXPLORATORY OUTPUT";
+          const detail = comparable
+            ? "All runs share the recorded comparison contract."
+            : "These runs differ on comparison-critical fields and must not be treated as a benchmark ranking.";
+          status.innerHTML = `<strong>${label}</strong><p>${detail}</p><code>${data.comparison_contract_sha256 || "unknown contract"}</code>`;
+        }
         const tbody = document.getElementById("rows");
         for (const row of rows) {
           const tr = document.createElement("tr");

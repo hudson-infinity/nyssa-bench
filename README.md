@@ -163,6 +163,8 @@ uv run nyssa leaderboard runs/random_mujoco_seed0 runs/random_mujoco_seed1 --out
 uv run nyssa scorecard runs/random_mujoco_seed0 runs/random_mujoco_seed1 --out benchmark_results/baselines_v0.json
 ```
 
+Comparison commands validate a versioned contract before ranking runs. Suite, engine, task set, success predicates, declared stressors, episodes per task, and seed-protocol semantics must match; policy identity and concrete run seeds may differ. Incompatible runs are rejected with field-level differences. Use `--allow-incompatible` only to emit an explicitly non-comparable exploratory report or leaderboard.
+
 ## Recovery And Ablation Runs
 
 Use `ablate` to run base, verifier, recovery, and verifier+recovery variants

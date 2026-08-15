@@ -74,10 +74,20 @@ def main(argv: list[str] | None = None) -> int:
     compare_parser = subparsers.add_parser("compare")
     compare_parser.add_argument("runs", nargs="+")
     compare_parser.add_argument("--out", required=True)
+    compare_parser.add_argument(
+        "--allow-incompatible",
+        action="store_true",
+        help="emit explicitly non-comparable exploratory output instead of rejecting mismatched runs",
+    )
 
     leaderboard_parser = subparsers.add_parser("leaderboard")
     leaderboard_parser.add_argument("runs", nargs="+")
     leaderboard_parser.add_argument("--out", required=True)
+    leaderboard_parser.add_argument(
+        "--allow-incompatible",
+        action="store_true",
+        help="emit explicitly non-comparable exploratory output instead of rejecting mismatched runs",
+    )
 
     scorecard_parser = subparsers.add_parser("scorecard")
     scorecard_parser.add_argument("runs", nargs="+")
@@ -86,6 +96,11 @@ def main(argv: list[str] | None = None) -> int:
     scorecard_parser.add_argument("--date")
     scorecard_parser.add_argument("--comparison-out", default="reports/real_baselines_v0.html")
     scorecard_parser.add_argument("--leaderboard-out", default="site/leaderboard/leaderboard.json")
+    scorecard_parser.add_argument(
+        "--allow-incompatible",
+        action="store_true",
+        help="emit explicitly non-comparable comparison artifacts for mismatched runs",
+    )
 
     experiment_parser = subparsers.add_parser("experiment")
     experiment_parser.add_argument("--suite", default="maniskill_manipulation_v0")
@@ -285,13 +300,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "compare":
-        comparison = compare_runs(args.runs)
+        comparison = compare_runs(args.runs, allow_incompatible=args.allow_incompatible)
         out = save_comparison_report(comparison, args.out)
         print(f"comparison: {out}")
         return 0
 
     if args.command == "leaderboard":
-        comparison = compare_runs(args.runs)
+        comparison = compare_runs(args.runs, allow_incompatible=args.allow_incompatible)
         out = save_leaderboard(comparison, args.out)
         print(f"leaderboard: {out}")
         return 0
@@ -304,6 +319,7 @@ def main(argv: list[str] | None = None) -> int:
             scorecard_date=args.date,
             comparison_report=args.comparison_out,
             leaderboard=args.leaderboard_out,
+            allow_incompatible=args.allow_incompatible,
         )
         for label, path in paths.items():
             print(f"{label}: {path}")
