@@ -24,6 +24,7 @@ from nyssa_bench.datasets.recovery_training import train_recovery_bc
 from nyssa_bench.reports.comparison import compare_runs, save_comparison_report, save_leaderboard
 from nyssa_bench.reports.html_report import Report
 from nyssa_bench.reports.result_pack import write_experiment_manifest, write_results_markdown
+from nyssa_bench.reports.replay_validation import validate_result_pack_replays
 from nyssa_bench.reports.scorecard import write_scorecard
 from nyssa_bench.runner import DEFAULT_RECOVERY_ATTRIBUTION_HORIZON, PolicyRunner
 from nyssa_bench.metrics.run_claims import PUBLIC_CLAIM_ENGINES
@@ -481,6 +482,7 @@ def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
     leaderboard_path = out_dir / "leaderboard.json"
     scorecard_path = out_dir / "scorecard.json"
     comparison = compare_runs(run_dirs)
+    replay_validation = validate_result_pack_replays(run_dirs)
     save_comparison_report(comparison, comparison_path)
     save_leaderboard(comparison, leaderboard_path)
     write_scorecard(
@@ -489,6 +491,7 @@ def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
         benchmark=f"{args.suite} baseline matrix",
         comparison_report=comparison_path,
         leaderboard=leaderboard_path,
+        replay_validation=replay_validation,
     )
     results_path = write_results_markdown(
         out_dir=out_dir,
@@ -501,6 +504,7 @@ def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
         comparison_report=comparison_path,
         leaderboard=leaderboard_path,
         scorecard=scorecard_path,
+        replay_validation=replay_validation,
     )
     manifest_path = write_experiment_manifest(
         out_dir=out_dir,
@@ -516,6 +520,7 @@ def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
             "scorecard": scorecard_path,
             "results": results_path,
         },
+        replay_validation=replay_validation,
     )
     return {
         "manifest": manifest_path,
@@ -558,6 +563,7 @@ def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
     leaderboard_path = out_dir / "leaderboard.json"
     scorecard_path = out_dir / "scorecard.json"
     comparison = compare_runs(run_dirs)
+    replay_validation = validate_result_pack_replays(run_dirs)
     save_comparison_report(comparison, comparison_path)
     save_leaderboard(comparison, leaderboard_path)
     write_scorecard(
@@ -566,6 +572,7 @@ def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
         benchmark=f"{args.suite} ablation matrix",
         comparison_report=comparison_path,
         leaderboard=leaderboard_path,
+        replay_validation=replay_validation,
     )
     results_path = write_results_markdown(
         out_dir=out_dir,
@@ -578,6 +585,7 @@ def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
         comparison_report=comparison_path,
         leaderboard=leaderboard_path,
         scorecard=scorecard_path,
+        replay_validation=replay_validation,
     )
     manifest_path = write_experiment_manifest(
         out_dir=out_dir,
@@ -593,6 +601,7 @@ def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
             "scorecard": scorecard_path,
             "results": results_path,
         },
+        replay_validation=replay_validation,
     )
     return {
         "manifest": manifest_path,

@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from nyssa_bench.reports.replay_validation import validate_result_pack_replays
+
 
 def write_results_markdown(
     *,
@@ -16,10 +18,12 @@ def write_results_markdown(
     comparison_report: Path,
     leaderboard: Path,
     scorecard: Path,
+    replay_validation: dict[str, Any] | None = None,
 ) -> Path:
     summaries = _summarize_runs(run_dirs)
+    replay_validation = replay_validation or validate_result_pack_replays(run_dirs)
     policy_rows = _policy_rows(summaries)
-    validation_rows = _validation_rows(summaries)
+    validation_rows = _validation_rows(summaries, replay_validation)
     unsupported = sorted(
         {
             item
@@ -28,14 +32,19 @@ def write_results_markdown(
         }
     )
     primary_failures = _primary_failures(summaries)
-    video_count = _count_video_files(run_dirs)
     seed_protocol_valid = len(set(seeds)) <= 1 or all(
         (summary.get("_seed_protocol") or {}).get("format") == "nyssa-episode-seed-v2"
         for summary in summaries
     )
-    public_claim_status = "validated" if summaries and seed_protocol_valid and all(
-        (summary.get("public_claim_validation") or {}).get("status") == "validated" for summary in summaries
-    ) else "not validated"
+    public_claim_status = (
+        "validated"
+        if summaries
+        and seed_protocol_valid
+        and replay_validation["public_claim"]
+        and _run_claims_validated(summaries)
+        else "not validated"
+    )
+    replay_counts = replay_validation["counts"]
     out_dir = Path(out_dir)
     path = out_dir / "RESULTS.md"
     run_lines = "\n".join(f"- `{run_dir.as_posix()}`" for run_dir in run_dirs)
@@ -78,15 +87,28 @@ def write_results_markdown(
 
 ## Evidence
 
-- Episode artifacts: `episodes.json` and `episodes.jsonl` are written for every run.
-- Replay videos: `{video_count}` video files found.
+- Episode records: `{replay_counts.get("episode_records_present", 0)}` loaded from `episodes.json`
+  against `{replay_counts.get("expected_episode_replays", 0)}` expected episodes.
+- Episode replays: `{replay_counts.get("episode_replays_present", 0)}` present from
+  `{replay_counts.get("expected_episode_replays", 0)}` expected episode artifacts;
+  `{replay_counts.get("episode_replays_missing", 0)}` missing.
+- Failure clips: `{replay_counts.get("failure_clips_present", 0)}` present from
+  `{replay_counts.get("failure_clips_declared", 0)}` declared clips. Failure clips do not count as episode replays.
+- Extra media: `{replay_counts.get("extra_media_files", 0)}` unreferenced files.
+- Duplicate media: `{replay_counts.get("duplicate_media_files", 0)}` duplicate-content files across
+  `{replay_counts.get("duplicate_media_groups", 0)}` groups. Duplicate media does not increase replay coverage.
+- Replay artifact validation: `{replay_validation["status"]}`
+  (`{", ".join(replay_validation["failures"]) if replay_validation["failures"] else "no failures"}`).
+- Replay manifests: `{replay_counts.get("replay_manifests_present", 0)}` present from
+  `{replay_counts.get("replay_manifests_expected", 0)}` expected manifests.
+- Failure galleries: `{replay_counts.get("failure_galleries_present", 0)}` present from
+  `{replay_counts.get("failure_galleries_expected", 0)}` expected galleries.
 - Dataset manifests: `dataset_manifest.json` is written for every run.
-- Failure galleries: `failure_gallery.html` is written for every run.
 - Reproducibility metadata: `run.yaml`, `config.yaml`, `environment.json`, `package_versions.json`, and `git_info.json` are written for every run.
 
 ## Publication Caveats
 
-{_publication_caveats(summaries, video_count, policies)}
+{_publication_caveats(summaries, replay_validation, policies)}
 
 ## Artifacts
 
@@ -122,6 +144,7 @@ def write_experiment_manifest(
     episodes_per_task: int,
     run_dirs: list[Path],
     artifacts: dict[str, Path],
+    replay_validation: dict[str, Any] | None = None,
 ) -> Path:
     import json
 
@@ -136,6 +159,21 @@ def write_experiment_manifest(
         "episodes_per_task": episodes_per_task,
         "run_dirs": [run_dir.as_posix() for run_dir in run_dirs],
         "artifacts": {key: value.as_posix() for key, value in artifacts.items()},
+    }
+    summaries = _summarize_runs(run_dirs)
+    replay_validation = replay_validation or validate_result_pack_replays(run_dirs)
+    seed_protocol_valid = len(set(seeds)) <= 1 or all(
+        (summary.get("_seed_protocol") or {}).get("format") == "nyssa-episode-seed-v2"
+        for summary in summaries
+    )
+    run_claims_validated = _run_claims_validated(summaries)
+    public_claim = bool(summaries) and seed_protocol_valid and replay_validation["public_claim"] and run_claims_validated
+    payload["validation"] = {
+        "status": "validated" if public_claim else "not_validated",
+        "public_claim": public_claim,
+        "run_claims_validated": run_claims_validated,
+        "seed_protocol_valid": seed_protocol_valid,
+        "replay_artifacts": replay_validation,
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path
@@ -211,20 +249,44 @@ def _policy_rows(summaries: list[dict[str, Any]]) -> str:
     return "\n".join(rows) if rows else "| n/a | 0 | 0 | 0.0000 | 0.0000 | 0.0000 (0/0) | 0.0000 | n/a |"
 
 
-def _validation_rows(summaries: list[dict[str, Any]]) -> str:
+def _validation_rows(
+    summaries: list[dict[str, Any]],
+    replay_validation: dict[str, Any],
+) -> str:
+    replay_by_run = {run["run_dir"]: run for run in replay_validation.get("runs", [])}
     rows = []
     for summary in summaries:
         validation = summary.get("public_claim_validation") or {}
-        failures = validation.get("failures") or []
+        if not isinstance(validation, dict):
+            validation = {}
+        replay = replay_by_run.get(str(summary.get("_run_dir")), {})
+        run_failures = validation.get("failures") or []
+        failures = list(run_failures) if isinstance(run_failures, list) else []
+        failures.extend(f"replay:{failure}" for failure in replay.get("failures", []))
+        validated = validation.get("status") == "validated" and replay.get("status") == "validated"
         rows.append(
             "| `{run}` | `{status}` | `{claim}` | `{failures}` |".format(
                 run=summary.get("_run_dir", "unknown"),
-                status=validation.get("status", "unknown"),
-                claim=summary.get("public_claim", False),
+                status="validated" if validated else "not_validated",
+                claim=bool(summary.get("public_claim", False)) and bool(replay.get("public_claim", False)),
                 failures=", ".join(failures) if failures else "none",
             )
         )
     return "\n".join(rows) if rows else "| n/a | unknown | False | missing metrics |"
+
+
+def _run_claims_validated(summaries: list[dict[str, Any]]) -> bool:
+    if not summaries:
+        return False
+    for summary in summaries:
+        validation = summary.get("public_claim_validation")
+        if not isinstance(validation, dict):
+            return False
+        if not summary.get("public_claim", False):
+            return False
+        if validation.get("status") != "validated" or not validation.get("public_claim", False):
+            return False
+    return True
 
 
 def _primary_failures(summaries: list[dict[str, Any]]) -> str:
@@ -235,15 +297,6 @@ def _primary_failures(summaries: list[dict[str, Any]]) -> str:
     if not counts:
         return "No failures recorded."
     return "\n".join(f"- `{label}`: {count}" for label, count in sorted(counts.items(), key=lambda item: (-item[1], item[0])))
-
-
-def _count_video_files(run_dirs: list[Path]) -> int:
-    suffixes = {".mp4", ".webm", ".gif"}
-    count = 0
-    for run_dir in run_dirs:
-        if Path(run_dir).exists():
-            count += sum(1 for path in Path(run_dir).rglob("*") if path.suffix.lower() in suffixes)
-    return count
 
 
 def _primary_failure(counts: dict[str, int]) -> str:
@@ -259,10 +312,34 @@ def _policy_from_run_dir(run_dir: str) -> str:
     return "unknown"
 
 
-def _publication_caveats(summaries: list[dict[str, Any]], video_count: int, policies: list[str]) -> str:
+def _publication_caveats(
+    summaries: list[dict[str, Any]],
+    replay_validation: dict[str, Any],
+    policies: list[str],
+) -> str:
     caveats: list[str] = []
-    if video_count == 0:
-        caveats.append("- Replay videos are absent; do not describe this pack as video-backed.")
+    replay_counts = replay_validation.get("counts", {})
+    if not replay_validation.get("public_claim", False):
+        caveats.append(
+            "- Replay artifact validation failed; do not describe this pack as video-backed or public-claim "
+            f"validated. Failed checks: {', '.join(replay_validation.get('failures', [])) or 'unknown'}."
+        )
+    missing_replays = int(replay_counts.get("episode_replays_missing", 0))
+    if missing_replays:
+        caveats.append(
+            f"- `{missing_replays}` required episode replay artifacts are missing, invalid, unsafe, or duplicated."
+        )
+    extra_media = int(replay_counts.get("extra_media_files", 0))
+    if extra_media:
+        caveats.append(
+            f"- `{extra_media}` unreferenced media files are present; they do not count as episode replay evidence."
+        )
+    duplicate_media = int(replay_counts.get("duplicate_media_files", 0))
+    if duplicate_media:
+        caveats.append(
+            f"- `{duplicate_media}` duplicate-content media files are present; duplicate media and failure clips "
+            "do not increase episode replay coverage."
+        )
     if any(policy.startswith("demo_replay_policy") for policy in policies):
         caveats.append(
             "- `demo_replay_policy` is a teacher replay or oracle-reference baseline, not a learned deployable policy."

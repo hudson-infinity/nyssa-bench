@@ -25,6 +25,11 @@ def test_build_scorecard_from_real_run_artifacts(tmp_path: Path):
     assert scorecard["results"][0]["policy"] == "random"
     assert scorecard["results"][0]["per_task"]["mujoco_reacher"]["success_count"] == 1
     assert scorecard["next_required_result"]["policy"] == "robomimic_or_diffusion"
+    assert scorecard["status"] == "artifact_validation_failed"
+    assert scorecard["artifacts"]["replay_validation"]["status"] == "not_validated"
+    assert scorecard["results"][0]["run_public_claim"] is True
+    assert scorecard["results"][0]["public_claim"] is False
+    assert "replay:episode_replay_files_present" in scorecard["results"][0]["public_claim_validation"]["failures"]
 
 
 def test_write_scorecard_outputs_related_artifacts(tmp_path: Path):

@@ -16,6 +16,11 @@ A public NyssaBench benchmark result must include:
 - complete task-by-episode matrix with unique seeds paired across tasks
 - episode artifacts
 - MP4 replay files that exist for every episode
+- replay paths that resolve safely inside the assembled run directory
+- matching episode denominators in `run.yaml`, `metrics.json`, and
+  `episodes.json`
+- a replay manifest consistent with episode replay and failure-clip paths
+- pack-level replay revalidation after files are copied, pruned, or archived
 - selected simulator and policy package versions
 - environment metadata
 - a recorded git commit from a clean worktree
@@ -42,6 +47,17 @@ The code-level gate lives in:
 ```txt
 nyssa_bench.metrics.run_claims.RunClaimValidator
 ```
+
+Assembled result packs are independently revalidated by:
+
+```txt
+nyssa_bench.reports.replay_validation.validate_result_pack_replays
+```
+
+This second gate derives coverage from declared per-episode MP4 paths. Failure
+clips, duplicate-content media, galleries, and unreferenced media are counted
+separately and cannot inflate episode replay coverage. Its versioned output is
+embedded in `manifest.json` and scorecards and summarized in `RESULTS.md`.
 
 For compatibility with the intended public API, it is also re-exported from:
 

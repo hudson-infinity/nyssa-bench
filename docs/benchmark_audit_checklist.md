@@ -14,6 +14,15 @@ Use this checklist before publishing a NyssaBench result pack.
 ## Replay Evidence
 
 - Every episode has an MP4 replay.
+- Every declared replay path resolves inside its run directory and points to a
+  distinct existing episode MP4.
+- The assembled pack's expected episode count agrees across `run.yaml`,
+  `metrics.json`, and `episodes.json`.
+- `replay_manifest.json` agrees with the episode replay and failure-clip paths.
+- Failure clips, duplicate-content media, and unreferenced media are reported
+  separately and do not increase episode replay coverage.
+- Pack-level replay validation passes after copying, pruning, or archiving the
+  result directory; cached run validation is not treated as sufficient.
 - Failure episodes are easy to find.
 - Reports include top failure cases.
 - The result is not described as video-backed if videos are absent.
@@ -47,4 +56,3 @@ Use this checklist before publishing a NyssaBench result pack.
 - Do not publish Tier 0 or video-less runs as public benchmark results.
 - Do not compare results produced under different task mappings, stressors, or
   success predicates without calling that out.
-

@@ -11,7 +11,7 @@ def test_publication_caveats_flag_inactive_verifier_and_recovery():
 
     caveats = _publication_caveats(
         summaries,
-        video_count=4,
+        replay_validation=_validated_replay_artifacts(4),
         policies=[
             "task_robomimic:base",
             "task_robomimic:verifier",
@@ -34,7 +34,7 @@ def test_publication_caveats_do_not_flag_inactive_mechanisms_for_solved_policy()
 
     caveats = _publication_caveats(
         summaries,
-        video_count=2,
+        replay_validation=_validated_replay_artifacts(2),
         policies=["task_robomimic:verifier", "task_robomimic:recovery"],
     )
 
@@ -48,7 +48,11 @@ def test_publication_caveats_flag_legacy_overlapping_seed_protocol():
         {**_summary("base", success_rate=0.5), "_run_seed": 1},
     ]
 
-    caveats = _publication_caveats(summaries, video_count=2, policies=["policy:base"])
+    caveats = _publication_caveats(
+        summaries,
+        replay_validation=_validated_replay_artifacts(2),
+        policies=["policy:base"],
+    )
 
     assert "not independent multi-seed evidence" in caveats
 
@@ -63,5 +67,19 @@ def _summary(policy: str, *, success_rate: float) -> dict:
             "recovery_attempt_count": 0.0,
             "recovery_success_rate": 0.0,
             "verifier_rejection_rate": 0.0,
+        },
+    }
+
+
+def _validated_replay_artifacts(count: int) -> dict:
+    return {
+        "public_claim": True,
+        "failures": [],
+        "counts": {
+            "expected_episode_replays": count,
+            "episode_replays_present": count,
+            "episode_replays_missing": 0,
+            "extra_media_files": 0,
+            "duplicate_media_files": 0,
         },
     }

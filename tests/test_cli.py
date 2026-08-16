@@ -342,6 +342,9 @@ def test_cli_experiment_writes_result_pack(tmp_path: Path):
     assert (out / "scorecard.json").exists()
     assert (out / "random" / "seed_0" / "metrics.json").exists()
     assert (out / "random" / "seed_1" / "metrics.json").exists()
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["validation"]["status"] == "not_validated"
+    assert manifest["validation"]["replay_artifacts"]["counts"]["episode_replays_missing"] > 0
 
 
 def test_cli_ablate_writes_variant_pack(tmp_path: Path):
@@ -377,6 +380,8 @@ def test_cli_ablate_writes_variant_pack(tmp_path: Path):
     assert (out / "RESULTS.md").exists()
     assert (out / "base" / "seed_0" / "metrics.json").exists()
     assert (out / "verifier" / "seed_0" / "metrics.json").exists()
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["validation"]["replay_artifacts"]["public_claim"] is False
 
 
 def test_cli_ablate_filters_tasks(tmp_path: Path):

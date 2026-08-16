@@ -8,6 +8,7 @@ from typing import Any
 import yaml
 
 from nyssa_bench.reports.comparison import compare_runs, save_comparison_report, save_leaderboard
+from nyssa_bench.reports.replay_validation import validate_result_pack_replays
 
 
 REQUIRED_RUN_FILES = [
@@ -25,7 +26,7 @@ REQUIRED_RUN_FILES = [
 
 DEFAULT_NOTES = [
     "These results are generated from NyssaBench run artifacts on disk.",
-    "Public claims require the run-level validation gate to pass.",
+    "Public claims require both run-level validation and assembled artifact revalidation to pass.",
     "Random policies are baseline sanity checks, not strong learned-policy results.",
 ]
 
@@ -38,18 +39,41 @@ def build_scorecard(
     comparison_report: str | Path | None = None,
     leaderboard: str | Path | None = None,
     notes: list[str] | None = None,
+    replay_validation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not run_dirs:
         raise ValueError("At least one run directory is required")
 
     normalized_run_dirs = [Path(path) for path in run_dirs]
     results = [_load_scorecard_result(path) for path in normalized_run_dirs]
+    replay_validation = replay_validation or validate_result_pack_replays(normalized_run_dirs)
+    replay_by_run = {run["run_dir"]: run for run in replay_validation.get("runs", [])}
+    for result in results:
+        run_validation = replay_by_run.get(str(result.get("run_dir")), {})
+        original_claim = bool(result.get("public_claim", False))
+        original_validation = result.get("public_claim_validation", {})
+        if not isinstance(original_validation, dict):
+            original_validation = {}
+        artifact_claim = bool(run_validation.get("public_claim", False))
+        original_failures = original_validation.get("failures", [])
+        combined_failures = list(original_failures) if isinstance(original_failures, list) else []
+        combined_failures.extend(f"replay:{failure}" for failure in run_validation.get("failures", []))
+        result["run_public_claim"] = original_claim
+        result["run_public_claim_validation"] = original_validation
+        result["artifact_validation"] = run_validation
+        result["public_claim"] = original_claim and artifact_claim
+        result["public_claim_validation"] = {
+            "status": "validated" if result["public_claim"] else "not_validated",
+            "public_claim": result["public_claim"],
+            "failures": combined_failures,
+        }
     scorecard: dict[str, Any] = {
         "benchmark": benchmark,
         "date": scorecard_date or date.today().isoformat(),
         "status": "generated",
         "public_claim": all(bool(result.get("public_claim", False)) for result in results)
-        and not _needs_learned_baseline(results),
+        and not _needs_learned_baseline(results)
+        and bool(replay_validation["public_claim"]),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "notes": notes or DEFAULT_NOTES,
         "results": results,
@@ -57,8 +81,11 @@ def build_scorecard(
             "comparison_report": _display_path(comparison_report) if comparison_report else None,
             "leaderboard": _display_path(leaderboard) if leaderboard else None,
             "required_per_run": REQUIRED_RUN_FILES,
+            "replay_validation": replay_validation,
         },
     }
+    if not replay_validation["public_claim"]:
+        scorecard["status"] = "artifact_validation_failed"
     if _needs_learned_baseline(results):
         scorecard["next_required_result"] = {
             "suite": "maniskill_smoke_v0",
@@ -79,6 +106,7 @@ def write_scorecard(
     comparison_report: str | Path | None = None,
     leaderboard: str | Path | None = None,
     allow_incompatible: bool = False,
+    replay_validation: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     comparison_path = Path(comparison_report) if comparison_report else None
     leaderboard_path = Path(leaderboard) if leaderboard else None
@@ -99,6 +127,7 @@ def write_scorecard(
         scorecard_date=scorecard_date,
         comparison_report=comparison_path,
         leaderboard=leaderboard_path,
+        replay_validation=replay_validation,
     )
     if comparison:
         scorecard["comparison"] = {
