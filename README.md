@@ -120,6 +120,13 @@ launching `nyssa` to match the device exposed by the host. For non-public
 debugging on CPU-only sessions, set `NYSSA_MANISKILL_RENDER_MODE=none` and use
 `--no-replay`; public claims still require replay videos.
 
+When an experiment or ablation result pack is assembled, NyssaBench revalidates
+the replay artifacts currently on disk instead of trusting the status cached in
+each run's `metrics.json`. The pack manifest, scorecard, and `RESULTS.md` report
+expected, present, missing, extra, failure-clip, gallery, and duplicate-media
+counts. Failure clips and duplicate files never increase per-episode replay
+coverage, and missing or unsafe replay paths downgrade the pack to non-public.
+
 Do not use `pip install -e ".[full]"` for normal benchmark runs. The `full`
 extra intentionally pulls heavy experimental stacks, including Genesis,
 RoboMimic, LeRobot, VLA, and diffusion dependencies, and native packages in
@@ -504,6 +511,12 @@ runs/random_mujoco_seed0/
 |-- lerobot/
 `-- report.html
 ```
+
+`manifest.json` records the versioned
+`nyssa-result-pack-replay-validation-v1` audit for experiment and ablation
+packs. Episode replay paths must resolve to distinct MP4 files inside their run
+directory. `replay_manifest.json` must agree with `episodes.json`, and the
+episode denominator in `metrics.json` must agree with `run.yaml`.
 
 Import official ManiSkill motion-planning demonstrations before training
 planner-backed learned baselines:

@@ -1,6 +1,10 @@
 # Scorecards
 
-Public scorecards should be generated from committed task specs, fixed seeds, published run artifacts, and runs that pass `public_claim_validation`.
+Public scorecards should be generated from committed task specs, fixed seeds,
+published run artifacts, and runs that pass `public_claim_validation`. The
+assembled artifacts must also pass
+`nyssa-result-pack-replay-validation-v1`; a cached run-level status does not
+override missing episode videos, stale replay manifests, or unsafe paths.
 
 `benchmark_results/baselines_v0.json` is generated from real simulator run directories. Do not hand-edit score values. Random-only scorecards are sanity baselines and are not public learned-policy benchmark claims.
 
@@ -39,7 +43,11 @@ uv run nyssa experiment \
   --out benchmark_results/maniskill_manipulation_v0
 ```
 
-Every scorecard should publish `metrics.json`, `episodes.jsonl`, `report.html`, environment metadata, package versions, git info, per-task success rates, confidence intervals, failure counts, public-claim validation, and unsupported-stressor reporting.
+Every scorecard should publish `metrics.json`, `episodes.json`,
+`episodes.jsonl`, `replay_manifest.json`, `report.html`, environment metadata,
+package versions, git info, per-task success rates, confidence intervals,
+failure counts, run-level public-claim validation, assembled replay validation,
+and unsupported-stressor reporting.
 
 For a learned baseline outside the experiment helper, run a real checkpoint through the adapter factory and include that run directory in the same scorecard command:
 
