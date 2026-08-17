@@ -36,6 +36,7 @@ class EpisodeResult:
     steps: list[StepRecord] = field(default_factory=list)
     replay_path: str | None = None
     failure_clip_path: str | None = None
+    stressor_context: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -48,6 +49,7 @@ class EpisodeResult:
             "metrics": self.metrics,
             "replay_path": self.replay_path,
             "failure_clip_path": self.failure_clip_path,
+            "stressor_context": _to_jsonable(self.stressor_context),
             "steps": [step.to_dict() for step in self.steps],
         }
 

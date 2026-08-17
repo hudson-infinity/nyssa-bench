@@ -30,7 +30,9 @@ class ComparisonMetadataError(ValueError):
         self.run_dir = Path(run_dir)
         self.missing_fields = missing_fields
         fields = ", ".join(missing_fields)
-        super().__init__(f"Run {self.run_dir.as_posix()} has missing or inconsistent comparison metadata: {fields}")
+        super().__init__(
+            f"Run {self.run_dir.as_posix()} has missing or inconsistent comparison metadata: {fields}"
+        )
 
 
 class IncompatibleRunsError(ValueError):
@@ -60,7 +62,12 @@ def load_run_summary(run_dir: str | Path) -> dict[str, Any]:
     summary.setdefault("run_dir", run_dir.as_posix())
     if config_path.exists():
         summary["config_path"] = str(config_path)
-    score = float(summary.get("prototype_reliability_score", summary.get("sim_to_real_score", score_summary(summary))))
+    score = float(
+        summary.get(
+            "prototype_reliability_score",
+            summary.get("sim_to_real_score", score_summary(summary)),
+        )
+    )
     summary["prototype_reliability_score"] = score
     return summary
 
@@ -72,7 +79,9 @@ def load_comparison_contract(run_dir: str | Path) -> dict[str, Any]:
     manifest = _load_json_mapping(run_dir / "dataset_manifest.json")
 
     suite_config = config.get("suite") if isinstance(config.get("suite"), dict) else {}
-    manifest_suite = manifest.get("suite") if isinstance(manifest.get("suite"), dict) else {}
+    manifest_suite = (
+        manifest.get("suite") if isinstance(manifest.get("suite"), dict) else {}
+    )
     manifest_run = manifest.get("run") if isinstance(manifest.get("run"), dict) else {}
     metadata_issues: list[str] = []
     suite_id = _select_consistent_value(
@@ -123,17 +132,38 @@ def load_comparison_contract(run_dir: str | Path) -> dict[str, Any]:
         metadata_issues,
         normalize=_normalize_task_ids,
     )
+    stressor_sources = [
+        ("run.yaml", run_metadata.get("stressor_config")),
+        ("config.yaml", config.get("stressor_config")),
+        ("dataset_manifest.json:run", manifest_run.get("stressor_config")),
+    ]
+    stressor_config = (
+        _select_consistent_value(
+            "stressor_config",
+            stressor_sources,
+            metadata_issues,
+            normalize=_normalize_stressor_config,
+        )
+        if any(value is not None for _, value in stressor_sources)
+        else None
+    )
     normalized_task_ids = _normalize_task_ids(task_ids)
     manifest_tasks = manifest.get("tasks")
-    task_definitions = {
-        str(task.get("task_id")): task
-        for task in manifest_tasks
-        if isinstance(task, dict) and task.get("task_id") is not None
-    } if isinstance(manifest_tasks, list) else {}
+    task_definitions = (
+        {
+            str(task.get("task_id")): task
+            for task in manifest_tasks
+            if isinstance(task, dict) and task.get("task_id") is not None
+        }
+        if isinstance(manifest_tasks, list)
+        else {}
+    )
 
     missing_fields = metadata_issues
     if normalized_task_ids and sorted(task_definitions) != normalized_task_ids:
-        missing_fields.append("task_ids (dataset_manifest.json:tasks conflicts with declared task set)")
+        missing_fields.append(
+            "task_ids (dataset_manifest.json:tasks conflicts with declared task set)"
+        )
     for field, value in (
         ("suite_id", suite_id),
         ("engine_name", engine_name),
@@ -176,7 +206,9 @@ def load_comparison_contract(run_dir: str | Path) -> dict[str, Any]:
         raise ComparisonMetadataError(run_dir, sorted(set(missing_fields)))
 
     normalized_seed_protocol = {
-        str(key): value for key, value in seed_protocol.items() if key not in {"run_seed", "seed"}
+        str(key): value
+        for key, value in seed_protocol.items()
+        if key not in {"run_seed", "seed"}
     }
     if not normalized_seed_protocol:
         raise ComparisonMetadataError(run_dir, ["seed_protocol"])
@@ -189,15 +221,20 @@ def load_comparison_contract(run_dir: str | Path) -> dict[str, Any]:
         "tasks": tasks,
         "episodes_per_task": int(episodes_per_task),
         "seed_protocol": normalized_seed_protocol,
+        "stressor_config": _normalize_stressor_config(stressor_config),
     }
 
 
 def comparison_contract_hash(contract: dict[str, Any]) -> str:
-    encoded = json.dumps(contract, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    encoded = json.dumps(
+        contract, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
-def compare_runs(run_dirs: list[str | Path], *, allow_incompatible: bool = False) -> dict[str, Any]:
+def compare_runs(
+    run_dirs: list[str | Path], *, allow_incompatible: bool = False
+) -> dict[str, Any]:
     if not run_dirs:
         raise ValueError("At least one run directory is required")
 
@@ -237,7 +274,9 @@ def compare_runs(run_dirs: list[str | Path], *, allow_incompatible: bool = False
         "comparison_contract_sha256": comparison_sha256,
         "run_contracts": [
             {"run_dir": run_name, "contract": contract, "sha256": contract_hash}
-            for run_name, contract, contract_hash in zip(run_names, contracts, contract_hashes)
+            for run_name, contract, contract_hash in zip(
+                run_names, contracts, contract_hashes
+            )
         ],
         "mismatches": mismatches,
         "ranking": [
@@ -246,20 +285,36 @@ def compare_runs(run_dirs: list[str | Path], *, allow_incompatible: bool = False
                 "run_dir": item.get("run_dir"),
                 "success_rate": item.get("success_rate", 0.0),
                 "success_rate_ci95": item.get("success_rate_ci95", [0.0, 0.0]),
-                "prototype_reliability_score": item.get("prototype_reliability_score", 0.0),
+                "prototype_reliability_score": item.get(
+                    "prototype_reliability_score", 0.0
+                ),
                 "benchmark_tier": item.get("benchmark_tier", "unknown"),
                 "public_claim": item.get("public_claim", False),
-                "public_claim_status": (item.get("public_claim_validation") or {}).get("status", "unknown"),
+                "public_claim_status": (item.get("public_claim_validation") or {}).get(
+                    "status", "unknown"
+                ),
                 "primary_failure_mode": item.get("primary_failure_mode"),
-                "expert_intervention_rate": (item.get("metrics") or {}).get("expert_intervention_rate", 0.0),
-                "recovery_success_rate": (item.get("metrics") or {}).get("recovery_success_rate", 0.0),
-                "recovery_success_count": (item.get("metrics") or {}).get("recovery_success_count", 0.0),
-                "recovery_applied_count": (item.get("metrics") or {}).get("recovery_applied_count", 0.0),
+                "expert_intervention_rate": (item.get("metrics") or {}).get(
+                    "expert_intervention_rate", 0.0
+                ),
+                "recovery_success_rate": (item.get("metrics") or {}).get(
+                    "recovery_success_rate", 0.0
+                ),
+                "recovery_success_count": (item.get("metrics") or {}).get(
+                    "recovery_success_count", 0.0
+                ),
+                "recovery_applied_count": (item.get("metrics") or {}).get(
+                    "recovery_applied_count", 0.0
+                ),
                 "recovery_episode_success_rate": (item.get("metrics") or {}).get(
                     "recovery_episode_success_rate", 0.0
                 ),
-                "verifier_rejection_rate": (item.get("metrics") or {}).get("verifier_rejection_rate", 0.0),
-                "wall_time_seconds": (item.get("compute") or {}).get("wall_time_seconds", 0.0),
+                "verifier_rejection_rate": (item.get("metrics") or {}).get(
+                    "verifier_rejection_rate", 0.0
+                ),
+                "wall_time_seconds": (item.get("compute") or {}).get(
+                    "wall_time_seconds", 0.0
+                ),
             }
             for index, item in enumerate(ranked)
         ],
@@ -311,7 +366,11 @@ def _comparison_html(comparison: dict[str, Any]) -> str:
     )
     comparable = bool(comparison.get("comparable"))
     status_class = "comparable" if comparable else "non-comparable"
-    status_title = "Comparable strict comparison" if comparable else "NON-COMPARABLE EXPLORATORY OUTPUT"
+    status_title = (
+        "Comparable strict comparison"
+        if comparable
+        else "NON-COMPARABLE EXPLORATORY OUTPUT"
+    )
     status_detail = (
         "All runs satisfy the same comparison contract."
         if comparable
@@ -335,7 +394,9 @@ def _comparison_html(comparison: dict[str, Any]) -> str:
             "<th>Run</th><th>Value</th></tr></thead>"
             f"<tbody>{mismatch_rows}</tbody></table>"
         )
-    contract_hash = html.escape(str(comparison.get("comparison_contract_sha256", "unknown")))
+    contract_hash = html.escape(
+        str(comparison.get("comparison_contract_sha256", "unknown"))
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -371,7 +432,9 @@ def _comparison_html(comparison: dict[str, Any]) -> str:
 """
 
 
-def _comparison_mismatches(contracts: list[dict[str, Any]], run_names: list[str]) -> list[dict[str, Any]]:
+def _comparison_mismatches(
+    contracts: list[dict[str, Any]], run_names: list[str]
+) -> list[dict[str, Any]]:
     baseline = contracts[0]
     mismatches: list[dict[str, Any]] = []
     for contract, run_name in zip(contracts[1:], run_names[1:]):
@@ -419,7 +482,9 @@ def _select_consistent_value(
 
     normalize = normalize or (lambda value: value)
     baseline = normalize(present[0][1])
-    conflicting_sources = [source for source, value in present[1:] if normalize(value) != baseline]
+    conflicting_sources = [
+        source for source, value in present[1:] if normalize(value) != baseline
+    ]
     if conflicting_sources:
         sources = ", ".join([present[0][0], *conflicting_sources])
         issues.append(f"{field} (conflict across {sources})")
@@ -430,6 +495,20 @@ def _normalize_task_ids(value: Any) -> list[str] | None:
     if not isinstance(value, list):
         return None
     return sorted(str(task_id) for task_id in value)
+
+
+def _normalize_stressor_config(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {
+            "format": "nyssa-stressor-config-v1",
+            "unsupported_policy": "error",
+            "stressors": [],
+        }
+    return {
+        "format": value.get("format", "nyssa-stressor-config-v1"),
+        "unsupported_policy": value.get("unsupported_policy", "error"),
+        "stressors": value.get("stressors", []),
+    }
 
 
 def _load_yaml_mapping(path: Path) -> dict[str, Any]:

@@ -24,21 +24,35 @@ class Report:
     def to_html(self) -> str:
         success_rate = float(self.summary.get("success_rate", 0.0)) * 100
         success_ci = self.summary.get("success_rate_ci95", [0.0, 0.0])
-        prototype_score = float(self.summary.get("prototype_reliability_score", self.summary.get("sim_to_real_score", 0.0)))
+        prototype_score = float(
+            self.summary.get(
+                "prototype_reliability_score",
+                self.summary.get("sim_to_real_score", 0.0),
+            )
+        )
         primary_failure = self.summary.get("primary_failure_mode") or "none"
         benchmark_tier = self.summary.get("benchmark_tier", "unknown")
         validation = self.summary.get("public_claim_validation", {})
         stressor_support = self.summary.get("stressor_support", {})
+        stressor_execution = self.summary.get("stressor_execution", {})
         metrics = self.summary.get("metrics", {})
         compute = self.summary.get("compute", {})
         intervention_rate = float(metrics.get("expert_intervention_rate", 0.0)) * 100
         recovery_rate = float(metrics.get("recovery_success_rate", 0.0)) * 100
         recovery_success_count = int(float(metrics.get("recovery_success_count", 0.0)))
         recovery_applied_count = int(float(metrics.get("recovery_applied_count", 0.0)))
-        recovery_episode_rate = float(metrics.get("recovery_episode_success_rate", 0.0)) * 100
-        recovery_episode_success_count = int(float(metrics.get("recovery_episode_success_count", 0.0)))
-        recovery_episode_applied_count = int(float(metrics.get("recovery_episode_applied_count", 0.0)))
-        verifier_rejection_rate = float(metrics.get("verifier_rejection_rate", 0.0)) * 100
+        recovery_episode_rate = (
+            float(metrics.get("recovery_episode_success_rate", 0.0)) * 100
+        )
+        recovery_episode_success_count = int(
+            float(metrics.get("recovery_episode_success_count", 0.0))
+        )
+        recovery_episode_applied_count = int(
+            float(metrics.get("recovery_episode_applied_count", 0.0))
+        )
+        verifier_rejection_rate = (
+            float(metrics.get("verifier_rejection_rate", 0.0)) * 100
+        )
         failure_counts = self.summary.get("failure_counts", {})
         per_task = self.summary.get("per_task", {})
         per_seed = self.summary.get("per_seed", {})
@@ -87,6 +101,9 @@ class Report:
 
   <h2>Stressor Support</h2>
   {_stressor_table(stressor_support)}
+
+  <h2>Stressor Execution</h2>
+  {_stressor_execution_table(stressor_execution)}
 
   <h2>Aggregate Metrics</h2>
   {_table(metrics)}
@@ -156,6 +173,28 @@ def _stressor_table(data: Any) -> str:
     )
 
 
+def _stressor_execution_table(data: Any) -> str:
+    if not isinstance(data, dict) or not data.get("requested_stressors"):
+        return "<p>No executable stressors requested.</p>"
+    rows = []
+    for task_id, values in sorted(data.get("by_task", {}).items()):
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(task_id))}</td>"
+            f"<td>{html.escape(', '.join(values.get('conditions', [])) or 'none')}</td>"
+            f"<td>{html.escape(', '.join(values.get('requested_stressors', [])) or 'none')}</td>"
+            f"<td>{html.escape(', '.join(values.get('applied_stressors', [])) or 'none')}</td>"
+            f"<td>{html.escape(', '.join(values.get('skipped_stressors', [])) or 'none')}</td>"
+            f"<td>{html.escape(', '.join(values.get('unsupported_stressors', [])) or 'none')}</td>"
+            "</tr>"
+        )
+    return (
+        "<table><thead><tr><th>Task</th><th>Conditions</th><th>Requested</th>"
+        "<th>Applied</th><th>Skipped</th><th>Unsupported</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+    )
+
+
 def _failure_episode_table(run_dir: Path | None) -> str:
     if run_dir is None:
         return "<p>No run directory available.</p>"
@@ -169,7 +208,9 @@ def _failure_episode_table(run_dir: Path | None) -> str:
     failures = [item for item in episodes if not item.get("success")]
     if not failures:
         return "<p>No failures recorded.</p>"
-    failures = sorted(failures, key=lambda item: len(item.get("steps", [])), reverse=True)[:10]
+    failures = sorted(
+        failures, key=lambda item: len(item.get("steps", [])), reverse=True
+    )[:10]
     rows = []
     for item in failures:
         clip = item.get("failure_clip_path") or item.get("replay_path") or ""
@@ -233,7 +274,10 @@ def _per_seed_table(data: dict[str, Any]) -> str:
     if not data:
         return "<p>No per-seed data.</p>"
     rows = []
-    for seed, summary in sorted(data.items(), key=lambda item: int(item[0]) if str(item[0]).isdigit() else str(item[0])):
+    for seed, summary in sorted(
+        data.items(),
+        key=lambda item: int(item[0]) if str(item[0]).isdigit() else str(item[0]),
+    ):
         seed_summary = dict(summary)
         success_rate = float(seed_summary.get("success_rate", 0.0)) * 100
         rows.append(

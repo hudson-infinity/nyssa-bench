@@ -172,6 +172,33 @@ uv run nyssa scorecard runs/random_mujoco_seed0 runs/random_mujoco_seed1 --out b
 
 Comparison commands validate a versioned contract before ranking runs. Suite, engine, task set, success predicates, declared stressors, episodes per task, and seed-protocol semantics must match; policy identity and concrete run seeds may differ. Incompatible runs are rejected with field-level differences. Use `--allow-incompatible` only to emit an explicitly non-comparable exploratory report or leaderboard.
 
+## Executable Stressors
+
+NyssaBench includes typed visual, sensor, action, system, and dynamics
+stressors. Apply a versioned condition with `--stressor-config`; requested and backend-confirmed
+parameters are recorded in `stressor_manifest.json`, episode artifacts, replay
+metadata, and the run manifest.
+
+```bash
+uv run nyssa list-stressors
+
+uv run nyssa run \
+  --suite mujoco_control_v0 \
+  --engine mujoco \
+  --policy random \
+  --episodes 20 \
+  --seed 0 \
+  --stressor-config configs/stressors/action_delay_s05.yaml \
+  --out benchmark_results/action_delay/s05 \
+  --no-replay
+```
+
+Use `nyssa robustness-report` on matched severity result packs to produce clean
+and shifted success, degradation, robustness AUC, Wilson intervals, and paired
+bootstrap uncertainty. See [the Stressor Protocol](docs/stressor_protocol.md)
+for the complete schema, support matrix, severity-sweep commands, composition
+rules, and ManiSkill GPU friction limitation.
+
 ## Recovery And Ablation Runs
 
 Use `ablate` to run base, verifier, recovery, and verifier+recovery variants
@@ -686,7 +713,8 @@ uv run python scripts/release_smoke.py
 - Expert-provider interface with built-in `bounds-verifier`, `maniskill-scripted`, `mujoco-heuristic`, and `policy:<name>` providers.
 - Action-sequence metadata and execution hooks for chunked policies.
 - Failure taxonomy, mapper-based failure labels, and aggregate metrics.
-- HTML reports, JSON metrics, recovery datasets, failure galleries, public-claim validation, and unsupported-stressor reporting.
+- Typed executable stressors with deterministic severity, composition, state restoration, backend evidence, and robustness-sweep reports.
+- HTML reports, JSON metrics, recovery datasets, failure galleries, public-claim validation, and explicit unsupported-stressor handling.
 - Policy comparison reports, prototype reliability scores, and leaderboard export.
 - Static leaderboard shell, protocol draft, scorecard structure, Docker files, and plugin API.
 - CLI, docs, examples, and tests.

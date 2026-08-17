@@ -47,6 +47,7 @@ class RunClaimValidator:
         out_dir: str | Path | None,
         package_versions: dict[str, Any] | None = None,
         git_info: dict[str, Any] | None = None,
+        stressor_execution: dict[str, Any] | None = None,
     ) -> RunClaimValidation:
         checks = {
             "supported_real_simulator_backend": engine_name in PUBLIC_CLAIM_ENGINES,
@@ -68,6 +69,9 @@ class RunClaimValidator:
             "git_commit_present": bool((git_info or {}).get("commit")),
             "git_worktree_clean": (git_info or {}).get("dirty") is False,
             "artifact_directory_present": out_dir is not None,
+            "stressor_requests_resolved": not bool(
+                (stressor_execution or {}).get("unsupported_stressors")
+            ),
         }
         failures = [name for name, passed in checks.items() if not passed]
         warnings = _warnings(suite.tasks, engine_name)
