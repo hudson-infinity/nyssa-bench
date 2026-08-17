@@ -7,10 +7,20 @@ from typing import Any
 
 import yaml
 
-from nyssa_bench.core.registry import ENGINE_REGISTRY, ENGINE_SUPPORT_TIER, POLICY_REGISTRY, POLICY_SUPPORT_TIER
+from nyssa_bench.core.registry import (
+    ENGINE_REGISTRY,
+    ENGINE_SUPPORT_TIER,
+    POLICY_REGISTRY,
+    POLICY_SUPPORT_TIER,
+)
 from nyssa_bench.core.suite import Suite, list_suites
 from nyssa_bench.core.task import TaskSpec, list_tasks
-from nyssa_bench.baselines.simple_bc import train_knn_bc, train_linear_bc, train_sequence_knn_bc, train_task_bc
+from nyssa_bench.baselines.simple_bc import (
+    train_knn_bc,
+    train_linear_bc,
+    train_sequence_knn_bc,
+    train_task_bc,
+)
 from nyssa_bench.datasets.export_hdf5 import export_hdf5
 from nyssa_bench.datasets.export_json import export_json
 from nyssa_bench.datasets.export_jsonl import export_jsonl
@@ -21,14 +31,31 @@ from nyssa_bench.datasets.export_task_robomimic import export_task_robomimic
 from nyssa_bench.datasets.collect_maniskill import collect_maniskill_demos
 from nyssa_bench.datasets.import_maniskill import import_maniskill_demos
 from nyssa_bench.datasets.recovery_training import train_recovery_bc
-from nyssa_bench.reports.comparison import compare_runs, save_comparison_report, save_leaderboard
+from nyssa_bench.reports.comparison import (
+    compare_runs,
+    save_comparison_report,
+    save_leaderboard,
+)
 from nyssa_bench.reports.html_report import Report
-from nyssa_bench.reports.result_pack import write_experiment_manifest, write_results_markdown
+from nyssa_bench.reports.result_pack import (
+    write_experiment_manifest,
+    write_results_markdown,
+)
 from nyssa_bench.reports.replay_validation import validate_result_pack_replays
 from nyssa_bench.reports.scorecard import write_scorecard
 from nyssa_bench.runner import DEFAULT_RECOVERY_ATTRIBUTION_HORIZON, PolicyRunner
 from nyssa_bench.metrics.run_claims import PUBLIC_CLAIM_ENGINES
-from nyssa_bench.baselines.robomimic_bc import train_robomimic, write_robomimic_bc_config
+from nyssa_bench.baselines.robomimic_bc import (
+    train_robomimic,
+    write_robomimic_bc_config,
+)
+from nyssa_bench.stressors import (
+    STRESSOR_CONFIG_FORMAT,
+    StressorConfig,
+    list_stressors,
+    load_robustness_sweep,
+    save_robustness_report,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -39,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("list-tasks")
     subparsers.add_parser("list-engines")
     subparsers.add_parser("list-policies")
+    subparsers.add_parser("list-stressors")
 
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--suite", required=True)
@@ -56,8 +84,11 @@ def main(argv: list[str] | None = None) -> int:
     run_parser.add_argument("--policy-action-horizon", type=int, default=1)
     run_parser.add_argument("--policy-execution-horizon", type=int, default=1)
     run_parser.add_argument(
-        "--recovery-attribution-horizon", type=int, default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON
+        "--recovery-attribution-horizon",
+        type=int,
+        default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
+    run_parser.add_argument("--stressor-config")
 
     report_parser = subparsers.add_parser("report")
     report_parser.add_argument("run")
@@ -81,6 +112,12 @@ def main(argv: list[str] | None = None) -> int:
         help="emit explicitly non-comparable exploratory output instead of rejecting mismatched runs",
     )
 
+    robustness_parser = subparsers.add_parser("robustness-report")
+    robustness_parser.add_argument("runs", nargs="+")
+    robustness_parser.add_argument("--out", required=True)
+    robustness_parser.add_argument("--bootstrap-samples", type=int, default=1000)
+    robustness_parser.add_argument("--bootstrap-seed", type=int, default=0)
+
     leaderboard_parser = subparsers.add_parser("leaderboard")
     leaderboard_parser.add_argument("runs", nargs="+")
     leaderboard_parser.add_argument("--out", required=True)
@@ -92,11 +129,17 @@ def main(argv: list[str] | None = None) -> int:
 
     scorecard_parser = subparsers.add_parser("scorecard")
     scorecard_parser.add_argument("runs", nargs="+")
-    scorecard_parser.add_argument("--out", default="benchmark_results/baselines_v0.json")
+    scorecard_parser.add_argument(
+        "--out", default="benchmark_results/baselines_v0.json"
+    )
     scorecard_parser.add_argument("--benchmark", default="NyssaBench v0 baselines")
     scorecard_parser.add_argument("--date")
-    scorecard_parser.add_argument("--comparison-out", default="reports/real_baselines_v0.html")
-    scorecard_parser.add_argument("--leaderboard-out", default="site/leaderboard/leaderboard.json")
+    scorecard_parser.add_argument(
+        "--comparison-out", default="reports/real_baselines_v0.html"
+    )
+    scorecard_parser.add_argument(
+        "--leaderboard-out", default="site/leaderboard/leaderboard.json"
+    )
     scorecard_parser.add_argument(
         "--allow-incompatible",
         action="store_true",
@@ -107,10 +150,14 @@ def main(argv: list[str] | None = None) -> int:
     experiment_parser.add_argument("--suite", default="maniskill_manipulation_v0")
     experiment_parser.add_argument("--tasks", nargs="+")
     experiment_parser.add_argument("--engine", default="maniskill")
-    experiment_parser.add_argument("--policies", nargs="+", default=["random", "scripted_oracle", "bc_policy"])
+    experiment_parser.add_argument(
+        "--policies", nargs="+", default=["random", "scripted_oracle", "bc_policy"]
+    )
     experiment_parser.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2])
     experiment_parser.add_argument("--episodes", type=int, default=100)
-    experiment_parser.add_argument("--out", default="benchmark_results/maniskill_manipulation_v0")
+    experiment_parser.add_argument(
+        "--out", default="benchmark_results/maniskill_manipulation_v0"
+    )
     experiment_parser.add_argument("--max-steps", type=int)
     experiment_parser.add_argument("--no-replay", action="store_true")
     experiment_parser.add_argument("--capture-replay", action="store_true")
@@ -120,8 +167,11 @@ def main(argv: list[str] | None = None) -> int:
     experiment_parser.add_argument("--policy-action-horizon", type=int, default=1)
     experiment_parser.add_argument("--policy-execution-horizon", type=int, default=1)
     experiment_parser.add_argument(
-        "--recovery-attribution-horizon", type=int, default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON
+        "--recovery-attribution-horizon",
+        type=int,
+        default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
+    experiment_parser.add_argument("--stressor-config")
 
     ablate_parser = subparsers.add_parser("ablate")
     ablate_parser.add_argument("--suite", required=True)
@@ -144,15 +194,20 @@ def main(argv: list[str] | None = None) -> int:
     ablate_parser.add_argument("--policy-action-horizon", type=int, default=1)
     ablate_parser.add_argument("--policy-execution-horizon", type=int, default=1)
     ablate_parser.add_argument(
-        "--recovery-attribution-horizon", type=int, default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON
+        "--recovery-attribution-horizon",
+        type=int,
+        default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
+    ablate_parser.add_argument("--stressor-config")
 
     train_bc_parser = subparsers.add_parser("train-bc")
     train_bc_parser.add_argument("episodes", nargs="+")
     train_bc_parser.add_argument("--out", default="checkpoints/bc_policy.json")
     train_bc_parser.add_argument("--feature-dim", type=int, default=256)
     train_bc_parser.add_argument("--ridge", type=float, default=1e-3)
-    train_bc_parser.add_argument("--model", choices=["linear", "knn", "sequence-knn"], default="linear")
+    train_bc_parser.add_argument(
+        "--model", choices=["linear", "knn", "sequence-knn"], default="linear"
+    )
     train_bc_parser.add_argument("--knn-k", type=int, default=1)
     train_bc_parser.add_argument("--action-horizon", type=int, default=8)
 
@@ -161,16 +216,22 @@ def main(argv: list[str] | None = None) -> int:
     train_task_bc_parser.add_argument("--out-dir", default="checkpoints/bc_by_task")
     train_task_bc_parser.add_argument("--feature-dim", type=int, default=256)
     train_task_bc_parser.add_argument("--ridge", type=float, default=1e-3)
-    train_task_bc_parser.add_argument("--model", choices=["linear", "knn", "sequence-knn"], default="linear")
+    train_task_bc_parser.add_argument(
+        "--model", choices=["linear", "knn", "sequence-knn"], default="linear"
+    )
     train_task_bc_parser.add_argument("--knn-k", type=int, default=1)
     train_task_bc_parser.add_argument("--action-horizon", type=int, default=8)
     train_task_bc_parser.add_argument("--include-failures", action="store_true")
 
     train_recovery_bc_parser = subparsers.add_parser("train-recovery-bc")
     train_recovery_bc_parser.add_argument("sources", nargs="+")
-    train_recovery_bc_parser.add_argument("--out", default="checkpoints/recovery_bc_policy.json")
+    train_recovery_bc_parser.add_argument(
+        "--out", default="checkpoints/recovery_bc_policy.json"
+    )
     train_recovery_bc_parser.add_argument("--by-task", action="store_true")
-    train_recovery_bc_parser.add_argument("--routing", choices=["auto", "global", "task"], default="auto")
+    train_recovery_bc_parser.add_argument(
+        "--routing", choices=["auto", "global", "task"], default="auto"
+    )
     train_recovery_bc_parser.add_argument("--out-dir", default="checkpoints/bc_by_task")
     train_recovery_bc_parser.add_argument("--merged-out")
     train_recovery_bc_parser.add_argument("--feature-dim", type=int, default=256)
@@ -185,7 +246,9 @@ def main(argv: list[str] | None = None) -> int:
     robomimic_config_parser = subparsers.add_parser("write-robomimic-config")
     robomimic_config_parser.add_argument("--data", required=True)
     robomimic_config_parser.add_argument("--out", required=True)
-    robomimic_config_parser.add_argument("--output-dir", default="checkpoints/robomimic")
+    robomimic_config_parser.add_argument(
+        "--output-dir", default="checkpoints/robomimic"
+    )
     robomimic_config_parser.add_argument("--name", default="nyssa_robomimic_bc_flat")
     robomimic_config_parser.add_argument("--epochs", type=int, default=50)
     robomimic_config_parser.add_argument("--batch-size", type=int, default=64)
@@ -194,13 +257,17 @@ def main(argv: list[str] | None = None) -> int:
 
     task_robomimic_export_parser = subparsers.add_parser("export-task-robomimic")
     task_robomimic_export_parser.add_argument("sources", nargs="+")
-    task_robomimic_export_parser.add_argument("--out-dir", default="datasets/robomimic_by_task")
+    task_robomimic_export_parser.add_argument(
+        "--out-dir", default="datasets/robomimic_by_task"
+    )
     task_robomimic_export_parser.add_argument("--config-dir")
     task_robomimic_export_parser.add_argument("--feature-dim", type=int, default=512)
     task_robomimic_export_parser.add_argument("--epochs", type=int, default=50)
     task_robomimic_export_parser.add_argument("--batch-size", type=int, default=64)
     task_robomimic_export_parser.add_argument("--seed", type=int, default=1)
-    task_robomimic_export_parser.add_argument("--learning-rate", type=float, default=1e-4)
+    task_robomimic_export_parser.add_argument(
+        "--learning-rate", type=float, default=1e-4
+    )
     task_robomimic_export_parser.add_argument("--include-failures", action="store_true")
 
     import_maniskill_parser = subparsers.add_parser("import-maniskill-demos")
@@ -210,7 +277,9 @@ def main(argv: list[str] | None = None) -> int:
     collect_maniskill_parser = subparsers.add_parser("collect-maniskill-demos")
     collect_maniskill_parser.add_argument("--out", required=True)
     collect_maniskill_parser.add_argument("--raw-dir", required=True)
-    collect_maniskill_parser.add_argument("--env-ids", nargs="+", default=["PickCube-v1", "PushCube-v1", "StackCube-v1"])
+    collect_maniskill_parser.add_argument(
+        "--env-ids", nargs="+", default=["PickCube-v1", "PushCube-v1", "StackCube-v1"]
+    )
     collect_maniskill_parser.add_argument("--num-traj", type=int, default=100)
     collect_maniskill_parser.add_argument("--command-template")
     collect_maniskill_parser.add_argument("--continue-on-error", action="store_true")
@@ -240,6 +309,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{policy}\t{POLICY_SUPPORT_TIER.get(policy, 'unknown')}")
         return 0
 
+    if args.command == "list-stressors":
+        for stressor in list_stressors():
+            print(stressor)
+        return 0
+
     if args.command == "run":
         suite = _load_suite(args)
         runner = PolicyRunner(
@@ -248,13 +322,16 @@ def main(argv: list[str] | None = None) -> int:
             episodes=args.episodes,
             seed=args.seed,
             out=args.out,
-            capture_replay=_capture_replay_default(args.engine, args.no_replay, args.capture_replay),
+            capture_replay=_capture_replay_default(
+                args.engine, args.no_replay, args.capture_replay
+            ),
             expert_provider=args.expert_provider,
             enable_recovery=args.enable_recovery,
             enable_verifier=args.enable_verifier,
             policy_action_horizon=args.policy_action_horizon,
             policy_execution_horizon=args.policy_execution_horizon,
             recovery_attribution_horizon=args.recovery_attribution_horizon,
+            stressor_config=args.stressor_config,
         )
         report = runner.evaluate(suite)
         print(f"report: {Path(args.out) / 'report.html'}")
@@ -294,7 +371,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.format == "parquet":
             out = export_parquet(episodes, out_arg or run_dir / "episodes.parquet")
         elif args.format == "robomimic":
-            out = export_robomimic_hdf5(episodes, out_arg or run_dir / "robomimic.hdf5", feature_dim=args.feature_dim)
+            out = export_robomimic_hdf5(
+                episodes,
+                out_arg or run_dir / "robomimic.hdf5",
+                feature_dim=args.feature_dim,
+            )
         else:
             raise ValueError(f"Unsupported export format: {args.format}")
         print(f"exported: {out}")
@@ -304,6 +385,17 @@ def main(argv: list[str] | None = None) -> int:
         comparison = compare_runs(args.runs, allow_incompatible=args.allow_incompatible)
         out = save_comparison_report(comparison, args.out)
         print(f"comparison: {out}")
+        return 0
+
+    if args.command == "robustness-report":
+        summary = load_robustness_sweep(
+            args.runs,
+            bootstrap_samples=args.bootstrap_samples,
+            bootstrap_seed=args.bootstrap_seed,
+        )
+        paths = save_robustness_report(summary, args.out)
+        for label, path in paths.items():
+            print(f"{label}: {path}")
         return 0
 
     if args.command == "leaderboard":
@@ -467,13 +559,16 @@ def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
                 seed=seed,
                 out=run_dir,
                 max_steps=args.max_steps,
-                capture_replay=_capture_replay_default(args.engine, args.no_replay, args.capture_replay),
+                capture_replay=_capture_replay_default(
+                    args.engine, args.no_replay, args.capture_replay
+                ),
                 expert_provider=args.expert_provider,
                 enable_recovery=args.enable_recovery,
                 enable_verifier=args.enable_verifier,
                 policy_action_horizon=args.policy_action_horizon,
                 policy_execution_horizon=args.policy_execution_horizon,
                 recovery_attribution_horizon=args.recovery_attribution_horizon,
+                stressor_config=args.stressor_config,
             )
             runner.evaluate(suite)
             run_dirs.append(run_dir)
@@ -548,13 +643,16 @@ def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
                 seed=seed,
                 out=run_dir,
                 max_steps=args.max_steps,
-                capture_replay=_capture_replay_default(args.engine, args.no_replay, args.capture_replay),
+                capture_replay=_capture_replay_default(
+                    args.engine, args.no_replay, args.capture_replay
+                ),
                 expert_provider=args.expert_provider,
                 enable_recovery=enable_recovery,
                 enable_verifier=enable_verifier,
                 policy_action_horizon=args.policy_action_horizon,
                 policy_execution_horizon=args.policy_execution_horizon,
                 recovery_attribution_horizon=args.recovery_attribution_horizon,
+                stressor_config=args.stressor_config,
             )
             runner.evaluate(suite)
             run_dirs.append(run_dir)
@@ -639,7 +737,9 @@ def _train_bc_from_episode_files(
     merged = []
     for path in episodes_paths:
         merged.extend(json.loads(Path(path).read_text(encoding="utf-8")))
-    with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as handle:
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".json", encoding="utf-8", delete=False
+    ) as handle:
         json.dump(merged, handle)
         merged_path = Path(handle.name)
     try:
@@ -693,6 +793,9 @@ def _validate_target(target: str) -> None:
     path = Path(target)
     if path.exists():
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if data.get("format") == STRESSOR_CONFIG_FORMAT:
+            StressorConfig.from_dict(data)
+            return
         if "tasks" in data:
             Suite.load(path)
             return
@@ -751,6 +854,7 @@ def _load_episodes(run_dir: Path):
                 steps=steps,
                 replay_path=item.get("replay_path"),
                 failure_clip_path=item.get("failure_clip_path"),
+                stressor_context=item.get("stressor_context", {}),
             )
         )
     return episodes

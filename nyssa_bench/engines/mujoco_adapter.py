@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
+import numpy as np
+
 from nyssa_bench.core.task import TaskSpec
 from nyssa_bench.engines.base import NyssaEngine
 from nyssa_bench.engines.spaces import wrap_observation
@@ -17,6 +19,7 @@ class MuJoCoEngine(NyssaEngine):
         self.max_steps = 1000
         self.episode_return = 0.0
         self.elapsed_steps = 0
+        self._baseline_geom_friction: np.ndarray | None = None
 
     def load_task(self, task_spec: TaskSpec) -> None:
         self.task_spec = task_spec
@@ -27,29 +30,39 @@ class MuJoCoEngine(NyssaEngine):
             import gymnasium as gym
             import mujoco  # noqa: F401
         except ImportError as exc:
-            raise RuntimeError("Install NyssaBench with the MuJoCo extra: pip install -e '.[mujoco]'") from exc
+            raise RuntimeError(
+                "Install NyssaBench with the MuJoCo extra: pip install -e '.[mujoco]'"
+            ) from exc
 
         env_id = _resolve_env_id(task_spec, "mujoco")
         env_kwargs = {"render_mode": render_mode}
         self.env = _make_mujoco_env(gym, env_id, env_kwargs)
+        self._capture_friction_baseline()
 
     def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
         self._require_env()
+        self._restore_friction_baseline()
         self.episode_return = 0.0
         self.elapsed_steps = 0
         observation, info = self.env.reset(seed=seed)
         return wrap_observation(self.env, observation), dict(info)
 
-    def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+    def step(
+        self, action: Any
+    ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
         self._require_env()
         action = self._coerce_action(action)
         observation, reward, terminated, truncated, info = self.env.step(action)
         self.episode_return += float(reward)
-        self.elapsed_steps = int(getattr(self.env, "_elapsed_steps", self.elapsed_steps + 1))
+        self.elapsed_steps = int(
+            getattr(self.env, "_elapsed_steps", self.elapsed_steps + 1)
+        )
         info = dict(info)
         info.setdefault("completion_time", float(self.elapsed_steps))
         info.setdefault("collision_count", 0.0)
-        info.setdefault("path_efficiency", max(0.0, min(1.0, (float(reward) + 10.0) / 10.0)))
+        info.setdefault(
+            "path_efficiency", max(0.0, min(1.0, (float(reward) + 10.0) / 10.0))
+        )
         info["episode_return"] = self.episode_return
         info["success"] = _extract_success(
             info=info,
@@ -59,16 +72,59 @@ class MuJoCoEngine(NyssaEngine):
             terminated=bool(terminated),
             task_spec=self.task_spec,
         )
-        return wrap_observation(self.env, observation), float(reward), bool(terminated), bool(truncated), info
+        return (
+            wrap_observation(self.env, observation),
+            float(reward),
+            bool(terminated),
+            bool(truncated),
+            info,
+        )
 
     def render(self) -> Any:
         self._require_env()
         return self.env.render()
 
     def get_state(self) -> dict[str, Any]:
-        if self.env is not None and hasattr(self.env, "data"):
-            return {"time": float(getattr(self.env.data, "time", 0.0))}
+        target = getattr(self.env, "unwrapped", self.env)
+        if target is not None and hasattr(target, "data"):
+            return {"time": float(getattr(target.data, "time", 0.0))}
         return {}
+
+    def apply_stressor(
+        self, stressor_id: str, parameters: dict[str, Any]
+    ) -> dict[str, Any]:
+        if stressor_id != "friction_scale":
+            return super().apply_stressor(stressor_id, parameters)
+        self._require_env()
+        target = getattr(self.env, "unwrapped", self.env)
+        model = getattr(target, "model", None)
+        friction = getattr(model, "geom_friction", None)
+        if friction is None:
+            return {
+                "status": "unsupported",
+                "stressor_id": stressor_id,
+                "reason": "MuJoCo model does not expose geom_friction",
+            }
+        current = np.asarray(friction, dtype=float)
+        if (
+            self._baseline_geom_friction is None
+            or self._baseline_geom_friction.shape != current.shape
+        ):
+            self._baseline_geom_friction = current.copy()
+        scale = float(parameters["scale"])
+        applied = self._baseline_geom_friction * scale
+        friction[...] = applied
+        return {
+            "status": "applied",
+            "stressor_id": stressor_id,
+            "backend": "mujoco",
+            "geom_count": int(applied.shape[0]) if applied.ndim else 1,
+            "scale": scale,
+            "baseline_min": float(self._baseline_geom_friction.min()),
+            "baseline_max": float(self._baseline_geom_friction.max()),
+            "applied_min": float(applied.min()),
+            "applied_max": float(applied.max()),
+        }
 
     def close(self) -> None:
         if self.env is not None:
@@ -82,18 +138,43 @@ class MuJoCoEngine(NyssaEngine):
         if self.env is None or not hasattr(self.env, "action_space"):
             return action
         action_space = self.env.action_space
-        if hasattr(action_space, "shape") and action_space.shape and isinstance(action, (int, float)):
+        if (
+            hasattr(action_space, "shape")
+            and action_space.shape
+            and isinstance(action, (int, float))
+        ):
             try:
                 import numpy as np
             except ImportError:
                 return action
             low = getattr(action_space, "low", None)
             high = getattr(action_space, "high", None)
-            value = np.full(action_space.shape, float(action), dtype=getattr(action_space, "dtype", float))
+            value = np.full(
+                action_space.shape,
+                float(action),
+                dtype=getattr(action_space, "dtype", float),
+            )
             if low is not None and high is not None:
                 value = np.clip(value, low, high)
             return value
         return action
+
+    def _capture_friction_baseline(self) -> None:
+        target = getattr(self.env, "unwrapped", self.env)
+        friction = getattr(getattr(target, "model", None), "geom_friction", None)
+        if friction is not None:
+            self._baseline_geom_friction = np.asarray(friction, dtype=float).copy()
+
+    def _restore_friction_baseline(self) -> None:
+        if self._baseline_geom_friction is None:
+            return
+        target = getattr(self.env, "unwrapped", self.env)
+        friction = getattr(getattr(target, "model", None), "geom_friction", None)
+        if (
+            friction is not None
+            and np.asarray(friction).shape == self._baseline_geom_friction.shape
+        ):
+            friction[...] = self._baseline_geom_friction
 
 
 def _resolve_env_id(task_spec: TaskSpec, engine: str) -> str:
@@ -156,7 +237,9 @@ def _mujoco_env_id_candidates(env_id: str) -> list[str]:
         candidate = f"{name}-{fallback_version}"
         fallback_number = _gym_env_version_number(fallback_version)
         if candidate not in candidates and (
-            requested_version is None or fallback_number is None or fallback_number <= requested_version
+            requested_version is None
+            or fallback_number is None
+            or fallback_number <= requested_version
         ):
             candidates.append(candidate)
     return candidates
@@ -207,12 +290,23 @@ def _extract_success(
 
     success_config = task_spec.success if task_spec is not None else {}
     metric = str(success_config.get("success_metric", "")).lower()
-    if metric in {"reward_threshold", "final_reward_threshold"} or "reward_threshold" in success_config:
+    if (
+        metric in {"reward_threshold", "final_reward_threshold"}
+        or "reward_threshold" in success_config
+    ):
         return reward >= float(success_config.get("reward_threshold", 0.0))
-    if metric in {"return_threshold", "episode_return_threshold"} or "return_threshold" in success_config:
+    if (
+        metric in {"return_threshold", "episode_return_threshold"}
+        or "return_threshold" in success_config
+    ):
         return episode_return >= float(success_config.get("return_threshold", 0.0))
-    if metric in {"survival_steps", "min_episode_steps"} or "min_success_steps" in success_config:
-        min_steps = int(success_config.get("min_success_steps", success_config.get("max_steps", 0)))
+    if (
+        metric in {"survival_steps", "min_episode_steps"}
+        or "min_success_steps" in success_config
+    ):
+        min_steps = int(
+            success_config.get("min_success_steps", success_config.get("max_steps", 0))
+        )
         return elapsed_steps >= min_steps and not terminated
     return False
 

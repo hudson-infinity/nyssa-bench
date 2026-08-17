@@ -1,0 +1,8 @@
+format: nyssa-stressor-config-v1
+condition_id: action_delay_s1
+unsupported_policy: error
+stressors:
+  - stressor_id: action_delay
+    severity: 1.0
+    parameters:
+      max_delay_steps: 4

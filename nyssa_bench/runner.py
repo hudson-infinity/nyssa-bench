@@ -24,10 +24,26 @@ from nyssa_bench.metrics.safety import safety_metrics
 from nyssa_bench.metrics.sim_to_real import score_summary
 from nyssa_bench.metrics.success import aggregate_episodes
 from nyssa_bench.policies.base import Policy, PolicyLike, load_policy_from_path
-from nyssa_bench.randomization import aggregate_stressor_support, summarize_stressor_support
-from nyssa_bench.replay.video import write_episode_video, write_failure_clip, write_failure_gallery, write_replay_manifest
+from nyssa_bench.randomization import (
+    aggregate_stressor_support,
+    summarize_stressor_support,
+)
+from nyssa_bench.replay.video import (
+    write_episode_video,
+    write_failure_clip,
+    write_failure_gallery,
+    write_replay_manifest,
+)
 from nyssa_bench.replay.viewer import replay_viewer_placeholder
 from nyssa_bench.reports.html_report import Report
+from nyssa_bench.stressors import (
+    StressorConfig,
+    StressorContext,
+    StressorPipeline,
+    StressorSpec,
+    summarize_stressor_execution,
+    write_stressor_manifest,
+)
 from nyssa_bench.metrics.run_claims import RunClaimValidator
 from nyssa_bench.utils.reproducibility import (
     environment_metadata,
@@ -42,7 +58,9 @@ EPISODE_SEED_STRIDE = 1_000_000
 EPISODE_SEED_FORMAT = "nyssa-episode-seed-v2"
 DEFAULT_RECOVERY_ATTRIBUTION_HORIZON = 5
 RECOVERY_OUTCOME_FORMAT = "nyssa-recovery-outcomes-v1"
-RECOVERY_ATTRIBUTION_CRITERION = "task_success_within_bounded_window_before_next_attempt"
+RECOVERY_ATTRIBUTION_CRITERION = (
+    "task_success_within_bounded_window_before_next_attempt"
+)
 
 
 @dataclass
@@ -89,6 +107,7 @@ class PolicyRunner:
         policy_action_horizon: int = 1,
         policy_execution_horizon: int = 1,
         recovery_attribution_horizon: int = DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
+        stressor_config: StressorConfig | dict[str, Any] | str | Path | None = None,
     ) -> None:
         if int(episodes) <= 0:
             raise ValueError("episodes must be a positive integer")
@@ -111,6 +130,7 @@ class PolicyRunner:
         self.policy_action_horizon = max(1, int(policy_action_horizon))
         self.policy_execution_horizon = max(1, int(policy_execution_horizon))
         self.recovery_attribution_horizon = int(recovery_attribution_horizon)
+        self.stressor_config = _coerce_stressor_config(stressor_config)
         self.episode_results: list[EpisodeResult] = []
         self.run_metadata: dict[str, Any] = {}
         self._failure_mapper = FailureMapper()
@@ -131,7 +151,16 @@ class PolicyRunner:
                     if hasattr(policy, "reset"):
                         policy.reset(task=task, seed=episode_seed)
                     expert_provider.reset(task=task, seed=episode_seed, engine=engine)
-                    results.append(self._run_episode(engine, policy, expert_provider, task, episode_index, episode_seed))
+                    results.append(
+                        self._run_episode(
+                            engine,
+                            policy,
+                            expert_provider,
+                            task,
+                            episode_index,
+                            episode_seed,
+                        )
+                    )
         finally:
             engine.close()
             if hasattr(policy, "close"):
@@ -151,7 +180,9 @@ class PolicyRunner:
         wall_time_seconds = time.perf_counter() - started_perf
         summary["compute"] = {
             "wall_time_seconds": wall_time_seconds,
-            "episodes_per_second": len(results) / wall_time_seconds if wall_time_seconds > 0 else 0.0,
+            "episodes_per_second": len(results) / wall_time_seconds
+            if wall_time_seconds > 0
+            else 0.0,
             "training_time_seconds": 0.0,
             "inference_only": True,
         }
@@ -160,11 +191,19 @@ class PolicyRunner:
         summary["score_kind"] = "prototype_reliability_heuristic"
         summary["sim_to_real_score"] = score
         summary["sim_to_real_score_deprecated"] = True
-        task_stressors = {
-            task.task_id: summarize_stressor_support(task.randomization, self.engine_name) for task in suite.tasks
+        declared_task_stressors = {
+            task.task_id: summarize_stressor_support(
+                task.randomization, self.engine_name
+            )
+            for task in suite.tasks
         }
-        summary["stressor_support"] = aggregate_stressor_support(task_stressors)
-        summary["task_stressor_support"] = task_stressors
+        stressor_execution = summarize_stressor_execution(results)
+        summary["stressor_execution"] = stressor_execution
+        summary["stressor_support"] = _stressor_support_summary(
+            stressor_execution,
+            fallback=aggregate_stressor_support(declared_task_stressors),
+        )
+        summary["task_stressor_support"] = declared_task_stressors
         self.run_metadata = {
             "run_id": make_run_id(suite.suite_id, self._policy_name()),
             "suite_id": suite.suite_id,
@@ -193,6 +232,10 @@ class PolicyRunner:
                 "execution_horizon": self.policy_execution_horizon,
                 "receding_horizon": self.policy_action_horizon > 1,
             },
+            "stressor_config": self.stressor_config.to_dict()
+            if self.stressor_config
+            else None,
+            "stressor_execution": stressor_execution,
         }
         env_metadata = environment_metadata()
         versions = package_versions()
@@ -205,6 +248,7 @@ class PolicyRunner:
             out_dir=self.out,
             package_versions=versions,
             git_info=git,
+            stressor_execution=stressor_execution,
         )
         summary["benchmark_tier"] = validation.benchmark_tier
         summary["public_claim"] = validation.public_claim
@@ -217,7 +261,9 @@ class PolicyRunner:
             run_dir=self.out,
         )
         if self.out:
-            self._write_run_artifacts(suite, report, env_metadata=env_metadata, versions=versions, git=git)
+            self._write_run_artifacts(
+                suite, report, env_metadata=env_metadata, versions=versions, git=git
+            )
         return report
 
     def _run_episode(
@@ -229,8 +275,26 @@ class PolicyRunner:
         episode_index: int,
         seed: int,
     ) -> EpisodeResult:
+        stressor_config = self._task_stressor_config(task)
+        stressor_pipeline = StressorPipeline(
+            stressor_config.stressors,
+            context=StressorContext(
+                engine_name=self.engine_name,
+                task_id=task.task_id,
+                observation_mode=_task_mode(task, "obs_mode", "observation"),
+                action_mode=_task_mode(task, "control_mode", "action"),
+            ),
+            episode_seed=seed,
+            condition_id=stressor_config.condition_id,
+            unsupported_policy=stressor_config.unsupported_policy,
+        )
+        stressor_pipeline.before_reset(engine)
         observation, _ = engine.reset(seed=seed)
         observation = _restore_policy_initial_state(engine, policy, observation)
+        stressor_pipeline.after_reset(engine, observation)
+        observation = stressor_pipeline.transform_observation(
+            observation, step_index=-1
+        )
         steps: list[StepRecord] = []
         frames: list[Any] = []
         last_info: dict[str, Any] = {}
@@ -284,7 +348,9 @@ class PolicyRunner:
                 if chunk_size > 1:
                     policy_action_chunk_count += 1
             expert_info: dict[str, Any] = {
-                "expert_provider": expert_provider.metadata().get("provider_id", "unknown"),
+                "expert_provider": expert_provider.metadata().get(
+                    "provider_id", "unknown"
+                ),
                 "expert_intervention": False,
                 "recovery_attempted": False,
                 "recovery_applied": False,
@@ -310,8 +376,12 @@ class PolicyRunner:
                 "recovery_cached_action": action_source == "recovery",
                 "action_source": action_source,
             }
-            if (self.enable_verifier or self.enable_recovery) and action_source != "recovery":
-                score = expert_provider.score_action(observation, action, task=task, engine=engine)
+            if (
+                self.enable_verifier or self.enable_recovery
+            ) and action_source != "recovery":
+                score = expert_provider.score_action(
+                    observation, action, task=task, engine=engine
+                )
                 score_payload = score.to_dict()
                 action_assessment_count += 1
                 expert_info["action_assessed"] = True
@@ -326,7 +396,10 @@ class PolicyRunner:
                         expert_info["verifier_rejected"] = True
             if self.enable_recovery and expert_info["action_rejected"]:
                 if active_recovery_attempt is not None:
-                    active_recovery_attempt.resolve("superseded", max(active_recovery_attempt.start_step, step_index - 1))
+                    active_recovery_attempt.resolve(
+                        "superseded",
+                        max(active_recovery_attempt.start_step, step_index - 1),
+                    )
                     active_recovery_attempt = None
                 recovery_attempt = _RecoveryAttempt(
                     attempt_id=len(recovery_attempts) + 1,
@@ -353,7 +426,9 @@ class PolicyRunner:
                     action = recovery_plan[0]
                     pending_actions = recovery_plan[1:]
                     pending_action_source = "recovery" if pending_actions else None
-                    pending_recovery_attempt_id = recovery_attempt_id if pending_actions else None
+                    pending_recovery_attempt_id = (
+                        recovery_attempt_id if pending_actions else None
+                    )
                     pending_recovery_action_index = 1
                     recovery_plan_action_count += len(recovery_plan)
                     if not expert_info["expert_intervention"]:
@@ -364,13 +439,21 @@ class PolicyRunner:
                     expert_info["recovery_plan_action_index"] = 0
                     expert_info["recovery_plan_length"] = len(recovery_plan)
                     expert_info["recovery_plan_pending_count"] = len(pending_actions)
-                    recovery_details = getattr(expert_provider, "last_recovery_details", None)
+                    recovery_details = getattr(
+                        expert_provider, "last_recovery_details", None
+                    )
                     if isinstance(recovery_details, dict):
                         expert_info["recovery_plan"] = recovery_details
                 else:
                     recovery_attempt.resolve("not_applied", step_index)
-            if self.enable_verifier and expert_info["action_rejected"] and not expert_info["recovery_applied"]:
-                expert_action = expert_provider.act(observation, task=task, engine=engine)
+            if (
+                self.enable_verifier
+                and expert_info["action_rejected"]
+                and not expert_info["recovery_applied"]
+            ):
+                expert_action = expert_provider.act(
+                    observation, task=task, engine=engine
+                )
                 if expert_action is not None:
                     action = expert_action
                     pending_actions = []
@@ -380,7 +463,28 @@ class PolicyRunner:
                     expert_intervention_count += 1
                     expert_info["expert_intervention"] = True
                     expert_info["action_source"] = "expert"
+            action_before_stressors = action
+            stressor_pipeline.before_step(engine, step_index=step_index)
+            action = stressor_pipeline.transform_action(
+                action,
+                observation=observation,
+                step_index=step_index,
+            )
             next_observation, reward, terminated, truncated, info = engine.step(action)
+            stressor_pipeline.after_step(engine, info, step_index=step_index)
+            next_observation = stressor_pipeline.transform_observation(
+                next_observation,
+                step_index=step_index + 1,
+            )
+            expert_info["action_before_stressors"] = action_before_stressors
+            expert_info["stressor_action_modified"] = not _actions_equal(
+                action_before_stressors, action
+            )
+            expert_info["stressor_condition_id"] = stressor_config.condition_id
+            expert_info["stressor_applications"] = [
+                application.to_dict() for application in stressor_pipeline.applications
+            ]
+            expert_info["stressor_state"] = stressor_pipeline.get_state()
             info = {**info, **expert_info}
             if self.out and self.capture_replay:
                 frame = _safe_render(engine)
@@ -428,12 +532,17 @@ class PolicyRunner:
             task_spec=task,
             step_count=len(steps),
             terminated=bool(steps[-1].terminated) if steps else False,
-            truncated=bool(last_info.get("truncated", False)) or (bool(steps[-1].truncated) if steps else False),
+            truncated=bool(last_info.get("truncated", False))
+            or (bool(steps[-1].truncated) if steps else False),
         )
         failure_label = None if success else classification.label
         recovery_attempt_count = len(recovery_attempts)
-        recovery_applied_count = sum(1 for attempt in recovery_attempts if attempt.applied)
-        recovery_success_count = sum(1 for attempt in recovery_attempts if attempt.outcome == "success")
+        recovery_applied_count = sum(
+            1 for attempt in recovery_attempts if attempt.applied
+        )
+        recovery_success_count = sum(
+            1 for attempt in recovery_attempts if attempt.outcome == "success"
+        )
         recovery_failure_count = recovery_applied_count - recovery_success_count
         recovery_not_applied_count = recovery_attempt_count - recovery_applied_count
         recovery_episode_attempt_count = int(recovery_attempt_count > 0)
@@ -442,38 +551,70 @@ class PolicyRunner:
         metrics = {
             "completion_time": float(last_info.get("completion_time", len(steps))),
             "path_efficiency": float(last_info.get("path_efficiency", 0.0)),
-            "grasp_success_rate": 1.0 if bool(last_info.get("grasp_success", False)) else 0.0,
+            "grasp_success_rate": 1.0
+            if bool(last_info.get("grasp_success", False))
+            else 0.0,
             "expert_intervention_count": float(expert_intervention_count),
-            "expert_intervention_rate": float(expert_intervention_count / len(steps)) if steps else 0.0,
+            "expert_intervention_rate": float(expert_intervention_count / len(steps))
+            if steps
+            else 0.0,
             "recovery_attempt_count": float(recovery_attempt_count),
             "recovery_applied_count": float(recovery_applied_count),
             "recovery_success_count": float(recovery_success_count),
             "recovery_failure_count": float(recovery_failure_count),
             "recovery_not_applied_count": float(recovery_not_applied_count),
-            "recovery_success_rate": float(recovery_success_count / recovery_applied_count)
+            "recovery_success_rate": float(
+                recovery_success_count / recovery_applied_count
+            )
             if recovery_applied_count
             else 0.0,
             "recovery_episode_attempt_count": float(recovery_episode_attempt_count),
             "recovery_episode_applied_count": float(recovery_episode_applied_count),
             "recovery_episode_success_count": float(recovery_episode_success_count),
-            "recovery_episode_success_rate": float(recovery_episode_success_count / recovery_episode_applied_count)
+            "recovery_episode_success_rate": float(
+                recovery_episode_success_count / recovery_episode_applied_count
+            )
             if recovery_episode_applied_count
             else 0.0,
             "verifier_rejection_count": float(verifier_rejection_count),
-            "verifier_rejection_rate": float(verifier_rejection_count / len(steps)) if steps else 0.0,
+            "verifier_rejection_rate": float(verifier_rejection_count / len(steps))
+            if steps
+            else 0.0,
             "action_assessment_count": float(action_assessment_count),
-            "action_assessment_rate": float(action_assessment_count / len(steps)) if steps else 0.0,
+            "action_assessment_rate": float(action_assessment_count / len(steps))
+            if steps
+            else 0.0,
             "action_rejection_count": float(action_rejection_count),
-            "action_rejection_rate": float(action_rejection_count / action_assessment_count)
+            "action_rejection_rate": float(
+                action_rejection_count / action_assessment_count
+            )
             if action_assessment_count
             else 0.0,
             "policy_action_chunk_count": float(policy_action_chunk_count),
             "policy_cached_action_count": float(policy_cached_action_count),
-            "policy_cached_action_rate": float(policy_cached_action_count / len(steps)) if steps else 0.0,
+            "policy_cached_action_rate": float(policy_cached_action_count / len(steps))
+            if steps
+            else 0.0,
             "recovery_plan_action_count": float(recovery_plan_action_count),
             "recovery_cached_action_count": float(recovery_cached_action_count),
-            "recovery_cached_action_rate": float(recovery_cached_action_count / len(steps)) if steps else 0.0,
+            "recovery_cached_action_rate": float(
+                recovery_cached_action_count / len(steps)
+            )
+            if steps
+            else 0.0,
             "drop_rate": 1.0 if failure_label == "object_slip" else 0.0,
+            "stressor_applied_count": float(
+                sum(
+                    application.status == "applied"
+                    for application in stressor_pipeline.applications
+                )
+            ),
+            "stressor_unsupported_count": float(
+                sum(
+                    application.status == "unsupported"
+                    for application in stressor_pipeline.applications
+                )
+            ),
             **safety_metrics({**last_info, "failure_label": failure_label}),
             **robustness_metrics({**last_info, "failure_label": failure_label}),
         }
@@ -486,9 +627,12 @@ class PolicyRunner:
             metrics=metrics,
             failure_label_source=None if success else classification.source,
             steps=steps,
+            stressor_context=stressor_pipeline.manifest(),
         )
         if self.out and self.capture_replay:
-            episode.replay_path = write_episode_video(frames, self.out, task.task_id, episode_index)
+            episode.replay_path = write_episode_video(
+                frames, self.out, task.task_id, episode_index
+            )
             if episode.replay_path is None:
                 raise RuntimeError(
                     "Replay capture was requested, but no video could be written. "
@@ -497,10 +641,30 @@ class PolicyRunner:
                 )
         return episode
 
+    def _task_stressor_config(self, task: Any) -> StressorConfig:
+        task_stressors = task.randomization.get("stressors", [])
+        if not isinstance(task_stressors, list):
+            raise ValueError(
+                f"Task '{task.task_id}' randomization.stressors must be a list"
+            )
+        task_specs = tuple(
+            StressorSpec.from_dict(dict(item)) for item in task_stressors
+        )
+        if self.stressor_config is None:
+            condition_id = f"task:{task.task_id}" if task_specs else "clean"
+            return StressorConfig(condition_id=condition_id, stressors=task_specs)
+        return StressorConfig(
+            condition_id=self.stressor_config.condition_id,
+            stressors=(*task_specs, *self.stressor_config.stressors),
+            unsupported_policy=self.stressor_config.unsupported_policy,
+        )
+
     def _load_policy(self) -> PolicyLike:
         if isinstance(self.policy_ref, Policy):
             return self.policy_ref
-        if not isinstance(self.policy_ref, str) and callable(getattr(self.policy_ref, "act", None)):
+        if not isinstance(self.policy_ref, str) and callable(
+            getattr(self.policy_ref, "act", None)
+        ):
             return self.policy_ref
         path = Path(str(self.policy_ref))
         if path.suffix == ".py" or path.exists():
@@ -531,14 +695,22 @@ class PolicyRunner:
             "episodes_per_task": self.episodes,
             "seed": self.seed,
             "seed_protocol": self.run_metadata.get("seed_protocol"),
-            "expert_provider": self.run_metadata.get("expert_provider", {"provider_id": "none"}),
+            "expert_provider": self.run_metadata.get(
+                "expert_provider", {"provider_id": "none"}
+            ),
             "recovery_enabled": self.enable_recovery,
             "verifier_enabled": self.enable_verifier,
             "recovery_outcomes": self.run_metadata.get("recovery_outcomes"),
             "action_sequence": self.run_metadata.get(
                 "action_sequence",
-                {"action_horizon": 1, "execution_horizon": 1, "receding_horizon": False},
+                {
+                    "action_horizon": 1,
+                    "execution_horizon": 1,
+                    "receding_horizon": False,
+                },
             ),
+            "stressor_config": self.run_metadata.get("stressor_config"),
+            "stressor_execution": self.run_metadata.get("stressor_execution"),
         }
         with (self.out / "run.yaml").open("w", encoding="utf-8") as handle:
             yaml.safe_dump(self.run_metadata, handle, sort_keys=False)
@@ -556,6 +728,11 @@ class PolicyRunner:
         export_json(self.episode_results, self.out / "episodes.json")
         export_jsonl(self.episode_results, self.out / "episodes.jsonl")
         write_replay_manifest(self.episode_results, self.out)
+        write_stressor_manifest(
+            self.episode_results,
+            self.out,
+            configured=self.stressor_config.to_dict() if self.stressor_config else None,
+        )
         write_failure_gallery(self.episode_results, self.out)
         write_recovery_dataset(self.episode_results, self.out)
         write_dataset_manifest(
@@ -568,6 +745,7 @@ class PolicyRunner:
                 "metrics.json",
                 "metrics.csv",
                 "replay_manifest.json",
+                "stressor_manifest.json",
                 "failure_gallery.html",
                 "recovery_dataset/episodes.jsonl",
             ],
@@ -576,9 +754,13 @@ class PolicyRunner:
         report.save(self.out / "report.html")
 
 
-def _annotate_recovery_outcomes(steps: list[StepRecord], attempts: list[_RecoveryAttempt]) -> None:
+def _annotate_recovery_outcomes(
+    steps: list[StepRecord], attempts: list[_RecoveryAttempt]
+) -> None:
     for attempt in attempts:
-        relevant_steps = sorted(set(attempt.window_step_indices + attempt.event_step_indices))
+        relevant_steps = sorted(
+            set(attempt.window_step_indices + attempt.event_step_indices)
+        )
         for step_index in relevant_steps:
             if step_index < 0 or step_index >= len(steps):
                 continue
@@ -601,7 +783,9 @@ def _annotate_recovery_outcomes(steps: list[StepRecord], attempts: list[_Recover
             info = steps[step_index].info
             info["recovery_attempt_id"] = attempt.attempt_id
             info["recovery_plan_outcome"] = attempt.outcome if attempt.applied else None
-            info["recovery_plan_success"] = attempt.applied and attempt.outcome == "success"
+            info["recovery_plan_success"] = (
+                attempt.applied and attempt.outcome == "success"
+            )
 
 
 def _episode_seed(run_seed: int, episode_index: int) -> int:
@@ -612,6 +796,56 @@ def _episode_seed(run_seed: int, episode_index: int) -> int:
     return run_seed * EPISODE_SEED_STRIDE + episode_index
 
 
+def _coerce_stressor_config(
+    value: StressorConfig | dict[str, Any] | str | Path | None,
+) -> StressorConfig | None:
+    if value is None or isinstance(value, StressorConfig):
+        return value
+    if isinstance(value, dict):
+        return StressorConfig.from_dict(value)
+    return StressorConfig.load(value)
+
+
+def _task_mode(task: Any, success_key: str, contract_name: str) -> str | None:
+    value = task.success.get(success_key)
+    if value is None:
+        contract = getattr(task, contract_name, {})
+        if isinstance(contract, dict):
+            value = contract.get("mode") or contract.get("type")
+    return str(value) if value is not None else None
+
+
+def _actions_equal(left: Any, right: Any) -> bool:
+    try:
+        import numpy as np
+
+        return bool(np.array_equal(np.asarray(left), np.asarray(right)))
+    except (TypeError, ValueError):
+        return left == right
+
+
+def _stressor_support_summary(
+    execution: dict[str, Any], *, fallback: dict[str, Any]
+) -> dict[str, Any]:
+    if not execution.get("requested_stressors"):
+        return fallback
+    supported_by_task = {
+        task_id: list(values.get("applied_stressors", []))
+        for task_id, values in execution.get("by_task", {}).items()
+        if values.get("applied_stressors")
+    }
+    unsupported_by_task = {
+        task_id: list(values.get("unsupported_stressors", []))
+        for task_id, values in execution.get("by_task", {}).items()
+        if values.get("unsupported_stressors")
+    }
+    return {
+        "supported_by_task": supported_by_task,
+        "unsupported_by_task": unsupported_by_task,
+        "unsupported_stressors": list(execution.get("unsupported_stressors", [])),
+    }
+
+
 def _safe_render(engine: Any) -> Any:
     try:
         return engine.render()
@@ -619,7 +853,9 @@ def _safe_render(engine: Any) -> Any:
         return None
 
 
-def _safe_get_state(engine: Any, *, observation: dict[str, Any] | None = None) -> dict[str, Any]:
+def _safe_get_state(
+    engine: Any, *, observation: dict[str, Any] | None = None
+) -> dict[str, Any]:
     try:
         state = engine.get_state()
     except Exception:
@@ -630,7 +866,9 @@ def _safe_get_state(engine: Any, *, observation: dict[str, Any] | None = None) -
     return state_dict
 
 
-def _restore_policy_initial_state(engine: Any, policy: PolicyLike, observation: dict[str, Any]) -> dict[str, Any]:
+def _restore_policy_initial_state(
+    engine: Any, policy: PolicyLike, observation: dict[str, Any]
+) -> dict[str, Any]:
     initial_state = getattr(policy, "initial_state", None)
     if initial_state is None:
         return observation
@@ -642,7 +880,9 @@ def _restore_policy_initial_state(engine: Any, policy: PolicyLike, observation: 
         return observation
     set_state = getattr(engine, "set_state", None)
     if set_state is None:
-        raise RuntimeError("Policy requested an initial simulator state, but the selected engine cannot restore state.")
+        raise RuntimeError(
+            "Policy requested an initial simulator state, but the selected engine cannot restore state."
+        )
     restored_observation = set_state(state)
     return restored_observation if restored_observation is not None else observation
 
