@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from nyssa_bench.failures.protocol import FailureLedgerRecord
 
 
 @dataclass
@@ -37,6 +40,7 @@ class EpisodeResult:
     replay_path: str | None = None
     failure_clip_path: str | None = None
     stressor_context: dict[str, Any] = field(default_factory=dict)
+    failure_ledger: FailureLedgerRecord | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -50,6 +54,9 @@ class EpisodeResult:
             "replay_path": self.replay_path,
             "failure_clip_path": self.failure_clip_path,
             "stressor_context": _to_jsonable(self.stressor_context),
+            "failure_ledger": self.failure_ledger.to_dict()
+            if self.failure_ledger is not None
+            else None,
             "steps": [step.to_dict() for step in self.steps],
         }
 

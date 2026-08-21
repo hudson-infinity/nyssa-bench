@@ -54,6 +54,7 @@ class Report:
             float(metrics.get("verifier_rejection_rate", 0.0)) * 100
         )
         failure_counts = self.summary.get("failure_counts", {})
+        failure_event_summary = self.summary.get("failure_event_summary", {})
         per_task = self.summary.get("per_task", {})
         per_seed = self.summary.get("per_seed", {})
         return f"""<!doctype html>
@@ -113,6 +114,12 @@ class Report:
 
   <h2>Failure Clusters</h2>
   {_table(failure_counts)}
+
+  <h2>Failure Event Ledger</h2>
+  {_table(failure_event_summary)}
+
+  <h2>Failure Timelines</h2>
+  {_failure_timeline_table(self.run_dir)}
 
   <h2>Top Failure Episodes</h2>
   {_failure_episode_table(self.run_dir)}
@@ -230,6 +237,97 @@ def _failure_episode_table(run_dir: Path | None) -> str:
         "<th>Steps</th><th>Replay</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table>"
     )
+
+
+def _failure_timeline_table(run_dir: Path | None, *, limit: int = 60) -> str:
+    if run_dir is None:
+        return "<p>No run directory available.</p>"
+    episodes_path = Path(run_dir) / "episodes.json"
+    if not episodes_path.exists():
+        return "<p>No episode artifact available.</p>"
+    try:
+        episodes = json.loads(episodes_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "<p>Could not read episode artifact.</p>"
+
+    rows = []
+    for episode in episodes:
+        ledger = episode.get("failure_ledger")
+        if not isinstance(ledger, dict):
+            continue
+        for event in ledger.get("events", []):
+            if not isinstance(event, dict):
+                continue
+            provenance = event.get("provenance", {})
+            evidence = event.get("evidence", {})
+            parents = event.get("causal_hypotheses", [])
+            rows.append(
+                "<tr>"
+                f"<td>{html.escape(str(episode.get('task_id', 'unknown')))}</td>"
+                f"<td>{int(episode.get('episode_index', 0))}</td>"
+                f"<td>{_event_step_range(event)}</td>"
+                f"<td>{html.escape(str(event.get('role', 'unknown')))}</td>"
+                f"<td>{html.escape(str(event.get('category', 'unknown')))}</td>"
+                f"<td>{html.escape(str(event.get('subtype', 'unknown')))}</td>"
+                f"<td>{float(event.get('confidence', 0.0)):.2f}</td>"
+                f"<td>{html.escape(_provenance_text(provenance))}</td>"
+                f"<td>{html.escape(_evidence_text(evidence))}</td>"
+                f"<td>{html.escape(_parent_text(parents))}</td>"
+                f"<td>{html.escape(str(event.get('recovery_eligibility', 'unknown')))}</td>"
+                "</tr>"
+            )
+            if len(rows) >= limit:
+                break
+        if len(rows) >= limit:
+            break
+    if not rows:
+        return "<p>No temporal failure events recorded.</p>"
+    return (
+        "<table><thead><tr><th>Task</th><th>Episode</th><th>Steps</th>"
+        "<th>Role</th><th>Category</th><th>Subtype</th><th>Confidence</th>"
+        "<th>Provenance</th><th>Evidence</th><th>Candidate parents</th>"
+        "<th>Recovery</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+    )
+
+
+def _event_step_range(event: dict[str, Any]) -> str:
+    onset = int(event.get("onset_step", 0))
+    end = event.get("end_step")
+    return str(onset) if end is None or int(end) == onset else f"{onset}-{int(end)}"
+
+
+def _provenance_text(value: Any) -> str:
+    if not isinstance(value, dict):
+        return "unknown"
+    return f"{value.get('source', 'unknown')}:{value.get('component_id', 'unknown')}"
+
+
+def _evidence_text(value: Any) -> str:
+    if not isinstance(value, dict):
+        return "none"
+    entries = []
+    for visibility in ("policy_observable", "privileged", "external"):
+        for item in value.get(visibility, []):
+            if not isinstance(item, dict):
+                continue
+            payload = json.dumps(item.get("payload", {}), sort_keys=True)
+            if len(payload) > 120:
+                payload = payload[:117] + "..."
+            entries.append(
+                f"{visibility}:{item.get('evidence_type', 'evidence')}={payload}"
+            )
+    return "; ".join(entries) if entries else "none"
+
+
+def _parent_text(value: Any) -> str:
+    if not isinstance(value, list):
+        return "none"
+    return ", ".join(
+        f"{item.get('parent_event_id')} ({float(item.get('confidence', 0.0)):.2f})"
+        for item in value
+        if isinstance(item, dict)
+    ) or "none"
 
 
 def _format_value(value: Any) -> str:

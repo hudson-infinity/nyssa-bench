@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
+from nyssa_bench.failures.protocol import FailureEventDraft
 from nyssa_bench.stressors.protocol import StressorContext, StressorSpec
 
 
@@ -114,6 +115,11 @@ class Stressor(ABC):
         self, state: dict[str, Any], *, engine: Any | None = None
     ) -> None:
         return None
+
+    def drain_failure_events(self) -> list[FailureEventDraft | dict[str, Any]]:
+        """Return and clear queued stressor-originated event drafts."""
+
+        return []
 
 
 def _jsonable(value: Any) -> Any:

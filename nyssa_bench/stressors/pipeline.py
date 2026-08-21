@@ -155,6 +155,14 @@ class StressorPipeline:
             },
         }
 
+    def drain_failure_events(self) -> list[Any]:
+        events: list[Any] = []
+        for stressor in self.stressors:
+            payloads = stressor.drain_failure_events()
+            if payloads:
+                events.extend(payloads)
+        return events
+
     def set_state(self, state: dict[str, Any], *, engine: Any | None = None) -> None:
         if state.get("format") != STRESSOR_CONTEXT_FORMAT:
             raise ValueError(

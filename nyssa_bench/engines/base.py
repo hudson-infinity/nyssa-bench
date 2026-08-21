@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from nyssa_bench.core.task import TaskSpec
+from nyssa_bench.failures.protocol import FailureEventDraft
 
 
 class NyssaEngine(ABC):
@@ -50,3 +51,8 @@ class NyssaEngine(ABC):
             "stressor_id": stressor_id,
             "reason": f"engine adapter {self.__class__.__name__} does not implement this stressor",
         }
+
+    def drain_failure_events(self) -> list[FailureEventDraft | dict[str, Any]]:
+        """Return and clear queued simulator-originated failure event drafts."""
+
+        return []

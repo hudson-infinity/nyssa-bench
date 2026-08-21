@@ -18,6 +18,19 @@ from nyssa_bench.datasets.export_metrics_csv import export_metrics_csv
 from nyssa_bench.datasets.provenance import write_dataset_manifest
 from nyssa_bench.datasets.recovery import write_recovery_dataset
 from nyssa_bench.experts import ExpertProvider, make_expert_provider
+from nyssa_bench.failures import (
+    FailureEventLedger,
+    compact_stressor_context,
+    derive_failure_label,
+    drain_component_failure_events,
+    emit_info_failure_events,
+    recovery_attempt_draft,
+    stressor_condition_drafts,
+    summarize_failure_ledgers,
+    terminal_failure_draft,
+    verifier_rejection_draft,
+    write_failure_ledger_manifest,
+)
 from nyssa_bench.metrics.failure_mapper import FailureMapper
 from nyssa_bench.metrics.robustness import robustness_metrics
 from nyssa_bench.metrics.safety import safety_metrics
@@ -198,6 +211,8 @@ class PolicyRunner:
             for task in suite.tasks
         }
         stressor_execution = summarize_stressor_execution(results)
+        failure_event_summary = summarize_failure_ledgers(results)
+        summary["failure_event_summary"] = failure_event_summary
         summary["stressor_execution"] = stressor_execution
         summary["stressor_support"] = _stressor_support_summary(
             stressor_execution,
@@ -236,6 +251,7 @@ class PolicyRunner:
             if self.stressor_config
             else None,
             "stressor_execution": stressor_execution,
+            "failure_event_summary": failure_event_summary,
         }
         env_metadata = environment_metadata()
         versions = package_versions()
@@ -289,11 +305,55 @@ class PolicyRunner:
             unsupported_policy=stressor_config.unsupported_policy,
         )
         stressor_pipeline.before_reset(engine)
-        observation, _ = engine.reset(seed=seed)
+        observation, reset_info = engine.reset(seed=seed)
         observation = _restore_policy_initial_state(engine, policy, observation)
         stressor_pipeline.after_reset(engine, observation)
         observation = stressor_pipeline.transform_observation(
             observation, step_index=-1
+        )
+        active_stressors = compact_stressor_context(stressor_pipeline.manifest())
+        failure_ledger = FailureEventLedger(
+            task_id=task.task_id,
+            episode_index=episode_index,
+            episode_seed=seed,
+            engine_name=self.engine_name,
+            stressor_context=active_stressors,
+        )
+        engine_event_emitter = failure_ledger.emitter(
+            "simulator_state",
+            engine.__class__.__name__,
+            annotation_source="engine_adapter",
+        )
+        policy_event_emitter = failure_ledger.emitter(
+            "policy_output",
+            policy.__class__.__name__,
+            annotation_source="policy_adapter",
+        )
+        verifier_event_emitter = failure_ledger.emitter(
+            "verifier_output",
+            expert_provider.metadata().get("provider_id", "unknown"),
+            annotation_source="expert_provider",
+        )
+        stressor_event_emitter = failure_ledger.emitter(
+            "stressor",
+            "stressor_pipeline",
+            annotation_source="stressor_pipeline",
+        )
+        recovery_event_emitter = failure_ledger.emitter(
+            "recovery",
+            expert_provider.metadata().get("provider_id", "unknown"),
+            annotation_source="recovery_runner",
+        )
+        stressor_event_emitter.emit_many(
+            stressor_condition_drafts(active_stressors),
+            default_step=0,
+        )
+        drain_component_failure_events(
+            stressor_pipeline, stressor_event_emitter, default_step=0
+        )
+        emit_info_failure_events(reset_info, engine_event_emitter, default_step=0)
+        drain_component_failure_events(
+            engine, engine_event_emitter, default_step=0
         )
         steps: list[StepRecord] = []
         frames: list[Any] = []
@@ -321,6 +381,7 @@ class PolicyRunner:
         for step_index in range(step_limit):
             recovery_attempt_id: int | None = None
             recovery_plan_action_index: int | None = None
+            verifier_failure_event_id: str | None = None
             if pending_actions:
                 action = pending_actions.pop(0)
                 action_source = pending_action_source or "pending"
@@ -338,6 +399,11 @@ class PolicyRunner:
                 chunk_size = 0
             else:
                 raw_action = policy.act(observation)
+                drain_component_failure_events(
+                    policy,
+                    policy_event_emitter,
+                    default_step=step_index,
+                )
                 action, pending_actions, chunk_size = _split_action_chunk(
                     raw_action,
                     action_horizon=self.policy_action_horizon,
@@ -394,6 +460,19 @@ class PolicyRunner:
                     if self.enable_verifier:
                         verifier_rejection_count += 1
                         expert_info["verifier_rejected"] = True
+                    verifier_event = verifier_event_emitter.emit(
+                        verifier_rejection_draft(
+                            score_payload,
+                            step_index=step_index,
+                            recovery_enabled=self.enable_recovery,
+                        )
+                    )
+                    verifier_failure_event_id = verifier_event.event_id
+                drain_component_failure_events(
+                    expert_provider,
+                    verifier_event_emitter,
+                    default_step=step_index,
+                )
             if self.enable_recovery and expert_info["action_rejected"]:
                 if active_recovery_attempt is not None:
                     active_recovery_attempt.resolve(
@@ -446,6 +525,21 @@ class PolicyRunner:
                         expert_info["recovery_plan"] = recovery_details
                 else:
                     recovery_attempt.resolve("not_applied", step_index)
+                recovery_event_emitter.emit(
+                    recovery_attempt_draft(
+                        step_index=step_index,
+                        attempt_id=recovery_attempt_id,
+                        applied=recovery_attempt.applied,
+                        plan_length=recovery_attempt.plan_length,
+                        reason=expert_info.get("action_assessment", {}).get("reason"),
+                        verifier_event_id=verifier_failure_event_id,
+                    )
+                )
+                drain_component_failure_events(
+                    expert_provider,
+                    recovery_event_emitter,
+                    default_step=step_index,
+                )
             if (
                 self.enable_verifier
                 and expert_info["action_rejected"]
@@ -463,6 +557,11 @@ class PolicyRunner:
                     expert_intervention_count += 1
                     expert_info["expert_intervention"] = True
                     expert_info["action_source"] = "expert"
+            drain_component_failure_events(
+                expert_provider,
+                verifier_event_emitter,
+                default_step=step_index,
+            )
             action_before_stressors = action
             stressor_pipeline.before_step(engine, step_index=step_index)
             action = stressor_pipeline.transform_action(
@@ -470,11 +569,38 @@ class PolicyRunner:
                 observation=observation,
                 step_index=step_index,
             )
+            active_stressors = compact_stressor_context(stressor_pipeline.manifest())
+            failure_ledger.set_stressor_context(active_stressors)
             next_observation, reward, terminated, truncated, info = engine.step(action)
+            engine_info_events = emit_info_failure_events(
+                info,
+                engine_event_emitter,
+                default_step=step_index,
+            )
+            if "failure_events" in info:
+                info = {
+                    **info,
+                    "engine_failure_event_ids": [
+                        event.event_id for event in engine_info_events
+                    ],
+                }
+                info.pop("failure_events", None)
+            drain_component_failure_events(
+                engine,
+                engine_event_emitter,
+                default_step=step_index,
+            )
             stressor_pipeline.after_step(engine, info, step_index=step_index)
             next_observation = stressor_pipeline.transform_observation(
                 next_observation,
                 step_index=step_index + 1,
+            )
+            active_stressors = compact_stressor_context(stressor_pipeline.manifest())
+            failure_ledger.set_stressor_context(active_stressors)
+            drain_component_failure_events(
+                stressor_pipeline,
+                stressor_event_emitter,
+                default_step=step_index,
             )
             expert_info["action_before_stressors"] = action_before_stressors
             expert_info["stressor_action_modified"] = not _actions_equal(
@@ -485,6 +611,11 @@ class PolicyRunner:
                 application.to_dict() for application in stressor_pipeline.applications
             ]
             expert_info["stressor_state"] = stressor_pipeline.get_state()
+            expert_info["failure_event_ids"] = [
+                event.event_id
+                for event in failure_ledger.events
+                if event.onset_step == step_index
+            ]
             info = {**info, **expert_info}
             if self.out and self.capture_replay:
                 frame = _safe_render(engine)
@@ -536,6 +667,34 @@ class PolicyRunner:
             or (bool(steps[-1].truncated) if steps else False),
         )
         failure_label = None if success else classification.label
+        if failure_label is not None:
+            terminal_emitter = failure_ledger.emitter(
+                "task_logic" if classification.source == "env" else "legacy_mapper",
+                "environment_task"
+                if classification.source == "env"
+                else "FailureMapper",
+                annotation_source="environment"
+                if classification.source == "env"
+                else "automatic_mapper",
+            )
+            terminal_event = terminal_emitter.emit(
+                terminal_failure_draft(
+                    label=failure_label,
+                    label_source=classification.source,
+                    reason=classification.reason,
+                    info=last_info,
+                    step_index=max(0, len(steps) - 1),
+                )
+            )
+            if steps:
+                steps[-1].info.setdefault("failure_event_ids", []).append(
+                    terminal_event.event_id
+                )
+        failure_ledger_record = failure_ledger.snapshot()
+        failure_label = derive_failure_label(
+            failure_ledger_record,
+            fallback=failure_label,
+        )
         recovery_attempt_count = len(recovery_attempts)
         recovery_applied_count = sum(
             1 for attempt in recovery_attempts if attempt.applied
@@ -628,6 +787,7 @@ class PolicyRunner:
             failure_label_source=None if success else classification.source,
             steps=steps,
             stressor_context=stressor_pipeline.manifest(),
+            failure_ledger=failure_ledger_record,
         )
         if self.out and self.capture_replay:
             episode.replay_path = write_episode_video(
@@ -733,6 +893,7 @@ class PolicyRunner:
             self.out,
             configured=self.stressor_config.to_dict() if self.stressor_config else None,
         )
+        write_failure_ledger_manifest(self.episode_results, self.out)
         write_failure_gallery(self.episode_results, self.out)
         write_recovery_dataset(self.episode_results, self.out)
         write_dataset_manifest(
@@ -746,6 +907,7 @@ class PolicyRunner:
                 "metrics.csv",
                 "replay_manifest.json",
                 "stressor_manifest.json",
+                "failure_ledger.json",
                 "failure_gallery.html",
                 "recovery_dataset/episodes.jsonl",
             ],

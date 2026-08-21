@@ -24,3 +24,9 @@ out-of-bounds demonstrations, and affinely normalizes actions to `[-1, 1]`.
 The original bounds are stored in the HDF5 `data` group's
 `nyssa_action_transform` attribute. Use `export-task-robomimic` when tasks have
 different action contracts.
+
+JSON and JSONL episode exports preserve the complete
+`nyssa-failure-ledger-v1` payload. Legacy failed episodes with only a flat
+failure label receive a terminal-only migration event when loaded for export.
+Specialized learned-policy exports continue to use the flat label until the
+downstream failure-evidence export contract is versioned separately.

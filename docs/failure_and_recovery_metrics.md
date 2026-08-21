@@ -10,6 +10,7 @@ Each episode should record:
 - `success`
 - `failure_label`
 - `failure_label_source`
+- `failure_ledger` (`nyssa-failure-ledger-v1`)
 - `steps`
 - `replay_path`
 - `failure_clip_path`
@@ -17,6 +18,10 @@ Each episode should record:
 - seed
 - stressor settings
 - policy id and checkpoint metadata
+
+`failure_label` remains the episode summary. The ledger records temporal roles,
+evidence visibility, provenance, candidate causal hypotheses, consequences,
+and recovery eligibility. See [Failure Event Protocol](failure_event_protocol.md).
 
 ## Recovery Fields
 

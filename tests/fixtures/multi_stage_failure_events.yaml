@@ -1,0 +1,108 @@
+format: nyssa-failure-event-fixture-v1
+events:
+  - event_id: occlusion
+    role: candidate_cause
+    category: perception
+    subtype: camera_occlusion
+    onset_step: 2
+    end_step: 4
+    temporal_precision: step_interval
+    confidence: 0.92
+    evidence:
+      - format: nyssa-failure-evidence-v1
+        evidence_id: occlusion:policy-image
+        evidence_type: image_visibility
+        payload:
+          visible_fraction: 0.31
+        source: policy_observation
+        annotation_source: automatic_visibility_probe
+        confidence: 0.92
+        visibility: policy_observable
+        captured_step: 2
+    consequences: [target_partially_hidden]
+    recovery_eligibility: eligible
+  - event_id: grasp-offset
+    role: mechanism
+    category: interaction
+    subtype: grasp_pose_offset
+    onset_step: 4
+    temporal_precision: exact_step
+    confidence: 0.81
+    evidence:
+      - format: nyssa-failure-evidence-v1
+        evidence_id: grasp-offset:sim-pose
+        evidence_type: pose_error
+        payload:
+          translation_error_m: 0.047
+        source: simulator_state
+        annotation_source: automatic_geometry_check
+        confidence: 0.98
+        visibility: privileged
+        captured_step: 4
+    causal_hypotheses:
+      - format: nyssa-causal-hypothesis-v1
+        parent_event_id: occlusion
+        relationship: may_contribute_to
+        confidence: 0.67
+        evidence_ids: [grasp-offset:sim-pose]
+        rationale: Occlusion preceded the measured grasp offset.
+    consequences: [off_center_contact]
+    recovery_eligibility: eligible
+  - event_id: slip
+    role: symptom
+    category: interaction
+    subtype: object_slip
+    onset_step: 6
+    temporal_precision: exact_step
+    confidence: 0.99
+    evidence:
+      privileged:
+        - format: nyssa-failure-evidence-v1
+          evidence_id: slip:relative-motion
+          evidence_type: object_gripper_relative_motion
+          payload:
+            displacement_m: 0.083
+          source: simulator_state
+          annotation_source: automatic_slip_check
+          confidence: 0.99
+          captured_step: 6
+      policy_observable: []
+      external: []
+    causal_hypotheses:
+      - format: nyssa-causal-hypothesis-v1
+        parent_event_id: grasp-offset
+        relationship: may_contribute_to
+        confidence: 0.84
+        evidence_ids: [slip:relative-motion]
+        rationale: The off-center grasp preceded relative object motion.
+    consequences: [object_released]
+    recovery_eligibility: eligible
+  - event_id: missed-target
+    role: consequence
+    category: planning
+    subtype: missed_target
+    onset_step: 10
+    end_step: 10
+    temporal_precision: terminal_only
+    confidence: 1.0
+    evidence:
+      - format: nyssa-failure-evidence-v1
+        evidence_id: missed-target:task
+        evidence_type: task_success_predicate
+        payload:
+          success: false
+        source: task_logic
+        annotation_source: environment
+        confidence: 1.0
+        visibility: privileged
+        captured_step: 10
+    causal_hypotheses:
+      - format: nyssa-causal-hypothesis-v1
+        parent_event_id: slip
+        relationship: may_contribute_to
+        confidence: 0.91
+        evidence_ids: [missed-target:task]
+        rationale: The slip preceded terminal target failure.
+    consequences: [episode_failed]
+    recovery_eligibility: ineligible
+    summary_label: missed_target

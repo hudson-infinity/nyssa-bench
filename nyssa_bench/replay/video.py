@@ -135,6 +135,9 @@ def write_replay_manifest(episodes: list[EpisodeResult], out_dir: str | Path) ->
                 "replay_path": episode.replay_path,
                 "failure_clip_path": episode.failure_clip_path,
                 "stressor_context": episode.stressor_context,
+                "failure_ledger": episode.failure_ledger.to_dict()
+                if episode.failure_ledger is not None
+                else None,
             }
             for episode in episodes
         ],

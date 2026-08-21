@@ -826,9 +826,11 @@ def _load_run_metadata(run_dir: Path) -> dict[str, Any]:
 
 def _load_episodes(run_dir: Path):
     from nyssa_bench.core.episode import EpisodeResult, StepRecord
+    from nyssa_bench.failures import failure_ledger_from_episode_dict
 
     episodes_path = run_dir / "episodes.json"
     data = json.loads(episodes_path.read_text(encoding="utf-8"))
+    run_metadata = _load_run_metadata(run_dir)
     episodes = []
     for item in data:
         steps = [
@@ -855,6 +857,10 @@ def _load_episodes(run_dir: Path):
                 replay_path=item.get("replay_path"),
                 failure_clip_path=item.get("failure_clip_path"),
                 stressor_context=item.get("stressor_context", {}),
+                failure_ledger=failure_ledger_from_episode_dict(
+                    item,
+                    engine_name=str(run_metadata.get("engine_name", "unknown")),
+                ),
             )
         )
     return episodes

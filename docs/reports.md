@@ -8,10 +8,14 @@ NyssaBench writes an HTML report for each run. Reports include:
 - primary failure mode
 - public-claim validation status
 - requested, applied, skipped, and unsupported stressor status
+- temporal failure-event summaries and evidence-backed timelines
 - top failure episodes and replay links when available
 - aggregate metrics
 - failure counts
 - raw summary JSON
+
+The same event ledger is embedded in `replay_manifest.json`; `replay.html`
+renders the complete event payload beside each episode.
 
 Use `nyssa report <run>` to regenerate `report.html` from a run directory. Use `nyssa compare` for multi-policy reports.
 
