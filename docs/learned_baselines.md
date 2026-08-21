@@ -1,7 +1,102 @@
 # Learned Baselines
 
-NyssaBench currently includes a repo-local linear behavior cloning baseline for
-the focused ManiSkill result pack.
+NyssaBench includes lightweight repository-local behavior-cloning models and
+RoboMimic integration. These baselines validate data, checkpoint, routing, and
+evaluation contracts. They are not automatically strong robot policies.
+
+## Baseline Matrix
+
+| Model | Checkpoint format | Observation | Action behavior | Intended use |
+| --- | --- | --- | --- | --- |
+| Linear BC | `nyssa-linear-bc-v1` | Deterministic fixed-length numeric flattening | Environment-space output padded/truncated and clipped | Fast pipeline smoke |
+| KNN BC | `nyssa-knn-bc-v1` | Same flattening with standardized features | Weighted neighbor action, padded/truncated and clipped | Non-parametric smoke/baseline |
+| Sequence KNN BC | `nyssa-sequence-knn-bc-v1` | Same flattening | Returns an environment-space action chunk | Action-sequence pipeline validation |
+| RoboMimic BC | upstream `.pth` plus Nyssa task manifest | Validated fixed-length flat observation | Strict normalized `[-1, 1]` output denormalized to live bounds | Stronger external IL baseline |
+
+Flat preprocessing recursively collects numeric values from `observation.raw`
+in sorted key order, removes top-level simulator-state payloads, then truncates
+or zero-pads to `feature_dim`. This representation is deterministic but loses
+structure and is not a substitute for image/language preprocessing.
+
+Repo-local BC uses permissive action fitting. A checkpoint action is padded or
+truncated to the live action size and clipped. Treat action-contract mismatches
+as invalid even when this compatibility behavior lets a smoke run continue.
+
+## Data Requirements
+
+Training episodes must contain task IDs, live observations, actions, and action
+space contracts. Keep controller/control mode, robot, observation mode, and
+action units identical between collection and evaluation.
+
+By default `train-task-bc` and `export-task-robomimic` use successful episodes
+only. `--include-failures` changes the training distribution and must be
+justified; rejected or failed actions are not automatically corrective targets.
+
+Official ManiSkill Panda motion-planning demonstrations use `pd_joint_pos`.
+Evaluate checkpoints trained from them on `maniskill_planner_bc_v0`, not the
+end-effector-delta `maniskill_manipulation_v0` suite.
+
+## End-To-End Task-Routed Sequence BC
+
+Assume state-aligned planner demonstrations have been imported under:
+
+```text
+benchmark_results/maniskill_manipulation_v0_planner_state_demos
+```
+
+Train one sequence checkpoint per task:
+
+```bash
+uv run nyssa train-task-bc \
+  benchmark_results/maniskill_manipulation_v0_planner_state_demos \
+  --out-dir checkpoints/maniskill_sequence_bc_by_task \
+  --model sequence-knn \
+  --feature-dim 512 \
+  --knn-k 1 \
+  --action-horizon 16
+```
+
+Use a held-out run seed for a one-episode pipeline smoke. The action horizon
+declares the returned chunk; the execution horizon commits four actions before
+the next model call:
+
+```bash
+NYSSA_TASK_BC_DIR=checkpoints/maniskill_sequence_bc_by_task \
+uv run nyssa run \
+  --suite maniskill_planner_bc_v0 \
+  --engine maniskill \
+  --policy task_bc_policy \
+  --episodes 1 \
+  --seed 10000 \
+  --policy-action-horizon 16 \
+  --policy-execution-horizon 4 \
+  --out runs/maniskill_sequence_bc_smoke \
+  --no-replay
+```
+
+After the smoke succeeds, run the held-out evaluation with replay evidence:
+
+```bash
+NYSSA_TASK_BC_DIR=checkpoints/maniskill_sequence_bc_by_task \
+uv run nyssa experiment \
+  --suite maniskill_planner_bc_v0 \
+  --engine maniskill \
+  --policies task_bc_policy \
+  --seeds 10000 10001 10002 \
+  --episodes 100 \
+  --policy-action-horizon 16 \
+  --policy-execution-horizon 4 \
+  --out benchmark_results/maniskill_sequence_bc_heldout \
+  --capture-replay
+```
+
+Verify that no resulting episode seed appears in the training source. Repo-local
+JSON BC does not enforce this automatically. Record the source manifest,
+training seeds, feature dimension, checkpoint hashes, and evaluation seeds in
+the experiment notes/policy metadata.
+
+Missing task checkpoints fail by default. `NYSSA_TASK_BC_MISSING=zero` is only a
+diagnostic pipeline fallback and cannot support a learned-policy claim.
 
 ## Train BC
 
@@ -46,15 +141,18 @@ uv run nyssa experiment \
   --suite maniskill_manipulation_v0 \
   --engine maniskill \
   --policies random scripted_oracle bc_policy \
-  --seeds 0 1 2 \
+  --seeds 10000 10001 10002 \
   --episodes 100 \
-  --out benchmark_results/maniskill_manipulation_v0
+  --out benchmark_results/maniskill_manipulation_v0 \
+  --capture-replay
 ```
 
 ## Interpretation
 
-The linear BC baseline is intentionally simple. It is useful for checking that
-NyssaBench can train and evaluate a learned policy from run artifacts. It should
+The training source above uses run seeds 0, 1, and 2; the evaluation deliberately
+uses different run seeds. The linear BC baseline is intentionally simple. It is
+useful for checking that NyssaBench can train and evaluate a learned policy from
+run artifacts. It should
 not be described as a strong learned robot policy unless it clearly improves on
 random and scripted baselines in validated result artifacts.
 
@@ -141,7 +239,9 @@ RoboMimic policy outputs are always interpreted as normalized `[-1, 1]`
 actions. Keep `task_robomimic_manifest.json` beside curated task checkpoints so
 the adapter can verify that training and live action bounds agree. Without the
 manifest, the adapter still denormalizes against the live bounds but cannot
-detect a controller or robot mismatch.
+detect a controller/robot mismatch or training-seed overlap. Treat direct
+checkpoint runs without reconstructed provenance as diagnostics, not held-out
+evidence.
 
 Use the curated folder by changing only the environment variable:
 
@@ -152,7 +252,7 @@ uv run nyssa run \
   --engine maniskill \
   --policy task_robomimic \
   --episodes 30 \
-  --seed 0 \
+  --seed 10000 \
   --out runs/task_robomimic_planner_smoke \
   --capture-replay
 ```
@@ -208,7 +308,7 @@ uv run nyssa run \
   --engine maniskill \
   --policy task_bc_policy \
   --episodes 10 \
-  --seed 0 \
+  --seed 10000 \
   --out runs/task_bc_planner_smoke \
   --capture-replay
 ```
