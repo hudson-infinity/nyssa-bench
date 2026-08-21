@@ -107,6 +107,8 @@ def _episode_from_group(
     episode_index: int,
     source: str,
 ) -> EpisodeResult:
+    from nyssa_bench.failures import failure_ledger_from_episode_dict
+
     actions = np.asarray(group["actions"])
     if actions.ndim == 1:
         actions = actions.reshape(-1, 1)
@@ -138,13 +140,28 @@ def _episode_from_group(
             )
         )
 
+    seed = _int_attr(group, ("episode_seed", "seed"), default=episode_index)
+    failure_label = None if success else "unknown_failure"
+    failure_label_source = None if success else "maniskill_import"
+    failure_ledger = failure_ledger_from_episode_dict(
+        {
+            "task_id": task_id,
+            "episode_index": episode_index,
+            "seed": seed,
+            "success": success,
+            "failure_label": failure_label,
+            "failure_label_source": failure_label_source,
+            "steps": [None] * len(steps),
+        },
+        engine_name="maniskill",
+    )
     return EpisodeResult(
         task_id=task_id,
         episode_index=episode_index,
-        seed=_int_attr(group, ("episode_seed", "seed"), default=episode_index),
+        seed=seed,
         success=success,
-        failure_label=None if success else "unknown_failure",
-        failure_label_source=None if success else "maniskill_import",
+        failure_label=failure_label,
+        failure_label_source=failure_label_source,
         metrics={
             "completion_time": float(step_count),
             "path_efficiency": 0.0,
@@ -153,6 +170,7 @@ def _episode_from_group(
             "drop_rate": 0.0,
         },
         steps=steps,
+        failure_ledger=failure_ledger,
     )
 
 

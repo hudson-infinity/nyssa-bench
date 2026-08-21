@@ -101,6 +101,8 @@ def _episode_results(episodes: list[dict[str, Any]]) -> list[EpisodeResult]:
 
 
 def _episode_result(episode: dict[str, Any], index: int) -> EpisodeResult:
+    from nyssa_bench.failures import failure_ledger_from_episode_dict
+
     steps = [_step_record(step) for step in episode.get("steps", [])]
     return EpisodeResult(
         task_id=str(episode.get("task_id", "")),
@@ -112,6 +114,8 @@ def _episode_result(episode: dict[str, Any], index: int) -> EpisodeResult:
         metrics={str(key): float(value) for key, value in dict(episode.get("metrics", {})).items()},
         replay_path=episode.get("replay_path"),
         failure_clip_path=episode.get("failure_clip_path"),
+        stressor_context=dict(episode.get("stressor_context", {})),
+        failure_ledger=failure_ledger_from_episode_dict(episode),
         steps=steps,
     )
 

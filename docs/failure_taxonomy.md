@@ -2,6 +2,11 @@
 
 NyssaBench reports failure modes instead of reducing evaluation to pass or fail.
 
+These labels are backward-compatible episode summaries. New runs also record a
+versioned temporal ledger that separates symptoms, mechanisms, candidate
+causes, contributing conditions, and consequences. See
+[Failure Event Protocol](failure_event_protocol.md).
+
 Core labels:
 
 - bad_grasp
@@ -51,3 +56,5 @@ The current `FailureMapper` uses simple event-based rules:
 
 These heuristics are intentionally conservative. Stronger result packs should
 prefer environment-native events or task-specific diagnostics when available.
+The mapper emits a `terminal_only` ledger event but does not infer causal links
+to earlier events.

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from nyssa_bench.baselines.features import action_bounds, fit_action_to_observation, flatten_observation
+from nyssa_bench.failures.protocol import FailureEventDraft
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,11 @@ class ExpertProvider:
 
     def close(self) -> None:
         return None
+
+    def drain_failure_events(self) -> list[FailureEventDraft | dict[str, Any]]:
+        """Return and clear queued verifier or recovery event drafts."""
+
+        return []
 
 
 class NoOpExpertProvider(ExpertProvider):

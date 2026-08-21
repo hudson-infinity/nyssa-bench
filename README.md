@@ -358,6 +358,8 @@ Each recovery-aware run writes:
 - `recovery_dataset/manifest.json`: counts of supervised recovery targets and negative/context records.
 - `recovery_dataset/episodes.jsonl`: recovery context with explicit executed-action and target provenance.
 - `failure_gallery.html`: representative failed episodes and replay links.
+- `failure_ledger.json`: temporal symptoms, mechanisms, candidate causes,
+  consequences, evidence visibility, provenance, and recovery eligibility.
 - `metrics.json`: success, intervention, recovery, verifier, action-chunk, and compute metrics.
 
 Train the next task-routed BC checkpoints directly from one run directory or an

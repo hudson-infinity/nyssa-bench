@@ -5,6 +5,8 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from nyssa_bench.failures.protocol import FailureEventDraft
+
 
 @runtime_checkable
 class PolicyLike(Protocol):
@@ -24,6 +26,11 @@ class Policy(ABC):
 
     def close(self) -> None:
         return None
+
+    def drain_failure_events(self) -> list[FailureEventDraft | dict[str, Any]]:
+        """Return and clear queued policy-originated failure event drafts."""
+
+        return []
 
 
 def load_policy_from_path(path: str | Path) -> PolicyLike:
