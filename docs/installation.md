@@ -1,5 +1,31 @@
 # Installation
 
+## Python Versions
+
+`pyproject.toml` declares Python 3.10 or newer. The contributor validation
+matrix is narrower:
+
+| Workflow | Python | Notes |
+| --- | --- | --- |
+| Core package, tests, docs, and lightweight CI | 3.11 | Canonical contributor and GitHub Actions baseline |
+| ManiSkill motion planning | 3.10 | Required for reliable `toppra`/`mplib` wheel and ABI compatibility |
+| MuJoCo development | 3.10 or 3.11 | Install the `mujoco` extra and run the backend smoke test |
+| Python 3.12+ | Conditional | Core may work, but simulator and learned-policy extras require separate validation |
+
+A contribution that changes an optional runtime is supported only on Python
+versions where that runtime and its compiled dependencies were exercised. State
+the interpreter version in the pull request when simulator behavior changes.
+
+Install `uv` using its official instructions, then confirm the interpreter
+selected for the project:
+
+```bash
+uv --version
+uv run python --version
+```
+
+## Canonical Environments
+
 Use `uv` to install the canonical stable development and benchmark environment:
 
 ```bash
@@ -14,6 +40,10 @@ experimental Genesis dependency. `uv sync` performs an exact sync by default,
 so a later invocation that omits extras can remove packages installed by an
 earlier invocation. Repeat `uv sync --extra all --extra dev` after dependency
 updates instead of treating multiple exact sync commands as additive.
+
+For external contributions, this is the default setup. The GitHub Actions job
+installs only `.[dev]`, so CI exercises core contracts but does not install or
+validate MuJoCo, ManiSkill, learned-policy, dataset, or plotting extras.
 
 For a dedicated lightweight environment, select one complete workflow:
 
@@ -31,7 +61,32 @@ command:
 uv sync --inexact --extra dataset --extra lerobot --extra robomimic --extra vla --extra diffusion
 ```
 
-## ManiSkill motion-planning ABI
+Use `--inexact` only when intentionally extending an existing environment.
+Before reproducing CI or release behavior, return to a declared exact profile.
+
+## Contributor Verification
+
+After installation, verify the repository and static configuration contracts:
+
+```bash
+uv run nyssa list-suites
+uv run pytest -q
+uv run ruff check .
+uv run python scripts/validate_configs.py
+uv run python scripts/release_checklist.py
+```
+
+Changes to a simulator boundary also require the corresponding command:
+
+```bash
+uv run python scripts/validate_backend.py mujoco --episodes 1
+uv run python scripts/validate_backend.py maniskill --episodes 1
+```
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the complete validation matrix,
+artifact rules, and pull-request checklist.
+
+## ManiSkill Motion-Planning ABI
 
 Use Python 3.10 and NumPy 1.26 for ManiSkill motion-planning demos. The
 planner stack imports compiled packages such as `toppra`; NumPy 2 can trigger
@@ -52,7 +107,7 @@ print("mplib import ok")
 PY
 ```
 
-## Rendering system packages
+## Rendering System Packages
 
 Python packages are not enough for video-backed robotics benchmarks. Public
 NyssaBench benchmark claims require MP4 replay evidence, so install simulator
