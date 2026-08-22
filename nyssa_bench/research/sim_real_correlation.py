@@ -17,4 +17,3 @@ def paired_success_correlation(sim_success: list[float], real_success: list[floa
     if denominator == 0:
         return None
     return numerator / denominator
-

@@ -277,7 +277,7 @@ by the test-time planner, for example `0.5,1.0,1.5,2.0`.
 for near-threshold Pusher states where reducing control penalty can decide
 success.
 `NYSSA_MUJOCO_PUSHER_PLANNING_HORIZON` lets Pusher score candidates over a
-longer horizon than the execution horizon; the default is `15`. 
+longer horizon than the execution horizon; the default is `15`.
 `NYSSA_MUJOCO_PUSHER_RECOVERY_EXECUTION_HORIZON` caps how many committed
 recovery actions run before replanning.
 `NYSSA_MUJOCO_RECOVERY_TASKS` controls where MuJoCo macro recovery is active;

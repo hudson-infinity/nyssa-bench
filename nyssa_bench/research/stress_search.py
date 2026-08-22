@@ -15,4 +15,3 @@ def rank_stress_candidates(candidates: list[StressCandidate]) -> list[StressCand
     """Rank stress settings from most failure-inducing to least."""
 
     return sorted(candidates, key=lambda item: (item.success_rate, -item.episodes, item.stressor, item.value))
-

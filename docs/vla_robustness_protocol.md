@@ -59,4 +59,3 @@ A VLA robustness claim is public only if:
 - policies are compared under identical stressor distributions
 - confidence intervals are reported
 - task prompts and prompt perturbations are archived
-

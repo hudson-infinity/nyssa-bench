@@ -67,4 +67,3 @@ failure predictions against physics simulation and real-world outcomes.
 - building a world model
 - reconstructing scenes from raw video
 - claiming sim-to-real validity without paired real-world evidence
-

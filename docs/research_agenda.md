@@ -54,4 +54,3 @@ Subtitle:
 
 Those are future layers. The immediate bottleneck is trustworthy video-backed
 evaluation.
-

@@ -29,4 +29,3 @@ the run-level validator and the pack includes enough seed coverage.
 If a result is missing videos, has weak scripted baselines, uses unsupported
 stressors, has too few episodes, or relies on placeholder policy adapters, it
 must stay below Tier 1 even if the code path executed successfully.
-

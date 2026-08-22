@@ -44,4 +44,3 @@ class PreferenceRecord:
             evaluator_id=data.get("evaluator_id"),
             blinded=bool(data.get("blinded", True)),
         )
-

@@ -13,4 +13,5 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install -e ".[dev]"
+      - run: pre-commit run --all-files --show-diff-on-failure
       - run: pytest -q

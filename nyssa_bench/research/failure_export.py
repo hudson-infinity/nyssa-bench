@@ -14,4 +14,3 @@ def failure_episode_indices(episodes: list[EpisodeResult], *, failure_label: str
             continue
         indices.append(episode.episode_index)
     return indices
-

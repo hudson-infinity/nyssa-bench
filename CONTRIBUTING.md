@@ -36,6 +36,17 @@ uv run nyssa list-suites
 uv run pytest -q
 ```
 
+Install the repository hooks after the environment is ready:
+
+```bash
+uv run pre-commit install --install-hooks
+```
+
+The configuration installs both commit and push hooks. Commit hooks check file
+structure, YAML/JSON/TOML syntax, accidental large files/private keys, Ruff,
+Nyssa config changes, and required release files. The pre-push hook runs the
+full pytest suite.
+
 Organization members with direct write access may clone the canonical
 repository instead. In either case, `origin` should be the remote where the
 contributor branch will be pushed and `upstream` should track the canonical
@@ -146,6 +157,23 @@ unrelated dependency updates in one commit.
 
 ## Required Local Checks
 
+Run all commit-stage hooks manually before opening a pull request:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+Run the pre-push stage explicitly when diagnosing hook behavior:
+
+```bash
+uv run pre-commit run --hook-stage pre-push --all-files
+```
+
+Hooks use the active environment, so invoke `pre-commit` through `uv run` unless
+the project virtual environment is already activated. Update pinned third-party
+hook revisions intentionally with `uv run pre-commit autoupdate`, review the
+resulting diff, and rerun both stages.
+
 Run these checks from the repository root before marking any pull request ready:
 
 ```bash
@@ -158,6 +186,10 @@ uv run python scripts/release_checklist.py
 Focused checks are useful while editing, but documentation-only changes still
 run the complete baseline before review because command, path, and API examples
 are executable contributor contracts.
+
+Pre-commit is a fast consistency gate. It does not replace required simulator
+integration, replay inspection, held-out policy evaluation, or release smoke
+tests.
 
 When changing a task, suite, experiment, or stressor file, also validate the
 specific target:
@@ -298,6 +330,7 @@ after the corresponding commit is pushed.
 - [ ] Tests cover the changed behavior and legacy compatibility where needed.
 - [ ] `uv run pytest -q` passes.
 - [ ] `uv run ruff check .` passes.
+- [ ] Commit and pre-push pre-commit stages pass.
 - [ ] Config and release checklist scripts pass.
 - [ ] Required simulator integration ran, or the PR remains draft with a clear plan.
 - [ ] Public APIs and versioned schemas remain compatible or include migration notes.
