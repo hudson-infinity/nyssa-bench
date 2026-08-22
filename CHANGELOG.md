@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bound numeric observation flattening to the requested feature size and avoid
+  materializing full image tensors in Python.
+- Vectorize paired robustness bootstraps, group episode summaries in one pass,
+  and reuse stressor/episode serialization metadata in high-frequency paths.
 - Normalize bounded RoboMimic actions to `[-1, 1]`, persist per-task action
   transforms, and validate live inference bounds.
 - Record training episode seeds and reject task-policy evaluation leakage by

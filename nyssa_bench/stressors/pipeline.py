@@ -202,15 +202,22 @@ class StressorPipeline:
     def manifest(self) -> dict[str, Any]:
         return {
             "format": STRESSOR_CONTEXT_FORMAT,
-            "condition_id": self.condition_id,
+            **self.application_context(),
             "episode_seed": self.episode_seed,
             "context": self.context.to_dict(),
-            "composition_order": list(self.composition_order),
             "unsupported_policy": self.unsupported_policy,
+            "final_state": self.get_state(),
+        }
+
+    def application_context(self) -> dict[str, Any]:
+        """Return applied/requested metadata without serializing runtime state."""
+
+        return {
+            "condition_id": self.condition_id,
+            "composition_order": list(self.composition_order),
             "applications": [
                 application.to_dict() for application in self.applications
             ],
-            "final_state": self.get_state(),
         }
 
     def _prepare(self) -> None:
