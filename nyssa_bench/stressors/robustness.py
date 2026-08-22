@@ -139,24 +139,26 @@ def robustness_sweep_metrics(
                 f"Severity {severity} does not have complete matched episode coverage"
             )
     ordered_keys = sorted(baseline_keys)
+    outcome_matrix = np.asarray(
+        [[outcomes[severity][key] for key in ordered_keys] for severity in severities],
+        dtype=bool,
+    )
+    rate_values = outcome_matrix.mean(axis=1)
     rates = {
-        severity: sum(outcomes[severity][key] for key in ordered_keys)
-        / len(ordered_keys)
-        for severity in severities
+        severity: float(rate_values[index]) for index, severity in enumerate(severities)
     }
     clean_rate = rates[0.0]
     auc = _normalized_auc(severities, [rates[severity] for severity in severities])
     bootstrap_aucs = _bootstrap_auc(
         severities,
-        outcomes,
-        ordered_keys,
+        outcome_matrix,
         samples=bootstrap_samples,
         seed=bootstrap_seed,
     )
     points = []
-    for severity in severities:
-        successes = sum(outcomes[severity].values())
-        total = len(outcomes[severity])
+    for index, severity in enumerate(severities):
+        successes = int(outcome_matrix[index].sum())
+        total = outcome_matrix.shape[1]
         points.append(
             {
                 "severity": severity,
@@ -300,22 +302,38 @@ def _normalized_auc(severities: list[float], rates: list[float]) -> float:
 
 def _bootstrap_auc(
     severities: list[float],
-    outcomes: dict[float, dict[tuple[str, int, int], bool]],
-    ordered_keys: list[tuple[str, int, int]],
+    outcome_matrix: np.ndarray,
     *,
     samples: int,
     seed: int,
+    max_sampled_outcomes_per_batch: int = 5_000_000,
 ) -> np.ndarray:
     rng = np.random.default_rng(seed)
     result = np.empty(samples, dtype=float)
-    for sample_index in range(samples):
-        indices = rng.integers(0, len(ordered_keys), size=len(ordered_keys))
-        sampled_keys = [ordered_keys[index] for index in indices]
-        rates = [
-            sum(outcomes[severity][key] for key in sampled_keys) / len(sampled_keys)
-            for severity in severities
-        ]
-        result[sample_index] = _normalized_auc(severities, rates)
+    episode_count = int(outcome_matrix.shape[1])
+    if max_sampled_outcomes_per_batch <= 0:
+        raise ValueError("max_sampled_outcomes_per_batch must be positive")
+    batch_size = max(
+        1,
+        min(
+            samples,
+            max_sampled_outcomes_per_batch
+            // max(1, episode_count * int(outcome_matrix.shape[0])),
+        ),
+    )
+    severity_steps = np.diff(np.asarray(severities, dtype=float))
+    severity_span = float(severities[-1] - severities[0])
+    for start in range(0, samples, batch_size):
+        stop = min(samples, start + batch_size)
+        indices = rng.integers(
+            0,
+            episode_count,
+            size=(stop - start, episode_count),
+        )
+        sampled_rates = outcome_matrix[:, indices].mean(axis=2)
+        result[start:stop] = (
+            severity_steps[:, None] * (sampled_rates[:-1] + sampled_rates[1:]) * 0.5
+        ).sum(axis=0) / severity_span
     return result
 
 

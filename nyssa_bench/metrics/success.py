@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections import Counter
-from math import sqrt
+from collections import Counter, defaultdict
+from math import isfinite, sqrt
 
 from nyssa_bench.core.episode import EpisodeResult
 
@@ -18,7 +18,10 @@ RECOVERY_COUNT_METRICS = {
 }
 RECOVERY_RATE_METRICS = {
     "recovery_success_rate": ("recovery_success_count", "recovery_applied_count"),
-    "recovery_episode_success_rate": ("recovery_episode_success_count", "recovery_episode_applied_count"),
+    "recovery_episode_success_rate": (
+        "recovery_episode_success_count",
+        "recovery_episode_applied_count",
+    ),
 }
 
 
@@ -36,90 +39,111 @@ def aggregate_episodes(episodes: list[EpisodeResult]) -> dict[str, object]:
             "metric_ci95": {},
         }
 
-    failure_counts = Counter(ep.failure_label for ep in episodes if ep.failure_label)
-    success_count = sum(1 for ep in episodes if ep.success)
-    aggregate_metrics, metric_ci95 = _aggregate_metrics(episodes)
+    task_groups: dict[str, list[EpisodeResult]] = defaultdict(list)
+    seed_groups: dict[int, list[EpisodeResult]] = defaultdict(list)
+    for episode in episodes:
+        task_groups[episode.task_id].append(episode)
+        seed_groups[episode.seed].append(episode)
 
+    return {
+        **_episode_group_summary(episodes),
+        "per_task": {
+            task_id: _episode_group_summary(task_groups[task_id])
+            for task_id in sorted(task_groups)
+        },
+        "per_seed": {
+            str(seed): _episode_group_summary(seed_groups[seed])
+            for seed in sorted(seed_groups)
+        },
+    }
+
+
+def _per_task_summary(episodes: list[EpisodeResult]) -> dict[str, object]:
+    groups: dict[str, list[EpisodeResult]] = defaultdict(list)
+    for episode in episodes:
+        groups[episode.task_id].append(episode)
+    return {
+        task_id: _episode_group_summary(groups[task_id]) for task_id in sorted(groups)
+    }
+
+
+def _per_seed_summary(episodes: list[EpisodeResult]) -> dict[str, object]:
+    groups: dict[int, list[EpisodeResult]] = defaultdict(list)
+    for episode in episodes:
+        groups[episode.seed].append(episode)
+    return {str(seed): _episode_group_summary(groups[seed]) for seed in sorted(groups)}
+
+
+def _episode_group_summary(episodes: list[EpisodeResult]) -> dict[str, object]:
+    failure_counts = Counter(
+        episode.failure_label for episode in episodes if episode.failure_label
+    )
+    success_count = sum(episode.success for episode in episodes)
+    aggregate_metrics, metric_ci95 = _aggregate_metrics(episodes)
     return {
         "episodes": len(episodes),
         "success_count": success_count,
         "success_rate": success_count / len(episodes),
         "success_rate_ci95": _wilson_ci(success_count, len(episodes)),
         "failure_counts": dict(failure_counts),
-        "primary_failure_mode": failure_counts.most_common(1)[0][0] if failure_counts else None,
+        "primary_failure_mode": failure_counts.most_common(1)[0][0]
+        if failure_counts
+        else None,
         "metrics": aggregate_metrics,
         "metric_ci95": metric_ci95,
-        "per_task": _per_task_summary(episodes),
-        "per_seed": _per_seed_summary(episodes),
     }
 
 
-def _per_task_summary(episodes: list[EpisodeResult]) -> dict[str, object]:
-    task_ids = sorted({ep.task_id for ep in episodes})
-    summaries: dict[str, object] = {}
-    for task_id in task_ids:
-        task_episodes = [ep for ep in episodes if ep.task_id == task_id]
-        task_failures = Counter(ep.failure_label for ep in task_episodes if ep.failure_label)
-        task_success_count = sum(1 for ep in task_episodes if ep.success)
-        aggregate_metrics, metric_ci95 = _aggregate_metrics(task_episodes)
-        summaries[task_id] = {
-            "episodes": len(task_episodes),
-            "success_count": task_success_count,
-            "success_rate": task_success_count / len(task_episodes),
-            "success_rate_ci95": _wilson_ci(task_success_count, len(task_episodes)),
-            "failure_counts": dict(task_failures),
-            "primary_failure_mode": task_failures.most_common(1)[0][0] if task_failures else None,
-            "metrics": aggregate_metrics,
-            "metric_ci95": metric_ci95,
-        }
-    return summaries
+def _aggregate_metrics(
+    episodes: list[EpisodeResult],
+) -> tuple[dict[str, float], dict[str, list[float]]]:
+    metric_sums: dict[str, float] = defaultdict(float)
+    metric_square_sums: dict[str, float] = defaultdict(float)
+    for episode in episodes:
+        for key, raw_value in episode.metrics.items():
+            value = float(raw_value)
+            metric_sums[key] += value
+            metric_square_sums[key] += value * value
 
-
-def _per_seed_summary(episodes: list[EpisodeResult]) -> dict[str, object]:
-    seeds = sorted({ep.seed for ep in episodes})
-    summaries: dict[str, object] = {}
-    for seed in seeds:
-        seed_episodes = [ep for ep in episodes if ep.seed == seed]
-        seed_failures = Counter(ep.failure_label for ep in seed_episodes if ep.failure_label)
-        seed_success_count = sum(1 for ep in seed_episodes if ep.success)
-        aggregate_metrics, metric_ci95 = _aggregate_metrics(seed_episodes)
-        summaries[str(seed)] = {
-            "episodes": len(seed_episodes),
-            "success_count": seed_success_count,
-            "success_rate": seed_success_count / len(seed_episodes),
-            "success_rate_ci95": _wilson_ci(seed_success_count, len(seed_episodes)),
-            "failure_counts": dict(seed_failures),
-            "primary_failure_mode": seed_failures.most_common(1)[0][0] if seed_failures else None,
-            "metrics": aggregate_metrics,
-            "metric_ci95": metric_ci95,
-        }
-    return summaries
-
-
-def _aggregate_metrics(episodes: list[EpisodeResult]) -> tuple[dict[str, float], dict[str, list[float]]]:
-    metric_keys = sorted({key for episode in episodes for key in episode.metrics})
-    metrics = {
-        key: sum(float(episode.metrics.get(key, 0.0)) for episode in episodes) / len(episodes)
-        for key in metric_keys
-    }
+    metric_keys = sorted(metric_sums)
+    episode_count = len(episodes)
+    metrics = {key: metric_sums[key] / episode_count for key in metric_keys}
     metric_ci95 = {
-        key: _mean_ci95([float(episode.metrics.get(key, 0.0)) for episode in episodes])
+        key: _mean_ci95_from_moments(
+            total=metric_sums[key],
+            square_total=metric_square_sums[key],
+            count=episode_count,
+        )
         for key in metric_keys
     }
 
     for key in RECOVERY_COUNT_METRICS.intersection(metric_keys):
-        total = sum(float(episode.metrics.get(key, 0.0)) for episode in episodes)
+        total = metric_sums[key]
         metrics[key] = total
         metric_ci95[key] = [total, total]
 
     for rate_key, (success_key, denominator_key) in RECOVERY_RATE_METRICS.items():
         if rate_key not in metric_keys:
             continue
-        successes = sum(float(episode.metrics.get(success_key, 0.0)) for episode in episodes)
-        denominator = sum(float(episode.metrics.get(denominator_key, 0.0)) for episode in episodes)
+        successes = metric_sums.get(success_key, 0.0)
+        denominator = metric_sums.get(denominator_key, 0.0)
         metrics[rate_key] = successes / denominator if denominator else 0.0
         metric_ci95[rate_key] = _wilson_ci(round(successes), round(denominator))
     return metrics, metric_ci95
+
+
+def _mean_ci95_from_moments(
+    *, total: float, square_total: float, count: int
+) -> list[float]:
+    mean = total / count
+    if not isfinite(total) or not isfinite(square_total):
+        return [float("nan"), float("nan")]
+    if count == 1:
+        return [mean, mean]
+    centered_sum = max(0.0, square_total - count * mean * mean)
+    variance = centered_sum / (count - 1)
+    margin = 1.959963984540054 * sqrt(variance / count)
+    return [mean - margin, mean + margin]
 
 
 def _wilson_ci(successes: int, total: int, z: float = 1.959963984540054) -> list[float]:
@@ -128,7 +152,11 @@ def _wilson_ci(successes: int, total: int, z: float = 1.959963984540054) -> list
     proportion = successes / total
     denominator = 1.0 + z**2 / total
     center = (proportion + z**2 / (2.0 * total)) / denominator
-    margin = z * sqrt((proportion * (1.0 - proportion) + z**2 / (4.0 * total)) / total) / denominator
+    margin = (
+        z
+        * sqrt((proportion * (1.0 - proportion) + z**2 / (4.0 * total)) / total)
+        / denominator
+    )
     return [max(0.0, center - margin), min(1.0, center + margin)]
 
 

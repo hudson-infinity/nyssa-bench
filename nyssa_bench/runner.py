@@ -311,7 +311,9 @@ class PolicyRunner:
         observation = stressor_pipeline.transform_observation(
             observation, step_index=-1
         )
-        active_stressors = compact_stressor_context(stressor_pipeline.manifest())
+        active_stressors = compact_stressor_context(
+            stressor_pipeline.application_context()
+        )
         failure_ledger = FailureEventLedger(
             task_id=task.task_id,
             episode_index=episode_index,
@@ -319,6 +321,7 @@ class PolicyRunner:
             engine_name=self.engine_name,
             stressor_context=active_stressors,
         )
+        expert_provider_id = expert_provider.metadata().get("provider_id", "unknown")
         engine_event_emitter = failure_ledger.emitter(
             "simulator_state",
             engine.__class__.__name__,
@@ -331,7 +334,7 @@ class PolicyRunner:
         )
         verifier_event_emitter = failure_ledger.emitter(
             "verifier_output",
-            expert_provider.metadata().get("provider_id", "unknown"),
+            expert_provider_id,
             annotation_source="expert_provider",
         )
         stressor_event_emitter = failure_ledger.emitter(
@@ -341,7 +344,7 @@ class PolicyRunner:
         )
         recovery_event_emitter = failure_ledger.emitter(
             "recovery",
-            expert_provider.metadata().get("provider_id", "unknown"),
+            expert_provider_id,
             annotation_source="recovery_runner",
         )
         stressor_event_emitter.emit_many(
@@ -352,9 +355,7 @@ class PolicyRunner:
             stressor_pipeline, stressor_event_emitter, default_step=0
         )
         emit_info_failure_events(reset_info, engine_event_emitter, default_step=0)
-        drain_component_failure_events(
-            engine, engine_event_emitter, default_step=0
-        )
+        drain_component_failure_events(engine, engine_event_emitter, default_step=0)
         steps: list[StepRecord] = []
         frames: list[Any] = []
         last_info: dict[str, Any] = {}
@@ -414,9 +415,7 @@ class PolicyRunner:
                 if chunk_size > 1:
                     policy_action_chunk_count += 1
             expert_info: dict[str, Any] = {
-                "expert_provider": expert_provider.metadata().get(
-                    "provider_id", "unknown"
-                ),
+                "expert_provider": expert_provider_id,
                 "expert_intervention": False,
                 "recovery_attempted": False,
                 "recovery_applied": False,
@@ -569,7 +568,9 @@ class PolicyRunner:
                 observation=observation,
                 step_index=step_index,
             )
-            active_stressors = compact_stressor_context(stressor_pipeline.manifest())
+            active_stressors = compact_stressor_context(
+                stressor_pipeline.application_context()
+            )
             failure_ledger.set_stressor_context(active_stressors)
             next_observation, reward, terminated, truncated, info = engine.step(action)
             engine_info_events = emit_info_failure_events(
@@ -595,7 +596,9 @@ class PolicyRunner:
                 next_observation,
                 step_index=step_index + 1,
             )
-            active_stressors = compact_stressor_context(stressor_pipeline.manifest())
+            active_stressors = compact_stressor_context(
+                stressor_pipeline.application_context()
+            )
             failure_ledger.set_stressor_context(active_stressors)
             drain_component_failure_events(
                 stressor_pipeline,
@@ -885,8 +888,9 @@ class PolicyRunner:
         with (self.out / "metrics.json").open("w", encoding="utf-8") as handle:
             json.dump(report.summary, handle, indent=2)
         export_metrics_csv(report.summary, self.out / "metrics.csv")
-        export_json(self.episode_results, self.out / "episodes.json")
-        export_jsonl(self.episode_results, self.out / "episodes.jsonl")
+        serialized_episodes = [episode.to_dict() for episode in self.episode_results]
+        export_json(serialized_episodes, self.out / "episodes.json")
+        export_jsonl(serialized_episodes, self.out / "episodes.jsonl")
         write_replay_manifest(self.episode_results, self.out)
         write_stressor_manifest(
             self.episode_results,

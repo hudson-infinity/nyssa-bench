@@ -138,7 +138,7 @@ def robomimic_observation_quality(episodes: list[EpisodeResult], *, feature_dim:
         for step in episode.steps:
             observation = _without_simulator_state(step.observation)
             total_steps += 1
-            if observation_numeric_values(observation):
+            if observation_numeric_values(observation, max_values=1):
                 payload_steps += 1
             features = flatten_observation(observation, feature_dim)
             feature_sum += features
