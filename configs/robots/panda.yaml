@@ -1,6 +1,81 @@
+# Declarative robot compatibility manifest. NyssaBench does not yet load this
+# file at runtime; executable choices remain in TaskSpec.success and adapters.
 robot_id: panda
 description: Franka Panda manipulator used by the v0.1 manipulation suites.
 end_effector: parallel_gripper
 supported_engines:
   - maniskill
-  - mujoco
+experimental_engines:
+  - robocasa
+
+simulator_mappings:
+  maniskill:
+    status: supported
+    asset_id: panda
+    asset_source: mani_skill_builtin_robot_assets
+    asset_license: see_installed_mani_skill_asset_license
+    package_requirement: mani-skill>=3.0
+    base_type: fixed
+    base_frame: upstream_asset_defined_must_be_recorded
+    task_robot_field: panda
+    runtime_robot_field: success.robot_uids
+    default_robot_uid: panda
+    validated_suites:
+      - maniskill_smoke_v0
+      - maniskill_manipulation_v0
+      - maniskill_planner_bc_v0
+    validated_observation_modes:
+      - state_dict
+    candidate_observation_modes_requiring_integration_tests:
+      - rgb
+      - "rgb+depth"
+      - sensor_data
+    controllers:
+      pd_ee_delta_pose:
+        representation: end_effector_delta_pose_with_gripper
+        joint_order: not_applicable_to_arm_command
+        bounds_source: live_gymnasium_action_space
+      pd_joint_pos:
+        representation: absolute_joint_position_targets_with_gripper
+        joint_order: simulator_action_space_order
+        bounds_source: live_gymnasium_action_space
+    state_restore:
+      status: supported
+      capture_api: env.get_state
+      restore_api: env.set_state_dict_or_set_state
+  robocasa:
+    status: experimental_contract_only
+    asset_id: Panda
+    asset_source: upstream_robosuite_or_robocasa_assets
+    asset_license: see_installed_upstream_asset_license
+    canonical_robot_id: panda
+    required_runtime_value: Panda
+    runtime_robot_field: task.robot_passed_without_translation
+    mapping_status: adapter_translation_not_implemented
+    controllers: upstream_robosuite_contract
+    state_restore:
+      status: capture_only_in_current_adapter
+
+conventions:
+  proprioception:
+    joint_names: must_be_recorded_from_live_simulator
+    joint_order: simulator_defined_not_inferred_from_vector_length
+    position_units: radians_or_meters_per_joint_definition
+    velocity_units: radians_or_meters_per_second
+  end_effector:
+    frame: simulator_tcp_frame_must_be_recorded
+    position_units: meters
+    quaternion_order: simulator_defined_must_be_recorded
+  gripper:
+    type: parallel_gripper
+    action_index: controller_defined_must_be_tested
+    sign_and_range: live_action_space_and_controller_defined
+  cameras:
+    policy_cameras: selected_by_success.obs_mode
+    replay_camera: selected_by_success.render_mode
+    intrinsics_extrinsics: must_be_recorded_for_visual_policy_claims
+    rgb_layout_and_range: simulator_mode_defined_must_be_tested
+    depth_units: simulator_mode_defined_must_be_tested
+  actions:
+    normalization: environment_space_unless_policy_manifest_declares_transform
+    shape_and_bounds: live_gymnasium_action_space
