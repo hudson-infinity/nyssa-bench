@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add pinned pre-commit and pre-push hooks for structural checks, Ruff, config
+  validation, release files, and the full test suite.
 - Bound numeric observation flattening to the requested feature size and avoid
   materializing full image tensors in Python.
 - Vectorize paired robustness bootstraps, group episode summaries in one pass,

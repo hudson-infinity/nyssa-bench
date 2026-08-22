@@ -46,4 +46,3 @@ def _episode(index: int, *, success: bool, failure_label: str | None = None):
         failure_label_source="mapper" if failure_label else None,
         metrics={},
     )
-

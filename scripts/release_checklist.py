@@ -11,6 +11,8 @@ REQUIRED = [
     "CODE_OF_CONDUCT.md",
     "SECURITY.md",
     "pyproject.toml",
+    ".gitattributes",
+    ".pre-commit-config.yaml",
     ".github/workflows/ci.yml",
     "docs/getting_started.md",
     "docs/benchmark_protocol.md",

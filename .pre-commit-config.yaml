@@ -1,0 +1,49 @@
+minimum_pre_commit_version: "3.6.0"
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-case-conflict
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-yaml
+      - id: debug-statements
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=no]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.11
+    hooks:
+      - id: ruff-check
+
+  - repo: local
+    hooks:
+      - id: validate-nyssa-configs
+        name: validate NyssaBench task and suite configs
+        entry: python scripts/validate_configs.py
+        language: system
+        pass_filenames: false
+        files: ^(configs/.*\.(yaml|yml)|nyssa_bench/tasks/.*\.(yaml|yml))$
+
+      - id: release-checklist
+        name: validate required release files
+        entry: python scripts/release_checklist.py
+        language: system
+        pass_filenames: false
+
+      - id: pytest
+        name: run full pytest suite
+        entry: pytest -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

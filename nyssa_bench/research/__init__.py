@@ -10,4 +10,3 @@ __all__ = [
     "paired_success_correlation",
     "rank_stress_candidates",
 ]
-
