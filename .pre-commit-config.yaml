@@ -28,6 +28,13 @@ repos:
 
   - repo: local
     hooks:
+      - id: no-result-zips
+        name: prevent committing benchmark result archives
+        entry: python scripts/validate_no_result_zips.py
+        language: system
+        files: ^.*\\.zip$
+        pass_filenames: true
+
       - id: validate-nyssa-configs
         name: validate NyssaBench task and suite configs
         entry: python scripts/validate_configs.py
