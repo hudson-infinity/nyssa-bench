@@ -51,7 +51,7 @@ from nyssa_bench.replay.video import (
     write_failure_gallery,
     write_replay_manifest,
 )
-from nyssa_bench.replay.viewer import replay_viewer_placeholder
+from nyssa_bench.replay.viewer import write_replay_viewer
 from nyssa_bench.reports.html_report import Report
 from nyssa_bench.stressors import (
     StressorConfig,
@@ -996,13 +996,14 @@ class PolicyRunner:
                 "metrics.json",
                 "metrics.csv",
                 "replay_manifest.json",
+                "replay.html",
                 "stressor_manifest.json",
                 "failure_ledger.json",
                 "failure_gallery.html",
                 "recovery_dataset/episodes.jsonl",
             ],
         )
-        replay_viewer_placeholder(self.out)
+        write_replay_viewer(self.out)
         report.save(self.out / "report.html")
 
 
