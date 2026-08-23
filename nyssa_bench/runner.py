@@ -31,6 +31,10 @@ from nyssa_bench.failures import (
     verifier_rejection_draft,
     write_failure_ledger_manifest,
 )
+from nyssa_bench.failures.detectors import (
+    FailureDetectorManager,
+    build_default_failure_detectors,
+)
 from nyssa_bench.metrics.failure_mapper import FailureMapper
 from nyssa_bench.metrics.robustness import robustness_metrics
 from nyssa_bench.metrics.safety import safety_metrics
@@ -347,6 +351,20 @@ class PolicyRunner:
             expert_provider_id,
             annotation_source="recovery_runner",
         )
+        monitor_event_emitter = failure_ledger.emitter(
+            "external_monitor",
+            "failure_detector_manager",
+            annotation_source="detector_pipeline",
+        )
+        detector_manager = FailureDetectorManager(
+            detectors=build_default_failure_detectors()
+        )
+        detector_manager.reset(
+            task=task,
+            engine=engine,
+            observation=observation,
+            stressor_context=active_stressors,
+        )
         stressor_event_emitter.emit_many(
             stressor_condition_drafts(active_stressors),
             default_step=0,
@@ -359,6 +377,9 @@ class PolicyRunner:
         steps: list[StepRecord] = []
         frames: list[Any] = []
         last_info: dict[str, Any] = {}
+        last_reward = 0.0
+        last_terminated = False
+        last_truncated = False
         expert_intervention_count = 0
         recovery_attempts: list[_RecoveryAttempt] = []
         active_recovery_attempt: _RecoveryAttempt | None = None
@@ -414,6 +435,14 @@ class PolicyRunner:
                 pending_action_source = "policy" if pending_actions else None
                 if chunk_size > 1:
                     policy_action_chunk_count += 1
+            detector_manager.observe_before_action(
+                step_index=step_index,
+                observation=observation,
+                action=action,
+                task=task,
+                engine=engine,
+                stressor_context=active_stressors,
+            )
             expert_info: dict[str, Any] = {
                 "expert_provider": expert_provider_id,
                 "expert_intervention": False,
@@ -573,6 +602,9 @@ class PolicyRunner:
             )
             failure_ledger.set_stressor_context(active_stressors)
             next_observation, reward, terminated, truncated, info = engine.step(action)
+            last_reward = reward
+            last_terminated = terminated
+            last_truncated = truncated
             engine_info_events = emit_info_failure_events(
                 info,
                 engine_event_emitter,
@@ -605,6 +637,38 @@ class PolicyRunner:
                 stressor_event_emitter,
                 default_step=step_index,
             )
+            monitor_drafts = detector_manager.observe_after_action(
+                step_index=step_index,
+                pre_observation=observation,
+                post_observation=next_observation,
+                action=action,
+                reward=reward,
+                terminated=terminated,
+                truncated=truncated,
+                info=info,
+                task=task,
+                engine=engine,
+                stressor_context=active_stressors,
+            )
+            monitor_drafts.extend(
+                detector_manager.detect(
+                    step_index=step_index,
+                    observation=next_observation,
+                    action=action,
+                    reward=reward,
+                    terminated=terminated,
+                    truncated=truncated,
+                    info=info,
+                    task=task,
+                    engine=engine,
+                    stressor_context=active_stressors,
+                )
+            )
+            if monitor_drafts:
+                monitor_event_emitter.emit_many(
+                    detector_manager.drain_draft_payloads(monitor_drafts),
+                    default_step=step_index,
+                )
             expert_info["action_before_stressors"] = action_before_stressors
             expert_info["stressor_action_modified"] = not _actions_equal(
                 action_before_stressors, action
@@ -661,6 +725,28 @@ class PolicyRunner:
             active_recovery_attempt.resolve("episode_ended", max(0, len(steps) - 1))
         _annotate_recovery_outcomes(steps, recovery_attempts)
         success = bool(last_info.get("success", False))
+        if not success:
+            finalize_events = detector_manager.finalize(
+                step_index=max(0, len(steps) - 1),
+                final_observation=observation,
+                reward=last_reward,
+                terminated=last_terminated,
+                truncated=last_truncated,
+                success=success,
+                info=last_info,
+                task=task,
+                engine=engine,
+                stressor_context=active_stressors,
+            )
+            if finalize_events:
+                emitted_final = monitor_event_emitter.emit_many(
+                    detector_manager.drain_draft_payloads(finalize_events),
+                    default_step=max(0, len(steps) - 1),
+                )
+                if steps and emitted_final:
+                    steps[-1].info.setdefault("failure_event_ids", []).extend(
+                        [event.event_id for event in emitted_final]
+                    )
         classification = self._failure_mapper.classify(
             last_info,
             task_spec=task,
