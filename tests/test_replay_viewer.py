@@ -18,7 +18,7 @@ def test_replay_viewer_file_is_emitted(tmp_path: Path) -> None:
     assert "replay_manifest.json" in html
     assert "status-filter" in html
     assert "stat-total" in html
-    assert "<video" in html
+    assert 'createElement("video")' in html
 
 
 def test_replay_viewer_backward_compatibility_alias_exists(tmp_path: Path) -> None:

@@ -206,8 +206,6 @@ class PolicyRunner:
         score = score_summary(summary)
         summary["prototype_reliability_score"] = score
         summary["score_kind"] = "prototype_reliability_heuristic"
-        summary["sim_to_real_score"] = score
-        summary["sim_to_real_score_deprecated"] = True
         declared_task_stressors = {
             task.task_id: summarize_stressor_support(
                 task.randomization, self.engine_name

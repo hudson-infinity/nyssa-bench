@@ -24,12 +24,7 @@ class Report:
     def to_html(self) -> str:
         success_rate = float(self.summary.get("success_rate", 0.0)) * 100
         success_ci = self.summary.get("success_rate_ci95", [0.0, 0.0])
-        prototype_score = float(
-            self.summary.get(
-                "prototype_reliability_score",
-                self.summary.get("sim_to_real_score", 0.0),
-            )
-        )
+        prototype_score = float(self.summary.get("prototype_reliability_score", 0.0))
         primary_failure = self.summary.get("primary_failure_mode") or "none"
         benchmark_tier = self.summary.get("benchmark_tier", "unknown")
         validation = self.summary.get("public_claim_validation", {})
@@ -323,11 +318,14 @@ def _evidence_text(value: Any) -> str:
 def _parent_text(value: Any) -> str:
     if not isinstance(value, list):
         return "none"
-    return ", ".join(
-        f"{item.get('parent_event_id')} ({float(item.get('confidence', 0.0)):.2f})"
-        for item in value
-        if isinstance(item, dict)
-    ) or "none"
+    return (
+        ", ".join(
+            f"{item.get('parent_event_id')} ({float(item.get('confidence', 0.0)):.2f})"
+            for item in value
+            if isinstance(item, dict)
+        )
+        or "none"
+    )
 
 
 def _format_value(value: Any) -> str:
