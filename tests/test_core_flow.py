@@ -14,7 +14,9 @@ from nyssa_bench.metrics.failure_mapper import FailureMapper
 from nyssa_bench.metrics.run_claims import RunClaimValidator
 from nyssa_bench.policies.robomimic_adapter import RoboMimicPolicy
 from nyssa_bench.plugins import get_plugin_registry
-from nyssa_bench.validation.run_claim import RunClaimValidator as StableRunClaimValidator
+from nyssa_bench.validation.run_claim import (
+    RunClaimValidator as StableRunClaimValidator,
+)
 
 
 class UnitEngine(NyssaEngine):
@@ -26,13 +28,21 @@ class UnitEngine(NyssaEngine):
     def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
         return _observation(), {"seed": seed}
 
-    def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
-        return _observation(), 1.0, True, False, {
-            "success": True,
-            "completion_time": 1.0,
-            "path_efficiency": 1.0,
-            "grasp_success": True,
-        }
+    def step(
+        self, action: Any
+    ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        return (
+            _observation(),
+            1.0,
+            True,
+            False,
+            {
+                "success": True,
+                "completion_time": 1.0,
+                "path_efficiency": 1.0,
+                "grasp_success": True,
+            },
+        )
 
     def render(self) -> Any:
         return np.zeros((32, 32, 3), dtype=np.uint8)
@@ -92,7 +102,9 @@ def test_suite_loads_tasks():
         "maniskill_stack_cube",
         "maniskill_push_cube",
     ]
-    assert all(task.success["control_mode"] == "pd_ee_delta_pose" for task in focused.tasks)
+    assert all(
+        task.success["control_mode"] == "pd_ee_delta_pose" for task in focused.tasks
+    )
 
     planner_bc = Suite.load("maniskill_planner_bc_v0")
     assert [task.task_id for task in planner_bc.tasks] == [
@@ -100,7 +112,9 @@ def test_suite_loads_tasks():
         "maniskill_stack_cube_joint",
         "maniskill_push_cube_joint",
     ]
-    assert all(task.success["control_mode"] == "pd_joint_pos" for task in planner_bc.tasks)
+    assert all(
+        task.success["control_mode"] == "pd_joint_pos" for task in planner_bc.tasks
+    )
 
     mujoco = Suite.load("mujoco_control_v0")
     assert mujoco.tasks[0].success["engine_env_ids"]["mujoco"] == "Reacher-v5"
@@ -117,7 +131,10 @@ def test_suite_filters_tasks():
 
 
 def test_mujoco_adapter_falls_back_to_available_gym_version():
-    from nyssa_bench.engines.mujoco_adapter import _make_mujoco_env, _mujoco_env_id_candidates
+    from nyssa_bench.engines.mujoco_adapter import (
+        _make_mujoco_env,
+        _mujoco_env_id_candidates,
+    )
 
     class VersionNotFound(Exception):
         pass
@@ -139,7 +156,11 @@ def test_mujoco_adapter_falls_back_to_available_gym_version():
                 raise VersionNotFound(env_id)
             return {"env_id": env_id, "kwargs": kwargs}
 
-    assert _mujoco_env_id_candidates("Reacher-v5") == ["Reacher-v5", "Reacher-v4", "Reacher-v2"]
+    assert _mujoco_env_id_candidates("Reacher-v5") == [
+        "Reacher-v5",
+        "Reacher-v4",
+        "Reacher-v2",
+    ]
 
     gym = FakeGym()
     env = _make_mujoco_env(gym, "Reacher-v5", {"render_mode": "rgb_array"})
@@ -199,7 +220,11 @@ def test_maniskill_adapter_accepts_env_overrides(monkeypatch):
 def test_maniskill_adapter_allows_max_episode_step_override(monkeypatch):
     from nyssa_bench.engines.maniskill_adapter import _maniskill_env_kwargs
 
-    task = Suite.load("maniskill_planner_bc_v0").filter_tasks(["maniskill_stack_cube_joint"]).tasks[0]
+    task = (
+        Suite.load("maniskill_planner_bc_v0")
+        .filter_tasks(["maniskill_stack_cube_joint"])
+        .tasks[0]
+    )
     monkeypatch.setenv("NYSSA_MANISKILL_MAX_EPISODE_STEPS", "180")
 
     kwargs = _maniskill_env_kwargs(task)
@@ -250,7 +275,9 @@ def test_maniskill_adapter_restores_structured_and_flat_states():
     engine = ManiSkillEngine()
     engine.env = FakeEnv()
 
-    structured_observation = engine.set_state({"env_states": {"actors": {"cube": [1.0, 2.0]}}})
+    structured_observation = engine.set_state(
+        {"env_states": {"actors": {"cube": [1.0, 2.0]}}}
+    )
     flat_observation = engine.set_state([3.0, 4.0])
 
     assert engine.env.unwrapped.state_dict["actors"]["cube"].tolist() == [1.0, 2.0]
@@ -270,7 +297,9 @@ def test_runner_restores_policy_initial_state_before_first_step():
         def load_task(self, task_spec: Any) -> None:
             self.task_spec = task_spec
 
-        def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        def reset(
+            self, seed: int | None = None
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
             return _observation(), {"seed": seed}
 
         def set_state(self, state: Any) -> dict[str, Any]:
@@ -278,7 +307,9 @@ def test_runner_restores_policy_initial_state_before_first_step():
             self.restored_states.append(state)
             return _observation()
 
-        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        def step(
+            self, action: Any
+        ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
             success = self.state == {"demo_state": [1.0, 2.0]}
             return _observation(), 1.0, True, False, {"success": success}
 
@@ -305,7 +336,12 @@ def test_runner_restores_policy_initial_state_before_first_step():
     get_plugin_registry().engines["state_restore_unit"] = StateRestoreEngine
     suite = Suite.load("tabletop_manipulation_v0").filter_tasks(["pick_cube"])
 
-    report = PolicyRunner(policy=StateReplayPolicy(), engine="state_restore_unit", episodes=1, capture_replay=False).evaluate(suite)
+    report = PolicyRunner(
+        policy=StateReplayPolicy(),
+        engine="state_restore_unit",
+        episodes=1,
+        capture_replay=False,
+    ).evaluate(suite)
 
     assert report.summary["success_rate"] == 1.0
     assert StateRestoreEngine.restored_states == [{"demo_state": [1.0, 2.0]}]
@@ -314,7 +350,9 @@ def test_runner_restores_policy_initial_state_before_first_step():
 def test_runner_writes_artifacts(tmp_path: Path):
     _register_unit_engine()
     suite = Suite.load("tabletop_manipulation_v0")
-    runner = PolicyRunner(policy="random", engine="unit_real", episodes=2, seed=123, out=tmp_path)
+    runner = PolicyRunner(
+        policy="random", engine="unit_real", episodes=2, seed=123, out=tmp_path
+    )
     report = runner.evaluate(suite)
 
     assert report.summary["episodes"] == 10
@@ -322,12 +360,14 @@ def test_runner_writes_artifacts(tmp_path: Path):
     assert len(report.summary["success_rate_ci95"]) == 2
     assert report.summary["benchmark_tier"] == "prototype"
     assert report.summary["public_claim"] is False
-    assert "minimum_episodes_per_task" in report.summary["public_claim_validation"]["failures"]
+    assert (
+        "minimum_episodes_per_task"
+        in report.summary["public_claim_validation"]["failures"]
+    )
     assert "pick_cube" in report.summary["per_task"]
     assert "success_rate_ci95" in report.summary["per_task"]["pick_cube"]
     assert report.summary["per_seed"]
     assert 0.0 <= report.summary["prototype_reliability_score"] <= 1.0
-    assert report.summary["sim_to_real_score_deprecated"] is True
     assert report.summary["metrics"]["expert_intervention_rate"] == 0.0
     assert report.summary["metrics"]["recovery_success_rate"] == 0.0
     assert report.summary["metrics"]["verifier_rejection_rate"] == 0.0
@@ -367,10 +407,16 @@ def test_runner_namespaces_episode_seeds_without_losing_task_pairing(tmp_path: P
     runner.evaluate(Suite.load("maniskill_smoke_v0"))
 
     seeds_by_task = {
-        task_id: [episode.seed for episode in runner.episode_results if episode.task_id == task_id]
+        task_id: [
+            episode.seed
+            for episode in runner.episode_results
+            if episode.task_id == task_id
+        ]
         for task_id in {episode.task_id for episode in runner.episode_results}
     }
-    assert set(tuple(seeds) for seeds in seeds_by_task.values()) == {(3_000_000, 3_000_001)}
+    assert set(tuple(seeds) for seeds in seeds_by_task.values()) == {
+        (3_000_000, 3_000_001)
+    }
     assert runner.run_metadata["seed_protocol"]["format"] == "nyssa-episode-seed-v2"
 
 
@@ -381,7 +427,9 @@ def test_runner_records_expert_verifier_interventions(tmp_path: Path):
         provider_id = "rejecting_unit"
 
         def score_action(self, observation, action, *, task, engine=None):
-            return ExpertActionScore(accepted=False, confidence=0.1, reason="unit_reject")
+            return ExpertActionScore(
+                accepted=False, confidence=0.1, reason="unit_reject"
+            )
 
         def act(self, observation, *, task, engine=None):
             return 0.0
@@ -412,9 +460,13 @@ def test_runner_records_expert_verifier_interventions(tmp_path: Path):
     assert '"verifier_rejected": true' in episodes[0]
 
 
-def test_runner_recovery_only_variant_uses_rejection_trigger_without_verifier(tmp_path: Path):
+def test_runner_recovery_only_variant_uses_rejection_trigger_without_verifier(
+    tmp_path: Path,
+):
     class RecoveryOnlyEngine(UnitEngine):
-        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        def step(
+            self, action: Any
+        ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
             self.last_action = float(np.asarray(action).reshape(-1)[0])
             return super().step(action)
 
@@ -425,7 +477,9 @@ def test_runner_recovery_only_variant_uses_rejection_trigger_without_verifier(tm
             return ExpertActionScore(accepted=False, confidence=1.0, reason="recover")
 
         def act(self, observation, *, task, engine=None):
-            raise AssertionError("recovery-only must not apply the verifier fallback action")
+            raise AssertionError(
+                "recovery-only must not apply the verifier fallback action"
+            )
 
         def recover(self, *, state, failure, task, engine=None):
             return [0.5]
@@ -444,7 +498,9 @@ def test_runner_recovery_only_variant_uses_rejection_trigger_without_verifier(tm
         capture_replay=False,
     )
 
-    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+    report = runner.evaluate(
+        Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"])
+    )
 
     assert engine.last_action == 0.5
     assert report.summary["metrics"]["recovery_attempt_count"] == 1.0
@@ -465,7 +521,9 @@ def test_runner_keeps_failed_recovery_as_context_without_bc_target(tmp_path: Pat
             return ExpertActionScore(accepted=False, confidence=1.0, reason="no_plan")
 
         def act(self, observation, *, task, engine=None):
-            raise AssertionError("recovery-only must not apply the verifier fallback action")
+            raise AssertionError(
+                "recovery-only must not apply the verifier fallback action"
+            )
 
         def recover(self, *, state, failure, task, engine=None):
             return None
@@ -483,9 +541,13 @@ def test_runner_keeps_failed_recovery_as_context_without_bc_target(tmp_path: Pat
         capture_replay=False,
     )
 
-    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+    report = runner.evaluate(
+        Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"])
+    )
 
-    manifest = json.loads((tmp_path / "recovery_dataset" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (tmp_path / "recovery_dataset" / "manifest.json").read_text(encoding="utf-8")
+    )
     episodes_path = tmp_path / "recovery_dataset" / "episodes.json"
     recovery_episodes = json.loads(episodes_path.read_text(encoding="utf-8"))
     recovery_step = recovery_episodes[0]["steps"][0]
@@ -517,26 +579,38 @@ def test_runner_executes_recovery_macro_plan(tmp_path: Path):
     class MacroRecoveryEngine(UnitEngine):
         max_steps = 3
 
-        def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        def reset(
+            self, seed: int | None = None
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
             self.actions = []
             return _observation(), {"seed": seed}
 
-        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        def step(
+            self, action: Any
+        ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
             value = float(np.asarray(action, dtype=float).reshape(-1)[0])
             self.actions.append(value)
             success = len(self.actions) >= 2 and self.actions[:2] == [0.25, 0.75]
-            return _observation(), 1.0, success, False, {
-                "success": success,
-                "completion_time": float(len(self.actions)),
-                "path_efficiency": 1.0,
-                "grasp_success": success,
-            }
+            return (
+                _observation(),
+                1.0,
+                success,
+                False,
+                {
+                    "success": success,
+                    "completion_time": float(len(self.actions)),
+                    "path_efficiency": 1.0,
+                    "grasp_success": success,
+                },
+            )
 
     class MacroRecoveryExpert(ExpertProvider):
         provider_id = "macro_recovery"
 
         def score_action(self, observation, action, *, task, engine=None):
-            return ExpertActionScore(accepted=False, confidence=1.0, reason="needs_macro")
+            return ExpertActionScore(
+                accepted=False, confidence=1.0, reason="needs_macro"
+            )
 
         def act(self, observation, *, task, engine=None):
             return 0.0
@@ -580,7 +654,10 @@ def test_runner_executes_recovery_macro_plan(tmp_path: Path):
     assert [step["target_action"] for step in recovery_steps] == [0.25, 0.75]
     assert all(step["info"]["recovery_outcome"] == "success" for step in recovery_steps)
     assert all(step["info"]["recovery_plan_success"] is True for step in recovery_steps)
-    assert all(step["info"]["recovery_attribution_horizon_steps"] == 2 for step in recovery_steps)
+    assert all(
+        step["info"]["recovery_attribution_horizon_steps"] == 2
+        for step in recovery_steps
+    )
     assert recovery_manifest["recovery_attempts"] == 1
     assert recovery_manifest["recovery_applied_attempts"] == 1
     assert recovery_manifest["recovery_successful_attempts"] == 1
@@ -607,7 +684,9 @@ def test_runner_records_zero_recovery_attempt_outcomes(tmp_path: Path):
         capture_replay=False,
     )
 
-    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+    report = runner.evaluate(
+        Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"])
+    )
 
     metrics = report.summary["metrics"]
     assert metrics["recovery_attempt_count"] == 0.0
@@ -621,17 +700,27 @@ def test_runner_does_not_attribute_success_after_recovery_window(tmp_path: Path)
     class DelayedSuccessEngine(UnitEngine):
         max_steps = 4
 
-        def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        def reset(
+            self, seed: int | None = None
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
             self.step_count = 0
             return _observation(), {"seed": seed}
 
-        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        def step(
+            self, action: Any
+        ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
             self.step_count += 1
             success = self.step_count == 3
-            return _observation(), 1.0, success, False, {
-                "success": success,
-                "completion_time": float(self.step_count),
-            }
+            return (
+                _observation(),
+                1.0,
+                success,
+                False,
+                {
+                    "success": success,
+                    "completion_time": float(self.step_count),
+                },
+            )
 
     class FirstStepRecoveryExpert(ExpertProvider):
         provider_id = "first_step_recovery"
@@ -658,7 +747,9 @@ def test_runner_does_not_attribute_success_after_recovery_window(tmp_path: Path)
         capture_replay=False,
     )
 
-    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+    report = runner.evaluate(
+        Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"])
+    )
 
     metrics = report.summary["metrics"]
     assert report.summary["success_rate"] == 1.0
@@ -680,24 +771,36 @@ def test_runner_attributes_only_latest_of_multiple_recovery_attempts(tmp_path: P
     class MultipleRecoveryEngine(UnitEngine):
         max_steps = 5
 
-        def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        def reset(
+            self, seed: int | None = None
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
             self.step_count = 0
             return _observation(), {"seed": seed}
 
-        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        def step(
+            self, action: Any
+        ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
             self.step_count += 1
             success = self.step_count == 4
-            return _observation(), 1.0, success, False, {
-                "success": success,
-                "completion_time": float(self.step_count),
-            }
+            return (
+                _observation(),
+                1.0,
+                success,
+                False,
+                {
+                    "success": success,
+                    "completion_time": float(self.step_count),
+                },
+            )
 
     class MultipleRecoveryExpert(ExpertProvider):
         provider_id = "multiple_recovery"
 
         def score_action(self, observation, action, *, task, engine=None):
             rejected = engine.step_count in {0, 2}
-            return ExpertActionScore(accepted=not rejected, confidence=1.0, reason="scheduled")
+            return ExpertActionScore(
+                accepted=not rejected, confidence=1.0, reason="scheduled"
+            )
 
         def recover(self, *, state, failure, task, engine=None):
             return [0.25]
@@ -714,7 +817,9 @@ def test_runner_attributes_only_latest_of_multiple_recovery_attempts(tmp_path: P
         capture_replay=False,
     )
 
-    report = runner.evaluate(Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]))
+    report = runner.evaluate(
+        Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"])
+    )
 
     metrics = report.summary["metrics"]
     assert metrics["recovery_attempt_count"] == 2.0
@@ -756,7 +861,9 @@ def test_builtin_expert_providers_emit_actions():
 def test_maniskill_scripted_pick_cube_closes_near_low_grasp_target():
     from nyssa_bench.baselines.scripted_maniskill import ManiSkillScriptedHeuristic
 
-    task = Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]).tasks[0]
+    task = (
+        Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_pick_cube"]).tasks[0]
+    )
     controller = ManiSkillScriptedHeuristic()
     controller.reset(task=task)
     observation = _maniskill_state_observation(
@@ -777,7 +884,9 @@ def test_maniskill_scripted_pick_cube_closes_near_low_grasp_target():
 def test_maniskill_scripted_push_cube_moves_behind_then_through_object():
     from nyssa_bench.baselines.scripted_maniskill import ManiSkillScriptedHeuristic
 
-    task = Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_push_cube"]).tasks[0]
+    task = (
+        Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_push_cube"]).tasks[0]
+    )
     controller = ManiSkillScriptedHeuristic()
     controller.reset(task=task)
     observation = _maniskill_state_observation(
@@ -798,7 +907,9 @@ def test_maniskill_scripted_push_cube_moves_behind_then_through_object():
 def test_maniskill_scripted_stack_cube_uses_cube_a_and_cube_b_keys():
     from nyssa_bench.baselines.scripted_maniskill import ManiSkillScriptedHeuristic
 
-    task = Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_stack_cube"]).tasks[0]
+    task = (
+        Suite.load("maniskill_smoke_v0").filter_tasks(["maniskill_stack_cube"]).tasks[0]
+    )
     controller = ManiSkillScriptedHeuristic()
     controller.reset(task=task)
     observation = _maniskill_state_observation(
@@ -832,7 +943,12 @@ def test_mujoco_expert_uses_rollout_scoring_and_restores_state():
     }
 
     score = expert.score_action(observation, [1.0, 1.0], task=task, engine=engine)
-    recovery = expert.recover(state={"observation": observation}, failure="bad_action", task=task, engine=engine)
+    recovery = expert.recover(
+        state={"observation": observation},
+        failure="bad_action",
+        task=task,
+        engine=engine,
+    )
 
     assert score.accepted is False
     assert score.reason == "lower_than_candidate_reward"
@@ -913,7 +1029,12 @@ def test_mujoco_recovery_task_allowlist_can_enable_all(monkeypatch):
     }
     expert._best_rollout_plan = lambda *args, **kwargs: Plan()  # type: ignore[method-assign]
 
-    recovery = expert.recover(state={"observation": observation}, failure="bad_action", task=task, engine=object())
+    recovery = expert.recover(
+        state={"observation": observation},
+        failure="bad_action",
+        task=task,
+        engine=object(),
+    )
 
     assert recovery is not None
     assert len(recovery) == 2
@@ -950,7 +1071,9 @@ def test_mujoco_expert_samples_random_action_sequences():
     from nyssa_bench.experts.base import MuJoCoHeuristicExpertProvider
 
     task = Suite.load("mujoco_control_v0").tasks[0]
-    expert = MuJoCoHeuristicExpertProvider(rollout_margin=0.25, rollout_horizon=2, candidate_count=4, random_seed=123)
+    expert = MuJoCoHeuristicExpertProvider(
+        rollout_margin=0.25, rollout_horizon=2, candidate_count=4, random_seed=123
+    )
     engine = _FakeMuJoCoEngine()
     observation = {
         "raw": [1.0, -1.0],
@@ -1043,7 +1166,9 @@ def test_mujoco_pusher_adaptive_margin_tracks_candidate_spread():
         pusher,
         [-7.539147, -7.539038, -10.0, -15.0, -21.0, -7.539070, -7.539080, -30.0],
     )
-    fixed_margin, fixed_details = expert._effective_rollout_margin(reacher, [-7.539147, -7.539038])
+    fixed_margin, fixed_details = expert._effective_rollout_margin(
+        reacher, [-7.539147, -7.539038]
+    )
 
     assert details["adaptive_margin_enabled"] is True
     assert details["candidate_return_spread"] > 20.0
@@ -1095,7 +1220,9 @@ def test_mujoco_pusher_guided_sequences_use_body_geometry_and_restore_state():
         },
     }
 
-    sequences = expert._pusher_guided_action_sequences(observation, task=task, engine=engine)
+    sequences = expert._pusher_guided_action_sequences(
+        observation, task=task, engine=engine
+    )
 
     assert len(sequences) >= 3
     assert all(len(sequence) == 5 for sequence in sequences)
@@ -1150,7 +1277,9 @@ def test_mujoco_pusher_candidate_plans_use_longer_planning_horizon():
         },
     }
 
-    plans = expert._candidate_rollout_plans(observation, include_zero=True, task=task, engine=engine)
+    plans = expert._candidate_rollout_plans(
+        observation, include_zero=True, task=task, engine=engine
+    )
 
     assert any(plan.label.startswith("pusher_push") for plan in plans)
     assert {len(plan.sequence) for plan in plans} == {15}
@@ -1178,7 +1307,12 @@ def test_mujoco_pusher_recovery_commits_only_sequential_macros():
     }
 
     expert._best_rollout_plan = lambda *args, **kwargs: Plan("pusher_push")  # type: ignore[method-assign]
-    push_recovery = expert.recover(state={"observation": observation}, failure="bad_action", task=task, engine=object())
+    push_recovery = expert.recover(
+        state={"observation": observation},
+        failure="bad_action",
+        task=task,
+        engine=object(),
+    )
 
     assert push_recovery is not None
     assert len(push_recovery) == 1
@@ -1186,8 +1320,15 @@ def test_mujoco_pusher_recovery_commits_only_sequential_macros():
     assert expert.last_recovery_details["recovery_plan_committed"] is False
     assert expert.last_recovery_details["recovery_plan_candidate_length"] == 3
 
-    expert._best_rollout_plan = lambda *args, **kwargs: Plan("pusher_approach_then_push")  # type: ignore[method-assign]
-    mixed_recovery = expert.recover(state={"observation": observation}, failure="bad_action", task=task, engine=object())
+    expert._best_rollout_plan = lambda *args, **kwargs: Plan(
+        "pusher_approach_then_push"
+    )  # type: ignore[method-assign]
+    mixed_recovery = expert.recover(
+        state={"observation": observation},
+        failure="bad_action",
+        task=task,
+        engine=object(),
+    )
 
     assert mixed_recovery is not None
     assert len(mixed_recovery) == 3
@@ -1199,18 +1340,28 @@ def test_runner_executes_action_chunks(tmp_path: Path):
     class TwoStepEngine(UnitEngine):
         max_steps = 2
 
-        def reset(self, seed: int | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        def reset(
+            self, seed: int | None = None
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
             self.elapsed = 0
             return _observation(), {"seed": seed}
 
-        def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        def step(
+            self, action: Any
+        ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
             self.elapsed += 1
-            return _observation(), 1.0, self.elapsed >= 2, False, {
-                "success": self.elapsed >= 2,
-                "completion_time": float(self.elapsed),
-                "path_efficiency": 1.0,
-                "grasp_success": True,
-            }
+            return (
+                _observation(),
+                1.0,
+                self.elapsed >= 2,
+                False,
+                {
+                    "success": self.elapsed >= 2,
+                    "completion_time": float(self.elapsed),
+                    "path_efficiency": 1.0,
+                    "grasp_success": True,
+                },
+            )
 
     get_plugin_registry().engines["chunk_unit"] = TwoStepEngine
 
@@ -1265,7 +1416,9 @@ class _FakeMuJoCoUnwrapped:
         if name in {"goal", "target"}:
             return np.asarray([-1.0, 1.0, 0.0], dtype=float)
         if name in {"tips_arm", "fingertip", "tip", "end_effector"}:
-            return np.asarray([self.data.qpos[0] + 0.1, self.data.qpos[1] - 0.1, 0.0], dtype=float)
+            return np.asarray(
+                [self.data.qpos[0] + 0.1, self.data.qpos[1] - 0.1, 0.0], dtype=float
+            )
         raise KeyError(name)
 
 
@@ -1351,7 +1504,9 @@ class PolicyAdapter:
     )
 
     suite = Suite.load("tabletop_manipulation_v0")
-    runner = PolicyRunner(policy=str(policy_path), engine="unit_real", episodes=1, seed=123)
+    runner = PolicyRunner(
+        policy=str(policy_path), engine="unit_real", episodes=1, seed=123
+    )
     report = runner.evaluate(suite)
 
     assert report.summary["episodes"] == 5
@@ -1398,9 +1553,15 @@ def test_failure_mapper_does_not_default_to_first_label():
 
 
 def test_failure_mapper_labels_terminal_mujoco_instability():
-    task = Suite.load("mujoco_control_v0").filter_tasks(["mujoco_inverted_pendulum"]).tasks[0]
+    task = (
+        Suite.load("mujoco_control_v0")
+        .filter_tasks(["mujoco_inverted_pendulum"])
+        .tasks[0]
+    )
 
-    classification = FailureMapper().classify({}, task_spec=task, step_count=12, terminated=True)
+    classification = FailureMapper().classify(
+        {}, task_spec=task, step_count=12, terminated=True
+    )
 
     assert classification.label == "unstable_contact"
     assert classification.source == "mapper"

@@ -7,7 +7,11 @@ from typing import Any
 
 import yaml
 
-from nyssa_bench.reports.comparison import compare_runs, save_comparison_report, save_leaderboard
+from nyssa_bench.reports.comparison import (
+    compare_runs,
+    save_comparison_report,
+    save_leaderboard,
+)
 from nyssa_bench.reports.replay_validation import validate_result_pack_replays
 
 
@@ -46,7 +50,9 @@ def build_scorecard(
 
     normalized_run_dirs = [Path(path) for path in run_dirs]
     results = [_load_scorecard_result(path) for path in normalized_run_dirs]
-    replay_validation = replay_validation or validate_result_pack_replays(normalized_run_dirs)
+    replay_validation = replay_validation or validate_result_pack_replays(
+        normalized_run_dirs
+    )
     replay_by_run = {run["run_dir"]: run for run in replay_validation.get("runs", [])}
     for result in results:
         run_validation = replay_by_run.get(str(result.get("run_dir")), {})
@@ -56,8 +62,12 @@ def build_scorecard(
             original_validation = {}
         artifact_claim = bool(run_validation.get("public_claim", False))
         original_failures = original_validation.get("failures", [])
-        combined_failures = list(original_failures) if isinstance(original_failures, list) else []
-        combined_failures.extend(f"replay:{failure}" for failure in run_validation.get("failures", []))
+        combined_failures = (
+            list(original_failures) if isinstance(original_failures, list) else []
+        )
+        combined_failures.extend(
+            f"replay:{failure}" for failure in run_validation.get("failures", [])
+        )
         result["run_public_claim"] = original_claim
         result["run_public_claim_validation"] = original_validation
         result["artifact_validation"] = run_validation
@@ -71,14 +81,18 @@ def build_scorecard(
         "benchmark": benchmark,
         "date": scorecard_date or date.today().isoformat(),
         "status": "generated",
-        "public_claim": all(bool(result.get("public_claim", False)) for result in results)
+        "public_claim": all(
+            bool(result.get("public_claim", False)) for result in results
+        )
         and not _needs_learned_baseline(results)
         and bool(replay_validation["public_claim"]),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "notes": notes or DEFAULT_NOTES,
         "results": results,
         "artifacts": {
-            "comparison_report": _display_path(comparison_report) if comparison_report else None,
+            "comparison_report": _display_path(comparison_report)
+            if comparison_report
+            else None,
             "leaderboard": _display_path(leaderboard) if leaderboard else None,
             "required_per_run": REQUIRED_RUN_FILES,
             "replay_validation": replay_validation,
@@ -156,7 +170,11 @@ def _load_scorecard_result(run_dir: Path) -> dict[str, Any]:
     _validate_run_artifacts(run_dir)
     metadata = yaml.safe_load((run_dir / "run.yaml").read_text(encoding="utf-8")) or {}
     metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
-    aggregate_metrics = metrics.get("metrics", {}) if isinstance(metrics.get("metrics", {}), dict) else {}
+    aggregate_metrics = (
+        metrics.get("metrics", {})
+        if isinstance(metrics.get("metrics", {}), dict)
+        else {}
+    )
     return {
         "run_dir": _display_path(run_dir),
         "run_id": metadata.get("run_id"),
@@ -175,18 +193,25 @@ def _load_scorecard_result(run_dir: Path) -> dict[str, Any]:
         "verifier_enabled": bool(metadata.get("verifier_enabled", False)),
         "success_rate": metrics.get("success_rate", 0.0),
         "success_rate_ci95": metrics.get("success_rate_ci95", [0.0, 0.0]),
-        "expert_intervention_rate": aggregate_metrics.get("expert_intervention_rate", 0.0),
+        "expert_intervention_rate": aggregate_metrics.get(
+            "expert_intervention_rate", 0.0
+        ),
         "recovery_success_rate": aggregate_metrics.get("recovery_success_rate", 0.0),
         "recovery_success_count": aggregate_metrics.get("recovery_success_count", 0.0),
         "recovery_applied_count": aggregate_metrics.get("recovery_applied_count", 0.0),
-        "recovery_episode_success_rate": aggregate_metrics.get("recovery_episode_success_rate", 0.0),
-        "recovery_outcomes": metrics.get("recovery_outcomes", metadata.get("recovery_outcomes")),
-        "verifier_rejection_rate": aggregate_metrics.get("verifier_rejection_rate", 0.0),
-        "prototype_reliability_score": metrics.get(
-            "prototype_reliability_score", metrics.get("sim_to_real_score", 0.0)
+        "recovery_episode_success_rate": aggregate_metrics.get(
+            "recovery_episode_success_rate", 0.0
+        ),
+        "recovery_outcomes": metrics.get(
+            "recovery_outcomes", metadata.get("recovery_outcomes")
+        ),
+        "verifier_rejection_rate": aggregate_metrics.get(
+            "verifier_rejection_rate", 0.0
+        ),
+        "prototype_reliability_score": float(
+            metrics.get("prototype_reliability_score", 0.0)
         ),
         "score_kind": metrics.get("score_kind", "prototype_reliability_heuristic"),
-        "sim_to_real_score_deprecated": bool(metrics.get("sim_to_real_score_deprecated", "sim_to_real_score" in metrics)),
         "benchmark_tier": metrics.get("benchmark_tier", "unknown"),
         "public_claim": bool(metrics.get("public_claim", False)),
         "public_claim_validation": metrics.get("public_claim_validation", {}),
