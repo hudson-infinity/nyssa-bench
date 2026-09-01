@@ -50,6 +50,7 @@ class Report:
         )
         failure_counts = self.summary.get("failure_counts", {})
         failure_event_summary = self.summary.get("failure_event_summary", {})
+        failure_detector_summary = self.summary.get("failure_detector_summary", {})
         per_task = self.summary.get("per_task", {})
         per_seed = self.summary.get("per_seed", {})
         return f"""<!doctype html>
@@ -112,6 +113,9 @@ class Report:
 
   <h2>Failure Event Ledger</h2>
   {_table(failure_event_summary)}
+
+  <h2>Failure Detectors</h2>
+  {_table(failure_detector_summary)}
 
   <h2>Failure Timelines</h2>
   {_failure_timeline_table(self.run_dir)}

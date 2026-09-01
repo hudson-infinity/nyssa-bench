@@ -40,6 +40,7 @@ class EpisodeResult:
     replay_path: str | None = None
     failure_clip_path: str | None = None
     stressor_context: dict[str, Any] = field(default_factory=dict)
+    failure_detector_context: dict[str, Any] = field(default_factory=dict)
     failure_ledger: FailureLedgerRecord | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -54,6 +55,7 @@ class EpisodeResult:
             "replay_path": self.replay_path,
             "failure_clip_path": self.failure_clip_path,
             "stressor_context": _to_jsonable(self.stressor_context),
+            "failure_detector_context": _to_jsonable(self.failure_detector_context),
             "failure_ledger": self.failure_ledger.to_dict()
             if self.failure_ledger is not None
             else None,
