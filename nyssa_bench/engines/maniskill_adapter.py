@@ -66,6 +66,13 @@ class ManiSkillEngine(NyssaEngine):
             return {"raw": self.env.get_state()}
         return {}
 
+    def failure_signal_capabilities(
+        self, *, info: dict[str, Any] | None = None
+    ) -> set[str]:
+        capabilities = super().failure_signal_capabilities(info=info)
+        capabilities.add("info.success")
+        return capabilities
+
     def set_state(self, state: Any) -> dict[str, Any] | None:
         self._require_env()
         target = getattr(self.env, "unwrapped", self.env)

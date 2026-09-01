@@ -857,6 +857,7 @@ def _load_episodes(run_dir: Path):
                 replay_path=item.get("replay_path"),
                 failure_clip_path=item.get("failure_clip_path"),
                 stressor_context=item.get("stressor_context", {}),
+                failure_detector_context=item.get("failure_detector_context", {}),
                 failure_ledger=failure_ledger_from_episode_dict(
                     item,
                     engine_name=str(run_metadata.get("engine_name", "unknown")),

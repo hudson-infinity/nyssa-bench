@@ -90,6 +90,21 @@ class MuJoCoEngine(NyssaEngine):
             return {"time": float(getattr(target.data, "time", 0.0))}
         return {}
 
+    def failure_signal_capabilities(
+        self, *, info: dict[str, Any] | None = None
+    ) -> set[str]:
+        capabilities = super().failure_signal_capabilities(info=info)
+        capabilities.update(
+            {
+                "info.collision_count",
+                "info.completion_time",
+                "info.episode_return",
+                "info.path_efficiency",
+                "info.success",
+            }
+        )
+        return capabilities
+
     def apply_stressor(
         self, stressor_id: str, parameters: dict[str, Any]
     ) -> dict[str, Any]:

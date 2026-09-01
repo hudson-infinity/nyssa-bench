@@ -56,3 +56,18 @@ class NyssaEngine(ABC):
         """Return and clear queued simulator-originated failure event drafts."""
 
         return []
+
+    def failure_signal_capabilities(
+        self, *, info: dict[str, Any] | None = None
+    ) -> set[str]:
+        """Return canonical signals available to passive failure detectors.
+
+        Adapters should include signals they guarantee on every transition. The
+        base implementation also exposes keys observed in the current info
+        payload so third-party engines can participate without adapter changes.
+        """
+
+        capabilities = {"reward"}
+        if info:
+            capabilities.update(f"info.{key}" for key in info)
+        return capabilities

@@ -450,7 +450,19 @@ def test_runner_collects_component_events_and_writes_renderable_timeline(
         for event in episode.failure_ledger.events
     )
     assert report.summary["failure_event_summary"]["event_count"] >= 8
+    assert report.summary["failure_detector_summary"]["status_counts"]
     assert (tmp_path / "failure_ledger.json").is_file()
+    detector_manifest = json.loads(
+        (tmp_path / "failure_detector_manifest.json").read_text(encoding="utf-8")
+    )
+    assert detector_manifest["summary"]["contracts"]
+    assert episode.failure_detector_context["finalized"] is True
+    detector_provenance = {
+        event.provenance.component_id
+        for event in episode.failure_ledger.events
+        if event.provenance.source == "external_monitor"
+    }
+    assert "grasp_detector" in detector_provenance
     assert "failure_events" not in episode.steps[0].info
     assert episode.steps[0].info["engine_failure_event_ids"]
     assert episode.steps[0].info["failure_event_ids"]
@@ -458,12 +470,14 @@ def test_runner_collects_component_events_and_writes_renderable_timeline(
     assert replay["episodes"][0]["failure_ledger"]["events"]
     html = (tmp_path / "report.html").read_text(encoding="utf-8")
     assert "Failure Timelines" in html
+    assert "Failure Detectors" in html
     assert "object_slip" in html
     assert "privileged:terminal_failure_classification" in html
     dataset_manifest = json.loads(
         (tmp_path / "dataset_manifest.json").read_text(encoding="utf-8")
     )
     assert "failure_ledger.json" in dataset_manifest["artifacts"]
+    assert "failure_detector_manifest.json" in dataset_manifest["artifacts"]
     timeline = episode_timeline(episode)
     assert timeline[0]["failure_events"]
 

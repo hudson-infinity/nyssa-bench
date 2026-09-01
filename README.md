@@ -199,6 +199,11 @@ bootstrap uncertainty. See [the Stressor Protocol](docs/stressor_protocol.md)
 for the complete schema, support matrix, severity-sweep commands, composition
 rules, and ManiSkill GPU friction limitation.
 
+Streaming failure detectors localize collision, grasp/contact-loss, and
+no-progress events during an episode. Their versioned contracts, capability
+checks, lifecycle, and result-pack artifacts are documented in
+[Streaming failure detectors](docs/failure_detectors.md).
+
 ## Recovery And Ablation Runs
 
 Use `ablate` to run base, verifier, recovery, and verifier+recovery variants

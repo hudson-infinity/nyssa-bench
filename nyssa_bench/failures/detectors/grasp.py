@@ -1,46 +1,68 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from nyssa_bench.failures.protocol import FailureEvidence, FailureEventDraft
 
 from .utils import as_bool, as_float
-from .protocol import FailureDetector
+from .protocol import DetectorSignalRequirement, FailureDetector
 
 
 class GraspDetector(FailureDetector):
     detector_id = "grasp_detector"
+    detector_version = "1.0.0"
+    signal_requirements = (
+        DetectorSignalRequirement(
+            any_of=(
+                "info.wrong_object",
+                "info.wrong_object_selected",
+                "info.object_slip",
+                "info.bad_grasp",
+                "info.grasp_failed",
+                "info.grasp_success",
+                "info.grasp",
+                "info.is_grasped",
+            ),
+            visibility="privileged",
+            description="task-logic grasp, contact-loss, slip, or object identity signal",
+        ),
+    )
+    evidence_visibility = ("privileged",)
+    temporal_precision = ("exact_step",)
 
     def __init__(self) -> None:
         self._emitted_wrong_object = False
         self._emitted_slip = False
         self._emitted_bad_grasp = False
+        self._was_grasped = False
 
     def reset(
         self,
         *,
         task: Any,
         engine: Any,
-        observation: dict[str, Any] | None,
-        stressor_context: dict[str, Any] | None,
+        observation: Mapping[str, Any] | None,
+        stressor_context: Mapping[str, Any] | None,
     ) -> None:
         self._emitted_wrong_object = False
         self._emitted_slip = False
         self._emitted_bad_grasp = False
+        self._was_grasped = False
 
     def detect(
         self,
         *,
         step_index: int,
-        observation: dict[str, Any] | None,
+        observation: Mapping[str, Any] | None,
         action: Any,
         reward: float,
         terminated: bool,
         truncated: bool,
-        info: dict[str, Any],
+        info: Mapping[str, Any],
         task: Any,
         engine: Any,
-        stressor_context: dict[str, Any] | None = None,
+        stressor_context: Mapping[str, Any] | None = None,
     ) -> list[FailureEventDraft | dict[str, Any]]:
         drafts: list[FailureEventDraft | dict[str, Any]] = []
 
@@ -58,7 +80,11 @@ class GraspDetector(FailureDetector):
                 )
             )
 
-        if not self._emitted_slip and as_bool(info.get("object_slip")):
+        grasped = as_bool(info.get("is_grasped"))
+        contact_lost = grasped is False and self._was_grasped
+        if not self._emitted_slip and (
+            as_bool(info.get("object_slip")) or contact_lost
+        ):
             self._emitted_slip = True
             drafts.append(
                 _failure_draft(
@@ -67,15 +93,21 @@ class GraspDetector(FailureDetector):
                     summary_label="object_slip",
                     message="object_slip",
                     payload={
-                        "grasp_grip": _as_float_optional(info.get("grip_strength"))
+                        "grasp_grip": _as_float_optional(info.get("grip_strength")),
+                        "contact_lost": contact_lost,
                     },
                 )
             )
+        if grasped is not None:
+            self._was_grasped = grasped
 
         if not self._emitted_bad_grasp and (
             as_bool(info.get("bad_grasp"))
             or as_bool(info.get("grasp_failed"))
-            or (info.get("grasp_success") is False and info.get("grasp") is not None)
+            or (
+                as_bool(info.get("grasp_success")) is False
+                and info.get("grasp") is not None
+            )
         ):
             self._emitted_bad_grasp = True
             drafts.append(
@@ -118,7 +150,7 @@ def _failure_draft(
                     "signal": message,
                     **(payload or {}),
                 },
-                source="external_monitor",
+                source="task_logic",
                 annotation_source="grasp_detector",
                 confidence=0.85,
                 visibility="privileged",
