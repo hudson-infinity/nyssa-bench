@@ -7,6 +7,7 @@ from typing import Any
 from nyssa_bench.core.episode import EpisodeResult
 from nyssa_bench.core.suite import Suite
 from nyssa_bench.core.task import TaskSpec
+from nyssa_bench.metrics.vector import sim_real_metrics_are_supported
 
 
 PUBLIC_CLAIM_ENGINES = {"maniskill", "mujoco"}
@@ -48,6 +49,7 @@ class RunClaimValidator:
         package_versions: dict[str, Any] | None = None,
         git_info: dict[str, Any] | None = None,
         stressor_execution: dict[str, Any] | None = None,
+        metric_vector: dict[str, Any] | None = None,
     ) -> RunClaimValidation:
         checks = {
             "supported_real_simulator_backend": engine_name in PUBLIC_CLAIM_ENGINES,
@@ -71,6 +73,9 @@ class RunClaimValidator:
             "artifact_directory_present": out_dir is not None,
             "stressor_requests_resolved": not bool(
                 (stressor_execution or {}).get("unsupported_stressors")
+            ),
+            "sim_real_metrics_have_hardware_calibration": sim_real_metrics_are_supported(
+                metric_vector
             ),
         }
         failures = [name for name, passed in checks.items() if not passed]

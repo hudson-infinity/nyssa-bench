@@ -18,7 +18,7 @@
   <p>Static leaderboard shell. Export rankings with <code>nyssa leaderboard ... --out site/leaderboard/leaderboard.json</code>.</p>
   <section id="status" hidden></section>
   <table>
-    <thead><tr><th>Rank</th><th>Run</th><th>Success</th><th>Prototype reliability</th><th>Claim status</th><th>Primary failure</th></tr></thead>
+    <thead><tr><th>Rank</th><th>Run</th><th>Success</th><th>Shifted success</th><th>Safety violations</th><th>Claim status</th><th>Primary failure</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
   <script>
@@ -42,10 +42,23 @@
           status.innerHTML = `<strong>${label}</strong><p>${detail}</p><code>${data.comparison_contract_sha256 || "unknown contract"}</code>`;
         }
         const tbody = document.getElementById("rows");
+        const percent = (value) => value == null ? "n/a" : `${(value * 100).toFixed(1)}%`;
         for (const row of rows) {
           const tr = document.createElement("tr");
-          const score = row.prototype_reliability_score ?? row.sim_to_real_score ?? 0;
-          tr.innerHTML = `<td>${row.rank}</td><td>${row.run_dir}</td><td>${(row.success_rate * 100).toFixed(1)}%</td><td>${score.toFixed(3)}</td><td>${row.public_claim_status || "unknown"}</td><td>${row.primary_failure_mode || ""}</td>`;
+          const fields = [
+            row.rank,
+            row.run_dir,
+            percent(row.success_rate),
+            percent(row.shifted_success_rate),
+            percent(row.safety_violation_rate),
+            row.public_claim_status || "unknown",
+            row.primary_failure_mode || "",
+          ];
+          for (const value of fields) {
+            const td = document.createElement("td");
+            td.textContent = String(value ?? "");
+            tr.appendChild(td);
+          }
           tbody.appendChild(tr);
         }
       });

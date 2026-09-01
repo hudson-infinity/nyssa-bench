@@ -34,6 +34,15 @@ def test_compatible_runs_share_a_deterministic_contract(tmp_path: Path):
         "run_seed"
         not in comparison["comparison_contract"]["shared_contract"]["seed_protocol"]
     )
+    assert comparison["ordering"]["primary_metric"] == "success_rate"
+    assert "prototype_reliability_score" not in comparison["ranking"][0]
+    assert comparison["ranking"][0]["metric_vector"]["scalar_composite"] is None
+    assert (
+        comparison["runs"][0]["legacy_metrics"]["values"][
+            "prototype_reliability_score"
+        ]
+        == 0.5
+    )
 
 
 @pytest.mark.parametrize(
@@ -89,7 +98,7 @@ def test_exploratory_override_labels_all_outputs_non_comparable(tmp_path: Path):
     assert "NON-COMPARABLE EXPLORATORY OUTPUT" in report
     assert comparison["comparison_contract_sha256"] in report
     leaderboard = json.loads(leaderboard_path.read_text(encoding="utf-8"))
-    assert leaderboard["format"] == "nyssa-leaderboard-v2"
+    assert leaderboard["format"] == "nyssa-leaderboard-v3"
     assert leaderboard["comparable"] is False
     assert leaderboard["comparison_mode"] == "exploratory"
     assert (

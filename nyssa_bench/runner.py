@@ -40,8 +40,12 @@ from nyssa_bench.failures.detectors import (
 from nyssa_bench.metrics.failure_mapper import FailureMapper
 from nyssa_bench.metrics.robustness import robustness_metrics
 from nyssa_bench.metrics.safety import safety_metrics
-from nyssa_bench.metrics.sim_to_real import score_summary
 from nyssa_bench.metrics.success import aggregate_episodes
+from nyssa_bench.metrics.vector import (
+    METRIC_VECTOR_FORMAT,
+    RUN_METRICS_FORMAT,
+    build_metric_vector,
+)
 from nyssa_bench.policies.base import Policy, PolicyLike, load_policy_from_path
 from nyssa_bench.randomization import (
     aggregate_stressor_support,
@@ -205,9 +209,7 @@ class PolicyRunner:
             "training_time_seconds": 0.0,
             "inference_only": True,
         }
-        score = score_summary(summary)
-        summary["prototype_reliability_score"] = score
-        summary["score_kind"] = "prototype_reliability_heuristic"
+        summary["format"] = RUN_METRICS_FORMAT
         declared_task_stressors = {
             task.task_id: summarize_stressor_support(
                 task.randomization, self.engine_name
@@ -225,6 +227,8 @@ class PolicyRunner:
             fallback=aggregate_stressor_support(declared_task_stressors),
         )
         summary["task_stressor_support"] = declared_task_stressors
+        metric_vector = build_metric_vector(summary, results)
+        summary["metric_vector"] = metric_vector
         self.run_metadata = {
             "run_id": make_run_id(suite.suite_id, self._policy_name()),
             "suite_id": suite.suite_id,
@@ -259,6 +263,7 @@ class PolicyRunner:
             "stressor_execution": stressor_execution,
             "failure_event_summary": failure_event_summary,
             "failure_detector_summary": failure_detector_summary,
+            "metric_vector_format": METRIC_VECTOR_FORMAT,
         }
         env_metadata = environment_metadata()
         versions = package_versions()
@@ -272,6 +277,7 @@ class PolicyRunner:
             package_versions=versions,
             git_info=git,
             stressor_execution=stressor_execution,
+            metric_vector=metric_vector,
         )
         summary["benchmark_tier"] = validation.benchmark_tier
         summary["public_claim"] = validation.public_claim

@@ -9,12 +9,12 @@ from typing import Any
 
 import yaml
 
-from nyssa_bench.metrics.sim_to_real import score_summary
+from nyssa_bench.metrics.vector import metric_measurement, migrate_metric_summary
 
 
 COMPARISON_CONTRACT_FORMAT = "nyssa-comparison-contract-v1"
 COMPARISON_SET_FORMAT = "nyssa-comparison-set-v1"
-LEADERBOARD_FORMAT = "nyssa-leaderboard-v2"
+LEADERBOARD_FORMAT = "nyssa-leaderboard-v3"
 REQUIRED_SEED_PROTOCOL_FIELDS = (
     "format",
     "episode_seed_stride",
@@ -58,17 +58,13 @@ def load_run_summary(run_dir: str | Path) -> dict[str, Any]:
     if not metrics_path.exists():
         raise FileNotFoundError(f"Run metrics not found: {metrics_path}")
 
-    summary = json.loads(metrics_path.read_text(encoding="utf-8"))
+    raw_summary = json.loads(metrics_path.read_text(encoding="utf-8"))
+    if not isinstance(raw_summary, dict):
+        raise ValueError(f"Run metrics must contain a JSON object: {metrics_path}")
+    summary = migrate_metric_summary(raw_summary)
     summary.setdefault("run_dir", run_dir.as_posix())
     if config_path.exists():
         summary["config_path"] = str(config_path)
-    score = float(
-        summary.get(
-            "prototype_reliability_score",
-            summary.get("sim_to_real_score", score_summary(summary)),
-        )
-    )
-    summary["prototype_reliability_score"] = score
     return summary
 
 
@@ -261,10 +257,9 @@ def compare_runs(
     ranked = sorted(
         runs,
         key=lambda item: (
-            float(item.get("success_rate", 0.0)),
-            float(item.get("prototype_reliability_score", 0.0)),
+            -float(item.get("success_rate", 0.0)),
+            str(item.get("run_dir", "")),
         ),
-        reverse=True,
     )
     return {
         "runs": runs,
@@ -279,14 +274,37 @@ def compare_runs(
             )
         ],
         "mismatches": mismatches,
+        "ordering": {
+            "primary_metric": "success_rate",
+            "direction": "higher",
+            "tie_breaker": "run_dir_lexicographic",
+            "semantics": "display_order_only_not_a_universal_reliability_score",
+        },
         "ranking": [
             {
                 "rank": index + 1,
                 "run_dir": item.get("run_dir"),
                 "success_rate": item.get("success_rate", 0.0),
                 "success_rate_ci95": item.get("success_rate_ci95", [0.0, 0.0]),
-                "prototype_reliability_score": item.get(
-                    "prototype_reliability_score", 0.0
+                "metric_vector": item.get("metric_vector"),
+                "clean_success_rate": _metric_value(
+                    item, "clean_success_rate"
+                ),
+                "shifted_success_rate": _metric_value(
+                    item, "shifted_success_rate"
+                ),
+                "robustness_degradation": _metric_value(
+                    item, "robustness_degradation"
+                ),
+                "robustness_auc": _metric_value(item, "robustness_auc"),
+                "mean_time_to_failure_steps": _metric_value(
+                    item, "mean_time_to_failure_steps"
+                ),
+                "safety_violation_rate": _metric_value(
+                    item, "safety_violation_rate"
+                ),
+                "counterfactual_recovery_gain": _metric_value(
+                    item, "counterfactual_recovery_gain"
                 ),
                 "benchmark_tier": item.get("benchmark_tier", "unknown"),
                 "public_claim": item.get("public_claim", False),
@@ -338,6 +356,7 @@ def save_leaderboard(comparison: dict[str, Any], path: str | Path) -> Path:
         "comparison_contract": comparison["comparison_contract"],
         "comparison_contract_sha256": comparison["comparison_contract_sha256"],
         "mismatches": comparison["mismatches"],
+        "ordering": comparison["ordering"],
         "ranking": comparison["ranking"],
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -351,7 +370,9 @@ def _comparison_html(comparison: dict[str, Any]) -> str:
         f"<td>{html.escape(str(item['run_dir']))}</td>"
         f"<td>{float(item['success_rate']) * 100:.1f}%</td>"
         f"<td>{html.escape(_format_ci_percent(item.get('success_rate_ci95')))}</td>"
-        f"<td>{float(item['prototype_reliability_score']):.3f}</td>"
+        f"<td>{html.escape(_format_optional_percent(item.get('shifted_success_rate')))}</td>"
+        f"<td>{html.escape(_format_optional_percent(item.get('robustness_degradation')))}</td>"
+        f"<td>{html.escape(_format_optional_percent(item.get('safety_violation_rate')))}</td>"
         f"<td>{html.escape(str(item.get('benchmark_tier') or 'unknown'))}</td>"
         f"<td>{html.escape(str(item.get('public_claim_status') or 'unknown'))}</td>"
         f"<td>{float(item.get('expert_intervention_rate', 0.0)) * 100:.1f}%</td>"
@@ -423,7 +444,7 @@ def _comparison_html(comparison: dict[str, Any]) -> str:
   <h2>{"Ranking" if comparable else "Exploratory ordering"}</h2>
   <table>
     <thead>
-        <tr><th>Rank</th><th>Run</th><th>Success</th><th>95% CI</th><th>Prototype reliability</th><th>Tier</th><th>Claim status</th><th>Expert intervention</th><th>Recovery success (successful/applied)</th><th>Verifier rejection</th><th>Wall time</th><th>Primary failure</th></tr>
+        <tr><th>Rank</th><th>Run</th><th>Success</th><th>95% CI</th><th>Shifted success</th><th>Robustness degradation</th><th>Safety violations</th><th>Tier</th><th>Claim status</th><th>Expert intervention</th><th>Recovery success (successful/applied)</th><th>Verifier rejection</th><th>Wall time</th><th>Primary failure</th></tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>
@@ -523,6 +544,21 @@ def _load_json_mapping(path: Path) -> dict[str, Any]:
         return {}
     value = json.loads(path.read_text(encoding="utf-8"))
     return value if isinstance(value, dict) else {}
+
+
+def _metric_value(summary: dict[str, Any], metric_id: str) -> float | None:
+    vector = summary.get("metric_vector")
+    if not isinstance(vector, dict):
+        return None
+    measurement = metric_measurement(vector, metric_id)
+    if measurement.get("status") != "available":
+        return None
+    value = measurement.get("value")
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _format_optional_percent(value: Any) -> str:
+    return "n/a" if value is None else f"{float(value) * 100:.1f}%"
 
 
 def _display_value(value: Any) -> str:

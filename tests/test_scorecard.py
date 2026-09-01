@@ -29,6 +29,14 @@ def test_build_scorecard_from_real_run_artifacts(tmp_path: Path):
     assert scorecard["artifacts"]["replay_validation"]["status"] == "not_validated"
     assert scorecard["results"][0]["run_public_claim"] is True
     assert scorecard["results"][0]["public_claim"] is False
+    assert scorecard["results"][0]["metric_vector"]["scalar_composite"] is None
+    assert (
+        scorecard["results"][0]["legacy_metrics"]["values"][
+            "prototype_reliability_score"
+        ]
+        == 0.55
+    )
+    assert "prototype_reliability_score" not in scorecard["results"][0]
     assert (
         "replay:episode_replay_files_present"
         in scorecard["results"][0]["public_claim_validation"]["failures"]
@@ -55,7 +63,7 @@ def test_write_scorecard_outputs_related_artifacts(tmp_path: Path):
     assert comparison.exists()
     assert leaderboard.exists()
     ranking = json.loads(leaderboard.read_text(encoding="utf-8"))
-    assert ranking["format"] == "nyssa-leaderboard-v2"
+    assert ranking["format"] == "nyssa-leaderboard-v3"
     assert ranking["comparable"] is True
     assert ranking["ranking"][0]["run_dir"] == run_b.as_posix()
 

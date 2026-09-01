@@ -7,6 +7,7 @@ from typing import Any
 
 import yaml
 
+from nyssa_bench.metrics.vector import migrate_metric_summary
 from nyssa_bench.reports.comparison import (
     compare_runs,
     save_comparison_report,
@@ -169,7 +170,12 @@ def write_scorecard(
 def _load_scorecard_result(run_dir: Path) -> dict[str, Any]:
     _validate_run_artifacts(run_dir)
     metadata = yaml.safe_load((run_dir / "run.yaml").read_text(encoding="utf-8")) or {}
-    metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
+    raw_metrics = json.loads(
+        (run_dir / "metrics.json").read_text(encoding="utf-8")
+    )
+    if not isinstance(raw_metrics, dict):
+        raise ValueError(f"Run metrics must contain a JSON object: {run_dir}")
+    metrics = migrate_metric_summary(raw_metrics)
     aggregate_metrics = (
         metrics.get("metrics", {})
         if isinstance(metrics.get("metrics", {}), dict)
@@ -208,10 +214,9 @@ def _load_scorecard_result(run_dir: Path) -> dict[str, Any]:
         "verifier_rejection_rate": aggregate_metrics.get(
             "verifier_rejection_rate", 0.0
         ),
-        "prototype_reliability_score": float(
-            metrics.get("prototype_reliability_score", 0.0)
-        ),
-        "score_kind": metrics.get("score_kind", "prototype_reliability_heuristic"),
+        "metric_vector": metrics.get("metric_vector"),
+        "metric_migration": metrics.get("metric_migration"),
+        "legacy_metrics": metrics.get("legacy_metrics"),
         "benchmark_tier": metrics.get("benchmark_tier", "unknown"),
         "public_claim": bool(metrics.get("public_claim", False)),
         "public_claim_validation": metrics.get("public_claim_validation", {}),

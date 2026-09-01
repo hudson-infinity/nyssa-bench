@@ -1,36 +1,15 @@
-[
-  {
-    "rank": 1,
-    "run_dir": "runs/mujoco_random_v0",
-    "success_rate": 0.01,
-    "success_rate_ci95": [
-      0.003406618437715286,
-      0.02898349336233983
-    ],
-    "prototype_reliability_score": 0.505,
-    "score_kind": "prototype_reliability_heuristic",
-    "sim_to_real_score": 0.505,
-    "sim_to_real_score_deprecated": true,
-    "benchmark_tier": "prototype",
-    "public_claim": false,
-    "public_claim_status": "not_public",
-    "primary_failure_mode": "missed_target"
+{
+  "format": "nyssa-leaderboard-v3",
+  "comparable": false,
+  "comparison_mode": "empty",
+  "comparison_contract": null,
+  "comparison_contract_sha256": null,
+  "mismatches": [],
+  "ordering": {
+    "primary_metric": "success_rate",
+    "direction": "higher",
+    "tie_breaker": "run_dir_lexicographic",
+    "semantics": "display_order_only_not_a_universal_reliability_score"
   },
-  {
-    "rank": 2,
-    "run_dir": "runs/maniskill_random_v0",
-    "success_rate": 0.0,
-    "success_rate_ci95": [
-      0.0,
-      0.012642971224546036
-    ],
-    "prototype_reliability_score": 0.5,
-    "score_kind": "prototype_reliability_heuristic",
-    "sim_to_real_score": 0.5,
-    "sim_to_real_score_deprecated": true,
-    "benchmark_tier": "prototype",
-    "public_claim": false,
-    "public_claim_status": "not_public",
-    "primary_failure_mode": "missed_target"
-  }
-]
+  "ranking": []
+}
