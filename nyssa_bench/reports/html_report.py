@@ -24,7 +24,6 @@ class Report:
     def to_html(self) -> str:
         success_rate = float(self.summary.get("success_rate", 0.0)) * 100
         success_ci = self.summary.get("success_rate_ci95", [0.0, 0.0])
-        prototype_score = float(self.summary.get("prototype_reliability_score", 0.0))
         primary_failure = self.summary.get("primary_failure_mode") or "none"
         benchmark_tier = self.summary.get("benchmark_tier", "unknown")
         validation = self.summary.get("public_claim_validation", {})
@@ -51,6 +50,7 @@ class Report:
         failure_counts = self.summary.get("failure_counts", {})
         failure_event_summary = self.summary.get("failure_event_summary", {})
         failure_detector_summary = self.summary.get("failure_detector_summary", {})
+        metric_vector = self.summary.get("metric_vector", {})
         per_task = self.summary.get("per_task", {})
         per_seed = self.summary.get("per_seed", {})
         return f"""<!doctype html>
@@ -77,7 +77,6 @@ class Report:
   <section>
     <div class="metric"><div>Success rate</div><div class="value">{success_rate:.1f}%</div></div>
     <div class="metric"><div>95% CI</div><div class="value">{_format_ci_percent(success_ci)}</div></div>
-    <div class="metric"><div>Prototype reliability</div><div class="value">{prototype_score:.3f}</div></div>
     <div class="metric"><div>Primary failure mode</div><div class="value">{html.escape(str(primary_failure))}</div></div>
     <div class="metric"><div>Benchmark tier</div><div class="value">{html.escape(str(benchmark_tier))}</div></div>
     <div class="metric"><div>Public claim</div><div class="value">{html.escape(str(self.summary.get("public_claim", False)))}</div></div>
@@ -101,6 +100,9 @@ class Report:
 
   <h2>Stressor Execution</h2>
   {_stressor_execution_table(stressor_execution)}
+
+  <h2>Metric Vector</h2>
+  {_metric_vector_table(metric_vector)}
 
   <h2>Aggregate Metrics</h2>
   {_table(metrics)}
@@ -136,6 +138,45 @@ def _table(data: dict[str, Any]) -> str:
         for key, value in sorted(data.items())
     )
     return f"<table><tbody>{rows}</tbody></table>" if rows else "<p>No data.</p>"
+
+
+def _metric_vector_table(vector: Any) -> str:
+    if not isinstance(vector, dict):
+        return "<p>No metric vector.</p>"
+    definitions = vector.get("definitions", {})
+    values = vector.get("values", {})
+    if not isinstance(definitions, dict) or not isinstance(values, dict):
+        return "<p>No metric vector.</p>"
+    rows = []
+    for metric_id in sorted(values):
+        measurement = values.get(metric_id, {})
+        definition = definitions.get(metric_id, {})
+        if not isinstance(measurement, dict) or not isinstance(definition, dict):
+            continue
+        interval = measurement.get("ci95")
+        interval_text = (
+            f"{_format_value(interval[0])} to {_format_value(interval[1])}"
+            if isinstance(interval, (list, tuple)) and len(interval) == 2
+            else "not available"
+        )
+        rows.append(
+            "<tr>"
+            f"<td><code>{html.escape(str(metric_id))}</code></td>"
+            f"<td>{html.escape(str(measurement.get('status', 'unknown')))}</td>"
+            f"<td>{html.escape(_format_value(measurement.get('value')))}</td>"
+            f"<td>{html.escape(interval_text)}</td>"
+            f"<td>{html.escape(str(measurement.get('sample_size', 0)))}</td>"
+            f"<td>{html.escape(str(definition.get('direction', 'descriptive')))}</td>"
+            f"<td>{html.escape(str(measurement.get('reason') or ''))}</td>"
+            "</tr>"
+        )
+    if not rows:
+        return "<p>No metric vector.</p>"
+    return (
+        "<table><thead><tr><th>Metric</th><th>Status</th><th>Value</th>"
+        "<th>95% CI</th><th>Sample size</th><th>Direction</th><th>Missingness</th>"
+        f"</tr></thead><tbody>{''.join(rows)}</tbody></table>"
+    )
 
 
 def _validation_table(data: Any) -> str:

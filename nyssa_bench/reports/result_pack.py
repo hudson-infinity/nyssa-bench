@@ -127,7 +127,7 @@ def write_results_markdown(
 - `bc_policy` should be treated as a learned baseline only when backed by a real checkpoint or factory.
 - Public benchmark claims require each run's `public_claim_validation` to pass.
 - Unsupported stressors are reported in each run summary and should not be claimed as active perturbations.
-- `prototype_reliability_score` is a simulator reliability heuristic, not real-world robot validation.
+- Metric-vector entries are separate tradeoffs; simulator-only entries are not real-world robot validation.
 - If replay videos are absent, the result has episode evidence but is not replay-first.
 """
     path.write_text(text, encoding="utf-8")
@@ -183,12 +183,17 @@ def _summarize_runs(run_dirs: list[Path]) -> list[dict[str, Any]]:
     import json
     import yaml
 
+    from nyssa_bench.metrics.vector import migrate_metric_summary
+
     summaries: list[dict[str, Any]] = []
     for run_dir in run_dirs:
         path = Path(run_dir) / "metrics.json"
         if not path.exists():
             continue
-        summary = json.loads(path.read_text(encoding="utf-8"))
+        raw_summary = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(raw_summary, dict):
+            continue
+        summary = migrate_metric_summary(raw_summary)
         summary["_run_dir"] = Path(run_dir).as_posix()
         run_path = Path(run_dir) / "run.yaml"
         if run_path.exists():

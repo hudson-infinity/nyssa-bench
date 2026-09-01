@@ -51,7 +51,8 @@ Use this checklist before publishing a NyssaBench result pack.
 
 ## Overclaim Guardrails
 
-- Do not call `prototype_reliability_score` a sim-to-real score.
+- Do not turn the metric vector into an undocumented weighted score or label
+  simulator-only measurements as sim-real evidence.
 - Do not call simulator-only results real-world validation.
 - Do not publish Tier 0 or video-less runs as public benchmark results.
 - Do not compare results produced under different task mappings, stressors, or

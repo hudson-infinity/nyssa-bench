@@ -45,6 +45,7 @@ from nyssa_bench.reports.replay_validation import validate_result_pack_replays
 from nyssa_bench.reports.scorecard import write_scorecard
 from nyssa_bench.runner import DEFAULT_RECOVERY_ATTRIBUTION_HORIZON, PolicyRunner
 from nyssa_bench.metrics.run_claims import PUBLIC_CLAIM_ENGINES
+from nyssa_bench.metrics.vector import migrate_metric_summary
 from nyssa_bench.baselines.robomimic_bc import (
     train_robomimic,
     write_robomimic_bc_config,
@@ -343,7 +344,10 @@ def main(argv: list[str] | None = None) -> int:
         metrics_path = run_dir / "metrics.json"
         if not metrics_path.exists():
             raise FileNotFoundError(f"Run metrics not found: {metrics_path}")
-        summary = json.loads(metrics_path.read_text(encoding="utf-8"))
+        raw_summary = json.loads(metrics_path.read_text(encoding="utf-8"))
+        if not isinstance(raw_summary, dict):
+            raise ValueError(f"Run metrics must contain a JSON object: {metrics_path}")
+        summary = migrate_metric_summary(raw_summary)
         metadata = _load_run_metadata(run_dir)
         report = Report(
             suite_id=str(metadata.get("suite_id", summary.get("suite_id", "unknown"))),

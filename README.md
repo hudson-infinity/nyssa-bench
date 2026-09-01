@@ -722,7 +722,7 @@ uv run python scripts/release_smoke.py
 - Failure taxonomy, mapper-based failure labels, and aggregate metrics.
 - Typed executable stressors with deterministic severity, composition, state restoration, backend evidence, and robustness-sweep reports.
 - HTML reports, JSON metrics, recovery datasets, failure galleries, public-claim validation, and explicit unsupported-stressor handling.
-- Policy comparison reports, prototype reliability scores, and leaderboard export.
+- Policy comparison reports, versioned metric vectors, and tradeoff-preserving leaderboard export.
 - Static leaderboard shell, protocol draft, scorecard structure, Docker files, and plugin API.
 - CLI, docs, examples, and tests.
 

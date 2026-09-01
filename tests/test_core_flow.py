@@ -367,7 +367,10 @@ def test_runner_writes_artifacts(tmp_path: Path):
     assert "pick_cube" in report.summary["per_task"]
     assert "success_rate_ci95" in report.summary["per_task"]["pick_cube"]
     assert report.summary["per_seed"]
-    assert 0.0 <= report.summary["prototype_reliability_score"] <= 1.0
+    assert report.summary["format"] == "nyssa-run-metrics-v2"
+    assert report.summary["metric_vector"]["scalar_composite"] is None
+    assert "prototype_reliability_score" not in report.summary
+    assert "sim_to_real_score" not in report.summary
     assert report.summary["metrics"]["expert_intervention_rate"] == 0.0
     assert report.summary["metrics"]["recovery_success_rate"] == 0.0
     assert report.summary["metrics"]["verifier_rejection_rate"] == 0.0
@@ -379,6 +382,10 @@ def test_runner_writes_artifacts(tmp_path: Path):
     assert (tmp_path / "git_info.json").exists()
     assert (tmp_path / "metrics.json").exists()
     assert (tmp_path / "metrics.csv").exists()
+    metrics_csv = (tmp_path / "metrics.csv").read_text(encoding="utf-8")
+    assert "metric_vector.clean_success_rate.status" in metrics_csv
+    assert "prototype_reliability_score" not in metrics_csv
+    assert "sim_to_real_score" not in metrics_csv
     assert (tmp_path / "episodes.json").exists()
     assert (tmp_path / "episodes.jsonl").exists()
     assert (tmp_path / "dataset_manifest.json").exists()

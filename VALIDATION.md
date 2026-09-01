@@ -23,8 +23,9 @@ generated `RESULTS.md` and `manifest.json`.
 
 ## What Not To Claim
 
-- `prototype_reliability_score` is a simulator reliability heuristic, not a
-  real-world sim-to-real score.
+- Metric-vector fields must be interpreted separately. Simulator-only runs do
+  not provide sim-real evidence, and old scalar scores are audit-only legacy
+  fields after migration.
 - A run without replay videos is a smoke or debugging run. It must not be
   described as a public NyssaBench benchmark result.
 - Adapter hooks for OpenVLA, diffusion, LeRobot, and RoboMimic are not public
