@@ -12,6 +12,12 @@ such as ManiSkill and MuJoCo, with experimental adapter boundaries for RoboCasa
 and Genesis. Public scorecards must pass the run claim validator; experimental
 adapters and placeholder task mappings are not public benchmark claims.
 
+Within Hudson Labs, NyssaBench is the evaluation project, not the umbrella for
+generated worlds, real-to-sim reconstruction, interpretability methods, policy
+training, or hosted products. Those systems can exchange versioned inputs and
+evidence with NyssaBench through stable interfaces. See the
+[project scope](docs/project_scope.md) before proposing a new subsystem.
+
 ```python
 from nyssa_bench import PolicyRunner, Suite
 

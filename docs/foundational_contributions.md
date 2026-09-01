@@ -20,7 +20,8 @@ NyssaBench contributes:
 - Benchmark audit checklist: what a result must answer before publication.
 - Pairwise protocol: how two policies are compared under identical conditions.
 - Replay-first report format: how evidence is inspected.
-- Dataset export format: how evaluated and failed episodes become training data.
+- Dataset export format: how evaluated and failed episodes are handed to
+  downstream analysis or learning systems.
 
 ## Why This Is Foundational
 
@@ -35,3 +36,7 @@ These are not just repo features. They are evaluation conventions:
 
 The goal is for another lab to use NyssaBench as its audit/evaluation layer even
 if it uses a different simulator or policy stack.
+
+The repository owns these evaluation conventions, not the upstream systems it
+evaluates or the downstream methods that consume its artifacts. See
+[Project scope](project_scope.md) for the interface boundary.

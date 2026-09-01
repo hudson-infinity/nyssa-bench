@@ -4,7 +4,12 @@ NyssaBench's north star:
 
 > NyssaBench is foundational because it standardizes embodied AI evaluation. It
 > is frontier because it evaluates the hardest current robot-policy failures:
-> robustness, sim-to-real, real-to-sim, and VLA reliability.
+> robustness, recoverability, VLA reliability, and predictive sim-real validity.
+
+NyssaBench provides the measurement system for this agenda. World generation,
+real-to-sim reconstruction, interpretability-method development, policy
+learning, and hosted products remain separate projects that can provide inputs
+or consume evidence through versioned interfaces.
 
 ## First Paper Framing
 
@@ -39,8 +44,8 @@ Subtitle:
 3. Improve the scripted/planner baseline until it solves the tasks reliably.
 4. Train or evaluate a learned baseline that clearly beats random.
 5. Add pairwise arena reporting on top of validated run artifacts.
-6. Add stress-search and real-to-sim experiments only after the v0.1 result is
-   credible.
+6. Add stress search and ingest externally reconstructed experiments only after
+   the reference result is credible.
 
 ## What Not To Build First
 
