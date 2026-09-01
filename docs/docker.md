@@ -8,4 +8,5 @@ docker build -f docker/Dockerfile.mujoco -t nyssa-bench:mujoco .
 docker build -f docker/Dockerfile.maniskill -t nyssa-bench:maniskill .
 ```
 
-Use Docker for open-source reproducibility. Kubernetes should wait until hosted Nyssa Cloud workers exist.
+Use Docker for open-source reproducibility. Kubernetes and hosted worker
+orchestration belong in separate product infrastructure, not NyssaBench.

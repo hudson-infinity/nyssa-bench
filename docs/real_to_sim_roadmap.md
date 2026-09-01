@@ -1,8 +1,10 @@
-# Real-to-Sim Roadmap
+# Real evidence and reconstructed experiment integration
 
-Real-to-sim is a future NyssaBench direction, not a v0.1 requirement. The goal
-is to turn real robot scenes, logs, or videos into repeatable evaluation cases
-that can be stress-tested before policies are deployed again.
+Real-to-sim reconstruction is a separate research program, not a NyssaBench
+subsystem. NyssaBench's responsibility begins when a reconstruction system or
+hardware program supplies a versioned scene, log, mapping, or evidence manifest.
+The goal here is to make those external outputs usable as repeatable evaluation
+cases without implementing reconstruction in this repository.
 
 ## Motivation
 
@@ -11,8 +13,8 @@ real-world evidence. PolaRiS and RobotArena Infinity show that real scene/video
 data can become scalable evaluation environments. GSWorld and related
 Gaussian-splatting work point toward photorealistic closed-loop simulation.
 
-NyssaBench should use these systems as sources of evaluation environments and
-evidence, not as features to reimplement immediately.
+NyssaBench should use these systems as producers of evaluation environments and
+evidence, not as features to reimplement.
 
 ## Proposed Stages
 
@@ -34,9 +36,9 @@ schema:
 - metadata
 - video evidence
 
-### Stage 2: Real-to-Sim Case Registry
+### Stage 2: Reconstructed-case ingestion
 
-Store reconstructed scenes as evaluation cases:
+Validate externally reconstructed scenes as evaluation cases:
 
 - source log or scan id
 - reconstruction method
