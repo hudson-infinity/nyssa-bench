@@ -1,0 +1,327 @@
+format: nyssa-real-evidence-package-v1
+schema_version: 1
+package_id: synthetic_inverted_pendulum_failure_family
+package_version: 1.0.0
+content_sha256: 6ff9f9fa04b00fd319540ae45cf97b8aff81701ffb4d0965a1edd003767af40b
+protocol:
+  nep_version: 0.1.0
+  task_contract_format: nyssa-task-contract-draft-v1
+  failure_event_format: nyssa-failure-event-v1
+  scenario_contract_format: nyssa-external-scenario-package-v1
+artifacts:
+  - artifact_id: proprioception
+    path: artifacts/proprioception.json
+    sha256: c108dcc220f59c4e4e0125d08f11cd12cc4a5019a12256ea6a1447ed04fd421f
+    media_type: application/json
+    license_id: CC0-1.0
+    provenance_uri: https://github.com/hudson-infinity/nyssa-bench/tree/main/conformance/real_evidence/v1/valid_reconstructed_family
+    access: packaged
+    redacted: false
+    required: true
+  - artifact_id: executed_actions
+    path: artifacts/actions.json
+    sha256: e1dfe453a6a1b48aedc3aee9823cb9c9157cfcde4f97742a940ab88898a62c57
+    media_type: application/json
+    license_id: CC0-1.0
+    provenance_uri: https://github.com/hudson-infinity/nyssa-bench/tree/main/conformance/real_evidence/v1/valid_reconstructed_family
+    access: packaged
+    redacted: false
+    required: true
+  - artifact_id: calibration_bundle
+    path: artifacts/calibration.json
+    sha256: 7e1ddecc7896ca6d76912a1e88cdcbe770d84565b013bdea3fd5b4059e1076ea
+    media_type: application/json
+    license_id: CC0-1.0
+    provenance_uri: https://github.com/hudson-infinity/nyssa-bench/tree/main/conformance/real_evidence/v1/valid_reconstructed_family
+    access: packaged
+    redacted: false
+    required: true
+real_episode:
+  identity:
+    episode_id: real_trial_0001
+    trial_id: synthetic_trial_0001
+    recorded_at: 2026-01-15T12:00:00Z
+    site_id: synthetic_conformance_lab
+    robot_id: synthetic_pendulum_rig
+    embodiment_id: single_axis_pendulum
+    embodiment_version: 1.0.0
+    controller_id: torque_controller
+    controller_version: 1.0.0
+    policy_id: synthetic_checkpoint_policy
+    checkpoint_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    operator_id: operator_pseudonym_001
+    operator_role: safety_observer
+  clocks:
+    - clock_id: control_clock
+      domain: monotonic
+      timestamp_unit: s
+      epoch: trial_start
+      synchronization_method: hardware_trigger
+      calibration_id: clock_calibration
+      offset_seconds: 0.0002
+      offset_uncertainty_seconds: 0.0001
+      drift_ppm: 0.2
+      drift_uncertainty_ppm: 0.1
+  frames:
+    - frame_id: robot_base
+      parent_frame_id: null
+      transform_to_parent: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+      translation_unit: m
+      rotation_representation: matrix4x4
+    - frame_id: pendulum_joint
+      parent_frame_id: robot_base
+      transform_to_parent: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0.6, 0, 0, 0, 1]
+      translation_unit: m
+      rotation_representation: matrix4x4
+  sensors:
+    - stream_id: joint_state
+      modality: proprioception
+      artifact_id: proprioception
+      clock_id: control_clock
+      frame_id: pendulum_joint
+      sample_count: 3
+      timestamp_field: timestamps
+      value_field: values
+      units:
+        joint_position: rad
+        joint_velocity: rad/s
+      missing_ranges: []
+  actions:
+    stream_id: executed_torque
+    artifact_id: executed_actions
+    clock_id: control_clock
+    frame_id: pendulum_joint
+    representation: joint_torque
+    control_mode: torque
+    dimension: 1
+    units: [N*m]
+    lower_bounds: [-3.0]
+    upper_bounds: [3.0]
+    sample_count: 3
+    timestamp_field: timestamps
+    value_field: values
+    latency_calibration_id: latency_calibration
+  outcome:
+    task_id: mujoco_inverted_pendulum
+    success: false
+    terminated: true
+    truncated: false
+    duration_seconds: 0.3
+    interventions:
+      - intervention_id: safety_stop_1
+        timestamp_seconds: 0.25
+        actor: safety_system
+        intervention_type: torque_disable
+        reason: unstable_pole_angle
+    safety_events:
+      - event_id: safety_event_1
+        timestamp_seconds: 0.2
+        category: unstable_contact
+        severity: warning
+        evidence_artifact_ids: [proprioception]
+    missing_data: []
+  failure_events:
+    - format: nyssa-failure-event-v1
+      event_id: real-event-0001
+      role: mechanism
+      category: control
+      subtype: unstable_contact
+      onset_step: 2
+      end_step: 2
+      temporal_precision: exact_step
+      confidence: 0.95
+      evidence:
+        policy_observable: []
+        privileged: []
+        external:
+          - format: nyssa-failure-evidence-v1
+            evidence_id: real-evidence-0001
+            evidence_type: hardware_joint_state
+            payload:
+              artifact_id: proprioception
+              timestamp_seconds: 0.2
+            source: real_robot
+            annotation_source: synthetic_hardware_monitor
+            confidence: 0.95
+            visibility: external
+            captured_step: 2
+      provenance:
+        source: real_robot
+        component_id: synthetic_hardware_monitor
+        annotation_source: conformance_fixture
+      active_stressor_context: {}
+      causal_hypotheses: []
+      consequences: [task_terminated]
+      recovery_eligibility: unknown
+      recovery_reason: null
+      summary_label: unstable_contact
+      deduplication_key: null
+calibrations:
+  - calibration_id: clock_calibration
+    calibration_type: clock
+    method_id: hardware_trigger_fit
+    method_version: 1.0.0
+    estimate: {offset_seconds: 0.0002, drift_ppm: 0.2}
+    units: {offset_seconds: s, drift_ppm: unitless}
+    uncertainty: {offset_seconds_std: 0.0001, drift_ppm_std: 0.1}
+    fit_quality: {r_squared: 0.999}
+    artifact_id: calibration_bundle
+    status: valid
+  - calibration_id: latency_calibration
+    calibration_type: latency
+    method_id: loopback_latency_fit
+    method_version: 1.0.0
+    estimate: {latency_seconds: 0.012}
+    units: {latency_seconds: s}
+    uncertainty: {latency_seconds_std: 0.002}
+    fit_quality: {sample_count: 50.0}
+    artifact_id: calibration_bundle
+    status: valid
+  - calibration_id: geometry_calibration
+    calibration_type: geometry
+    method_id: measured_geometry
+    method_version: 1.0.0
+    estimate: {pole_length: 0.6}
+    units: {pole_length: m}
+    uncertainty: {pole_length_std: 0.002}
+    fit_quality: {repeatability_rmse: 0.001}
+    artifact_id: calibration_bundle
+    status: valid
+  - calibration_id: dynamics_calibration
+    calibration_type: dynamics
+    method_id: decay_fit
+    method_version: 1.0.0
+    estimate: {joint_damping: 0.01}
+    units: {joint_damping: N*m}
+    uncertainty: {joint_damping_std: 0.001}
+    fit_quality: {normalized_rmse: 0.03}
+    artifact_id: calibration_bundle
+    status: estimated
+reconstructed_variants:
+  - variant_id: nominal_reconstruction
+    scenario_identity: conformance_inverted_pendulum_delay@1.0.0:2c1c387e676ce3b1f74031d8aa28114b51326f3050889ef0cec67519e398f092
+    reconstruction:
+      tool_id: synthetic_real2bench
+      tool_version: 1.0.0
+      revision: fixture-v1
+      repository_url: https://example.invalid/synthetic-real2bench
+    assumptions: [rigid_pole, single_axis_joint, constant_latency]
+    estimated_parameters:
+      - name: pole_length
+        value: 0.6
+        unit: m
+        uncertainty: 0.002
+        calibration_id: geometry_calibration
+      - name: joint_damping
+        value: 0.01
+        unit: N*m
+        uncertainty: 0.001
+        calibration_id: dynamics_calibration
+    fit_quality: {trajectory_rmse_rad: 0.04, action_alignment_rmse_s: 0.003}
+    mismatches:
+      - mismatch_id: latency_mismatch_nominal
+        category: latency
+        description: simulation latency is lower than measured hardware latency
+        magnitude: 0.002
+        unit: s
+        confidence: 0.9
+    outcome:
+      task_id: mujoco_inverted_pendulum
+      success: false
+      terminated: true
+      truncated: false
+      duration_seconds: 0.3
+      interventions: []
+      safety_events: []
+      missing_data: []
+    failure_events:
+      - format: nyssa-failure-event-v1
+        event_id: reconstructed-event-0001
+        role: mechanism
+        category: control
+        subtype: unstable_contact
+        onset_step: 2
+        end_step: 2
+        temporal_precision: exact_step
+        confidence: 0.9
+        evidence:
+          policy_observable: []
+          privileged:
+            - format: nyssa-failure-evidence-v1
+              evidence_id: reconstructed-evidence-0001
+              evidence_type: simulator_joint_state
+              payload: {timestamp_seconds: 0.2}
+              source: reconstructed_simulation
+              annotation_source: synthetic_reconstruction_monitor
+              confidence: 0.9
+              visibility: privileged
+              captured_step: 2
+          external: []
+        provenance:
+          source: reconstructed_simulation
+          component_id: synthetic_reconstruction_monitor
+          annotation_source: conformance_fixture
+        active_stressor_context: {}
+        causal_hypotheses: []
+        consequences: [task_terminated]
+        recovery_eligibility: unknown
+        recovery_reason: null
+        summary_label: unstable_contact
+        deduplication_key: null
+  - variant_id: high_damping_counterfactual
+    scenario_identity: conformance_inverted_pendulum_delay@1.0.0:2c1c387e676ce3b1f74031d8aa28114b51326f3050889ef0cec67519e398f092
+    reconstruction:
+      tool_id: synthetic_real2bench
+      tool_version: 1.0.0
+      revision: fixture-v1
+      repository_url: https://example.invalid/synthetic-real2bench
+    assumptions: [rigid_pole, single_axis_joint, constant_latency]
+    estimated_parameters:
+      - name: pole_length
+        value: 0.6
+        unit: m
+        uncertainty: 0.002
+        calibration_id: geometry_calibration
+      - name: joint_damping
+        value: 0.02
+        unit: N*m
+        uncertainty: 0.001
+        calibration_id: dynamics_calibration
+    fit_quality: {trajectory_rmse_rad: 0.06, action_alignment_rmse_s: 0.003}
+    mismatches:
+      - mismatch_id: dynamics_counterfactual
+        category: dynamics
+        description: damping is intentionally increased for the controlled variant
+        magnitude: 0.01
+        unit: N*m
+        confidence: 1.0
+    outcome:
+      task_id: mujoco_inverted_pendulum
+      success: true
+      terminated: false
+      truncated: false
+      duration_seconds: 0.3
+      interventions: []
+      safety_events: []
+      missing_data: []
+    failure_events: []
+mapping:
+  mapping_id: real_trial_0001_family
+  real_episode_id: real_trial_0001
+  variant_ids: [nominal_reconstruction, high_damping_counterfactual]
+  controlled_axes: [joint_damping]
+  matching_keys: [task_id, initial_state, action_timestamps, policy_checkpoint]
+  purpose: counterfactual
+governance:
+  privacy_classification: public
+  consent_basis: synthetic_conformance_fixture
+  license_id: CC0-1.0
+  redistribution: allowed
+  redactions: [no_personal_data_present]
+  retention_policy: retain_with_repository_history
+  retention_until: null
+  artifact_access_rules: [public_read]
+  operator_ids_pseudonymous: true
+metadata:
+  synthetic_fixture: true
+  reconstruction_implemented_here: false

@@ -215,6 +215,11 @@ content-addressed package contract; generation remains outside this repository.
 See [External scenario packages](docs/external_scenarios.md) for validation,
 execution, protected-asset, split-lineage, and conformance-fixture details.
 
+Real-robot programs and external reconstruction systems use the separate
+[real evidence ingestion contract](docs/real_evidence_ingestion.md), which
+preserves clocks, frames, units, failure provenance, uncertainty, mismatches,
+and governance without implementing reconstruction in NyssaBench.
+
 ## Recovery And Ablation Runs
 
 Use `ablate` to run base, verifier, recovery, and verifier+recovery variants

@@ -43,6 +43,12 @@ from nyssa_bench.reports.result_pack import (
 )
 from nyssa_bench.reports.replay_validation import validate_result_pack_replays
 from nyssa_bench.reports.scorecard import write_scorecard
+from nyssa_bench.real_evidence import (
+    REAL_EVIDENCE_PACKAGE_FORMAT,
+    RealEvidencePackage,
+    RealEvidenceValidator,
+    write_real_evidence_artifacts,
+)
 from nyssa_bench.runner import DEFAULT_RECOVERY_ATTRIBUTION_HORIZON, PolicyRunner
 from nyssa_bench.scenarios import (
     SCENARIO_PACKAGE_FORMAT,
@@ -100,6 +106,15 @@ def main(argv: list[str] | None = None) -> int:
     scenario_run_parser.add_argument(
         "--policy-execution-horizon", type=int, default=1
     )
+
+    real_validate_parser = subparsers.add_parser("validate-real-evidence")
+    real_validate_parser.add_argument("package")
+    real_validate_parser.add_argument("--metadata-only", action="store_true")
+
+    real_import_parser = subparsers.add_parser("import-real-evidence")
+    real_import_parser.add_argument("package")
+    real_import_parser.add_argument("--out", required=True)
+    real_import_parser.add_argument("--metadata-only", action="store_true")
     scenario_run_parser.add_argument(
         "--recovery-attribution-horizon",
         type=int,
@@ -417,6 +432,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"scenario: {package.identity}")
         print(f"report: {Path(args.out) / 'report.html'}")
         print(f"success_rate: {report.summary.get('success_rate', 0.0):.3f}")
+        return 0
+
+    if args.command in {"validate-real-evidence", "import-real-evidence"}:
+        package = RealEvidencePackage.load(args.package)
+        validation = RealEvidenceValidator().validate(
+            package, require_artifacts=not args.metadata_only
+        )
+        validation.raise_for_errors()
+        print(f"real_evidence: {package.identity}")
+        print(f"evidence_ready: {validation.evidence_ready}")
+        print(f"calibration_ready: {validation.calibration_ready}")
+        print(f"comparison_ready: {validation.comparison_ready}")
+        print(f"claim_ready: {validation.claim_ready}")
+        for issue in validation.issues:
+            print(f"{issue.severity}: {issue.code}: {issue.message}")
+        if args.command == "import-real-evidence":
+            paths = write_real_evidence_artifacts(package, validation, args.out)
+            for label, path in paths.items():
+                print(f"{label}: {path}")
         return 0
 
     if args.command == "run":
@@ -901,13 +935,23 @@ def _validate_target(target: str) -> None:
     path = Path(target)
     if path.exists():
         if path.is_dir():
-            package = ScenarioPackage.load(path)
-            ScenarioPackageValidator().validate(package).raise_for_errors()
-            return
+            if (path / "scenario.yaml").is_file():
+                package = ScenarioPackage.load(path)
+                ScenarioPackageValidator().validate(package).raise_for_errors()
+                return
+            if (path / "evidence.yaml").is_file():
+                package = RealEvidencePackage.load(path)
+                RealEvidenceValidator().validate(package).raise_for_errors()
+                return
+            raise ValueError(f"Directory contains no recognized manifest: {path}")
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if data.get("format") == SCENARIO_PACKAGE_FORMAT:
             package = ScenarioPackage.load(path)
             ScenarioPackageValidator().validate(package).raise_for_errors()
+            return
+        if data.get("format") == REAL_EVIDENCE_PACKAGE_FORMAT:
+            package = RealEvidencePackage.load(path)
+            RealEvidenceValidator().validate(package).raise_for_errors()
             return
         if data.get("format") == STRESSOR_CONFIG_FORMAT:
             StressorConfig.from_dict(data)

@@ -14,3 +14,6 @@ External producer repositories may use the fixture and
 `nyssa_bench.scenarios.ScenarioPackageValidator` in their own conformance tests.
 When any identity-bearing field changes, recompute `content_sha256` with
 `ScenarioPackage.compute_content_sha256()`.
+
+Real-robot and reconstructed-evidence fixtures live separately under
+`conformance/real_evidence/`.
