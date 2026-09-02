@@ -44,6 +44,12 @@ from nyssa_bench.reports.result_pack import (
 from nyssa_bench.reports.replay_validation import validate_result_pack_replays
 from nyssa_bench.reports.scorecard import write_scorecard
 from nyssa_bench.runner import DEFAULT_RECOVERY_ATTRIBUTION_HORIZON, PolicyRunner
+from nyssa_bench.scenarios import (
+    SCENARIO_PACKAGE_FORMAT,
+    ScenarioPackage,
+    ScenarioPackageValidator,
+    scenario_execution_context,
+)
 from nyssa_bench.metrics.run_claims import PUBLIC_CLAIM_ENGINES
 from nyssa_bench.metrics.vector import migrate_metric_summary
 from nyssa_bench.baselines.robomimic_bc import (
@@ -68,6 +74,37 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("list-engines")
     subparsers.add_parser("list-policies")
     subparsers.add_parser("list-stressors")
+
+    scenario_validate_parser = subparsers.add_parser("validate-scenario")
+    scenario_validate_parser.add_argument("scenario")
+    scenario_validate_parser.add_argument("--engine")
+    scenario_validate_parser.add_argument(
+        "--metadata-only",
+        action="store_true",
+        help="allow unresolved protected assets while validating package identity and metadata",
+    )
+
+    scenario_run_parser = subparsers.add_parser("run-scenario")
+    scenario_run_parser.add_argument("scenario")
+    scenario_run_parser.add_argument("--policy", default="random")
+    scenario_run_parser.add_argument("--episodes", type=int, default=10)
+    scenario_run_parser.add_argument("--seed", type=int)
+    scenario_run_parser.add_argument("--severity", action="append", default=[])
+    scenario_run_parser.add_argument("--out", required=True)
+    scenario_run_parser.add_argument("--no-replay", action="store_true")
+    scenario_run_parser.add_argument("--capture-replay", action="store_true")
+    scenario_run_parser.add_argument("--expert-provider", default="none")
+    scenario_run_parser.add_argument("--enable-recovery", action="store_true")
+    scenario_run_parser.add_argument("--enable-verifier", action="store_true")
+    scenario_run_parser.add_argument("--policy-action-horizon", type=int, default=1)
+    scenario_run_parser.add_argument(
+        "--policy-execution-horizon", type=int, default=1
+    )
+    scenario_run_parser.add_argument(
+        "--recovery-attribution-horizon",
+        type=int,
+        default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
+    )
 
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--suite", required=True)
@@ -313,6 +350,73 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "list-stressors":
         for stressor in list_stressors():
             print(stressor)
+        return 0
+
+    if args.command == "validate-scenario":
+        package = ScenarioPackage.load(args.scenario)
+        validation = ScenarioPackageValidator().validate(
+            package,
+            expected_engine=args.engine,
+            require_execution_assets=not args.metadata_only,
+        )
+        validation.raise_for_errors()
+        print(f"scenario: {package.identity}")
+        print(f"execution_ready: {validation.execution_ready}")
+        for issue in validation.issues:
+            print(f"{issue.severity}: {issue.code}: {issue.message}")
+        return 0
+
+    if args.command == "run-scenario":
+        package = ScenarioPackage.load(args.scenario)
+        validation = ScenarioPackageValidator().validate(
+            package,
+            expected_engine=package.engine.engine_name,
+            require_execution_assets=True,
+        )
+        validation.raise_for_errors()
+        if args.seed is not None and int(args.seed) != package.initial_state.run_seed:
+            raise ValueError(
+                "--seed cannot override an identity-bearing scenario run seed; "
+                f"this package requires {package.initial_state.run_seed}"
+            )
+        run_seed = package.initial_state.run_seed
+        stressor_config = package.stressor_config(
+            severities=_parse_severity_overrides(args.severity),
+            seed=run_seed,
+        )
+        context = scenario_execution_context(package, validation, stressor_config)
+        task = TaskSpec.load(package.engine.task_id)
+        suite = Suite(
+            suite_id=f"scenario:{package.scenario_id}@{package.scenario_version}",
+            description=package.description,
+            tasks=(task,),
+            source_path=package.source_path,
+        )
+        runner = PolicyRunner(
+            policy=args.policy,
+            engine=package.engine.engine_name,
+            episodes=args.episodes,
+            seed=run_seed,
+            out=args.out,
+            max_steps=package.evaluation.horizon_steps,
+            capture_replay=_capture_replay_default(
+                package.engine.engine_name,
+                args.no_replay,
+                args.capture_replay,
+            ),
+            expert_provider=args.expert_provider,
+            enable_recovery=args.enable_recovery,
+            enable_verifier=args.enable_verifier,
+            policy_action_horizon=args.policy_action_horizon,
+            policy_execution_horizon=args.policy_execution_horizon,
+            recovery_attribution_horizon=args.recovery_attribution_horizon,
+            stressor_config=stressor_config,
+            scenario_context=context,
+        )
+        report = runner.evaluate(suite)
+        print(f"scenario: {package.identity}")
+        print(f"report: {Path(args.out) / 'report.html'}")
+        print(f"success_rate: {report.summary.get('success_rate', 0.0):.3f}")
         return 0
 
     if args.command == "run":
@@ -796,7 +900,15 @@ def _load_suite(args: argparse.Namespace) -> Suite:
 def _validate_target(target: str) -> None:
     path = Path(target)
     if path.exists():
+        if path.is_dir():
+            package = ScenarioPackage.load(path)
+            ScenarioPackageValidator().validate(package).raise_for_errors()
+            return
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if data.get("format") == SCENARIO_PACKAGE_FORMAT:
+            package = ScenarioPackage.load(path)
+            ScenarioPackageValidator().validate(package).raise_for_errors()
+            return
         if data.get("format") == STRESSOR_CONFIG_FORMAT:
             StressorConfig.from_dict(data)
             return
@@ -810,6 +922,25 @@ def _validate_target(target: str) -> None:
         Suite.load(target)
     except FileNotFoundError:
         TaskSpec.load(target)
+
+
+def _parse_severity_overrides(values: list[str]) -> dict[str, float]:
+    result: dict[str, float] = {}
+    for value in values:
+        stressor_id, separator, raw_severity = value.partition("=")
+        if not separator or not stressor_id.strip() or not raw_severity.strip():
+            raise ValueError(
+                f"Invalid --severity value '{value}'; expected STRESSOR_ID=SEVERITY"
+            )
+        if stressor_id in result:
+            raise ValueError(f"Duplicate --severity override for '{stressor_id}'")
+        try:
+            result[stressor_id] = float(raw_severity)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid severity for '{stressor_id}': {raw_severity}"
+            ) from exc
+    return result
 
 
 def _capture_replay_default(engine: str, no_replay: bool, capture_replay: bool) -> bool:

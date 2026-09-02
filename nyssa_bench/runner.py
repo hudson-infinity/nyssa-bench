@@ -59,6 +59,7 @@ from nyssa_bench.replay.video import (
 )
 from nyssa_bench.replay.viewer import write_replay_viewer
 from nyssa_bench.reports.html_report import Report
+from nyssa_bench.scenarios import SCENARIO_EXECUTION_FORMAT, write_scenario_execution
 from nyssa_bench.stressors import (
     StressorConfig,
     StressorContext,
@@ -131,6 +132,7 @@ class PolicyRunner:
         policy_execution_horizon: int = 1,
         recovery_attribution_horizon: int = DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
         stressor_config: StressorConfig | dict[str, Any] | str | Path | None = None,
+        scenario_context: dict[str, Any] | None = None,
     ) -> None:
         if int(episodes) <= 0:
             raise ValueError("episodes must be a positive integer")
@@ -154,6 +156,12 @@ class PolicyRunner:
         self.policy_execution_horizon = max(1, int(policy_execution_horizon))
         self.recovery_attribution_horizon = int(recovery_attribution_horizon)
         self.stressor_config = _coerce_stressor_config(stressor_config)
+        self.scenario_context = _coerce_scenario_context(
+            scenario_context,
+            engine_name=self.engine_name,
+            run_seed=self.seed,
+            stressor_config=self.stressor_config,
+        )
         self.episode_results: list[EpisodeResult] = []
         self.run_metadata: dict[str, Any] = {}
         self._failure_mapper = FailureMapper()
@@ -227,6 +235,8 @@ class PolicyRunner:
             fallback=aggregate_stressor_support(declared_task_stressors),
         )
         summary["task_stressor_support"] = declared_task_stressors
+        if self.scenario_context:
+            summary["scenario"] = self.scenario_context
         metric_vector = build_metric_vector(summary, results)
         summary["metric_vector"] = metric_vector
         self.run_metadata = {
@@ -264,6 +274,7 @@ class PolicyRunner:
             "failure_event_summary": failure_event_summary,
             "failure_detector_summary": failure_detector_summary,
             "metric_vector_format": METRIC_VECTOR_FORMAT,
+            "scenario_context": self.scenario_context or None,
         }
         env_metadata = environment_metadata()
         versions = package_versions()
@@ -278,6 +289,9 @@ class PolicyRunner:
             git_info=git,
             stressor_execution=stressor_execution,
             metric_vector=metric_vector,
+            scenario_validation=self.scenario_context.get("validation")
+            if self.scenario_context
+            else None,
         )
         summary["benchmark_tier"] = validation.benchmark_tier
         summary["public_claim"] = validation.public_claim
@@ -974,6 +988,7 @@ class PolicyRunner:
             ),
             "stressor_config": self.run_metadata.get("stressor_config"),
             "stressor_execution": self.run_metadata.get("stressor_execution"),
+            "scenario_context": self.run_metadata.get("scenario_context"),
         }
         with (self.out / "run.yaml").open("w", encoding="utf-8") as handle:
             yaml.safe_dump(self.run_metadata, handle, sort_keys=False)
@@ -999,25 +1014,30 @@ class PolicyRunner:
         )
         write_failure_ledger_manifest(self.episode_results, self.out)
         write_failure_detector_manifest(self.episode_results, self.out)
+        if self.scenario_context:
+            write_scenario_execution(self.scenario_context, self.out)
         write_failure_gallery(self.episode_results, self.out)
         write_recovery_dataset(self.episode_results, self.out)
+        artifact_names = [
+            "episodes.json",
+            "episodes.jsonl",
+            "metrics.json",
+            "metrics.csv",
+            "replay_manifest.json",
+            "replay.html",
+            "stressor_manifest.json",
+            "failure_ledger.json",
+            "failure_detector_manifest.json",
+            "failure_gallery.html",
+            "recovery_dataset/episodes.jsonl",
+        ]
+        if self.scenario_context:
+            artifact_names.append("scenario_execution.json")
         write_dataset_manifest(
             out_dir=self.out,
             suite=suite,
             run_metadata=self.run_metadata,
-            artifact_names=[
-                "episodes.json",
-                "episodes.jsonl",
-                "metrics.json",
-                "metrics.csv",
-                "replay_manifest.json",
-                "replay.html",
-                "stressor_manifest.json",
-                "failure_ledger.json",
-                "failure_detector_manifest.json",
-                "failure_gallery.html",
-                "recovery_dataset/episodes.jsonl",
-            ],
+            artifact_names=artifact_names,
         )
         write_replay_viewer(self.out)
         report.save(self.out / "report.html")
@@ -1073,6 +1093,46 @@ def _coerce_stressor_config(
     if isinstance(value, dict):
         return StressorConfig.from_dict(value)
     return StressorConfig.load(value)
+
+
+def _coerce_scenario_context(
+    value: dict[str, Any] | None,
+    *,
+    engine_name: str,
+    run_seed: int,
+    stressor_config: StressorConfig | None,
+) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict) or value.get("format") != SCENARIO_EXECUTION_FORMAT:
+        raise ValueError(
+            f"scenario_context must use format {SCENARIO_EXECUTION_FORMAT}"
+        )
+    try:
+        normalized = json.loads(json.dumps(value, allow_nan=False, sort_keys=True))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "scenario_context must contain finite JSON-compatible data"
+        ) from exc
+    engine = normalized.get("engine")
+    validation = normalized.get("validation")
+    initial_state = normalized.get("initial_state")
+    if not all(isinstance(item, dict) for item in (engine, validation, initial_state)):
+        raise ValueError(
+            "scenario_context requires engine, initial_state, and validation mappings"
+        )
+    if engine.get("engine_name") != engine_name:
+        raise ValueError("scenario_context engine does not match the runner engine")
+    if int(initial_state.get("run_seed", -1)) != run_seed:
+        raise ValueError("scenario_context run seed does not match the runner seed")
+    if validation.get("scenario_identity") != normalized.get("scenario_identity"):
+        raise ValueError("scenario_context validation identity does not match the package")
+    configured = stressor_config.to_dict() if stressor_config is not None else None
+    if normalized.get("stressor_config") != configured:
+        raise ValueError(
+            "scenario_context stressor config does not match the runner configuration"
+        )
+    return normalized
 
 
 def _task_mode(task: Any, success_key: str, contract_name: str) -> str | None:

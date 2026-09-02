@@ -144,6 +144,7 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel.force-include]
 "configs" = "configs"
+"conformance" = "conformance"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
