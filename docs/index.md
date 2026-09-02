@@ -22,6 +22,7 @@ Start here:
 - [Benchmark audit checklist](benchmark_audit_checklist.md)
 - [Stressor protocol](stressor_protocol.md)
 - [External scenario packages](external_scenarios.md)
+- [Real and reconstructed evidence ingestion](real_evidence_ingestion.md)
 - [Pairwise evaluation protocol](pairwise_evaluation_protocol.md)
 - [VLA robustness protocol](vla_robustness_protocol.md)
 - [Failure and recovery metrics](failure_and_recovery_metrics.md)

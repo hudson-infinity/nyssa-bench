@@ -29,6 +29,8 @@ ProvenanceSource = Literal[
     "human_annotation",
     "legacy_mapper",
     "external_monitor",
+    "real_robot",
+    "reconstructed_simulation",
 ]
 RecoveryEligibility = Literal["eligible", "ineligible", "unknown"]
 
@@ -56,6 +58,8 @@ PROVENANCE_SOURCES = frozenset(
         "human_annotation",
         "legacy_mapper",
         "external_monitor",
+        "real_robot",
+        "reconstructed_simulation",
     }
 )
 RECOVERY_ELIGIBILITIES = frozenset({"eligible", "ineligible", "unknown"})

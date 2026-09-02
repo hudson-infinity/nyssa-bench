@@ -51,6 +51,7 @@ class RunClaimValidator:
         stressor_execution: dict[str, Any] | None = None,
         metric_vector: dict[str, Any] | None = None,
         scenario_validation: dict[str, Any] | None = None,
+        real_evidence_validation: dict[str, Any] | None = None,
     ) -> RunClaimValidation:
         checks = {
             "supported_real_simulator_backend": engine_name in PUBLIC_CLAIM_ENGINES,
@@ -84,6 +85,8 @@ class RunClaimValidator:
             or bool(scenario_validation.get("execution_ready", False)),
             "scenario_claim_ready": scenario_validation is None
             or bool(scenario_validation.get("claim_ready", False)),
+            "real_evidence_claim_ready": real_evidence_validation is None
+            or bool(real_evidence_validation.get("claim_ready", False)),
         }
         failures = [name for name, passed in checks.items() if not passed]
         warnings = _warnings(suite.tasks, engine_name)

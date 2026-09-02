@@ -1,0 +1,6 @@
+{
+  "clock_offset_seconds": 0.0002,
+  "latency_seconds": 0.012,
+  "pole_length_m": 0.6,
+  "joint_damping": 0.01
+}
