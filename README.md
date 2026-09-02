@@ -210,6 +210,11 @@ no-progress events during an episode. Their versioned contracts, capability
 checks, lifecycle, and result-pack artifacts are documented in
 [Streaming failure detectors](docs/failure_detectors.md).
 
+External world-generation and scenario systems integrate through a
+content-addressed package contract; generation remains outside this repository.
+See [External scenario packages](docs/external_scenarios.md) for validation,
+execution, protected-asset, split-lineage, and conformance-fixture details.
+
 ## Recovery And Ablation Runs
 
 Use `ablate` to run base, verifier, recovery, and verifier+recovery variants

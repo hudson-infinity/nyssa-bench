@@ -50,6 +50,7 @@ class RunClaimValidator:
         git_info: dict[str, Any] | None = None,
         stressor_execution: dict[str, Any] | None = None,
         metric_vector: dict[str, Any] | None = None,
+        scenario_validation: dict[str, Any] | None = None,
     ) -> RunClaimValidation:
         checks = {
             "supported_real_simulator_backend": engine_name in PUBLIC_CLAIM_ENGINES,
@@ -77,6 +78,12 @@ class RunClaimValidator:
             "sim_real_metrics_have_hardware_calibration": sim_real_metrics_are_supported(
                 metric_vector
             ),
+            "scenario_package_valid": scenario_validation is None
+            or bool(scenario_validation.get("valid", False)),
+            "scenario_execution_ready": scenario_validation is None
+            or bool(scenario_validation.get("execution_ready", False)),
+            "scenario_claim_ready": scenario_validation is None
+            or bool(scenario_validation.get("claim_ready", False)),
         }
         failures = [name for name, passed in checks.items() if not passed]
         warnings = _warnings(suite.tasks, engine_name)

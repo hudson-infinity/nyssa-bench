@@ -1,0 +1,97 @@
+format: nyssa-external-scenario-package-v1
+schema_version: 1
+scenario_id: conformance_inverted_pendulum_delay
+scenario_version: 1.0.0
+description: Static external-producer fixture for seeded MuJoCo scenario ingestion.
+content_sha256: 2c1c387e676ce3b1f74031d8aa28114b51326f3050889ef0cec67519e398f092
+protocol:
+  nep_version: 0.1.0
+  task_contract_format: nyssa-task-contract-draft-v1
+  stressor_contract_format: nyssa-stressor-spec-v1
+  split_contract_format: nyssa-scenario-split-lineage-v1
+generator:
+  generator_id: example.static-producer
+  generator_version: 1.0.0
+  algorithm_id: static_fixture
+  revision: fixture-v1
+  repository_url: https://github.com/hudson-infinity/nyssa-bench
+engine:
+  engine_name: mujoco
+  version_spec: ">=3.0,<4"
+  task_id: mujoco_inverted_pendulum
+  env_id: InvertedPendulum-v5
+  runtime:
+    python: ">=3.10"
+    rendering: optional_for_metadata_validation
+assets:
+  - asset_id: scene_descriptor
+    path: assets/scene_descriptor.json
+    sha256: 84f8f2e1df7b2b2ca5bd2a933a4d1aa7c4157f4416a538ed9817e8b3af1152a4
+    license_id: Apache-2.0
+    provenance_uri: https://github.com/hudson-infinity/nyssa-bench/tree/main/conformance/scenario/v1/valid_seeded_mujoco
+    redistribution: redistributable
+    required: true
+initial_state:
+  run_seed: 7
+  seed_protocol:
+    format: nyssa-episode-seed-v2
+    episode_seed_stride: 1000000
+    formula: run_seed * episode_seed_stride + episode_index
+    shared_across_tasks: true
+  state_sha256: b06873689f917e77dcbdf15730b3405fa9b6991fa3de078c1fc5ddfe44921c7a
+  physical_parameters:
+    source: simulator_task_default
+    mutation_policy: stressor_contracts_only
+  observability:
+    run_seed: privileged
+    pole_state: policy_observable
+stressor_axes:
+  - format: nyssa-scenario-stressor-axis-v1
+    contract_format: nyssa-stressor-spec-v1
+    stressor_id: action_delay
+    severity_range: [0.0, 1.0]
+    default_severity: 0.25
+    parameters:
+      max_delay_steps: 2
+    composable_with: []
+    constraints:
+      - preserve_action_shape
+split_lineage:
+  - format: nyssa-scenario-split-lineage-v1
+    split_id: producer_train_v1
+    partition: train
+    content_sha256: eeb7ffe106f83d9529c4e2e534a3c0472bc63e20a5c180a9c833ddad14048754
+    parent_split_ids: []
+    member_count: 100
+    protected: false
+    contamination_status: clean
+    contamination_sources: []
+  - format: nyssa-scenario-split-lineage-v1
+    split_id: producer_hidden_test_v1
+    partition: hidden_test
+    content_sha256: f5ae7aa32604736d148758c05b15cfd23ae310db48760abcf3c4016666f2be5d
+    parent_split_ids: [producer_train_v1]
+    member_count: 20
+    protected: true
+    contamination_status: clean
+    contamination_sources: []
+evaluation:
+  success_predicate:
+    success_metric: survival_steps
+    min_success_steps: 50
+  horizon_steps: 50
+  safety_constraints:
+    - metric: safety_violation_rate
+      maximum: 0.0
+  solvability_checks:
+    - check_id: scripted_upper_bound
+      policy: scripted_oracle
+      minimum_success_rate: 0.9
+rare_event_provenance:
+  method_id: static_fixture_selection
+  method_version: 1.0.0
+  search_budget: 1
+  selected_condition: deterministic_example
+metadata:
+  producer_boundary: external_static_fixture
+  generator_code_included: false

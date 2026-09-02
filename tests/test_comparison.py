@@ -194,6 +194,21 @@ def test_comparison_contract_rejects_different_executable_stressor_conditions(
     assert "stressor_config.stressors" in fields
 
 
+def test_external_scenario_identity_is_comparison_critical(tmp_path: Path):
+    run_a = _make_run(tmp_path / "run_a")
+    run_b = _make_run(tmp_path / "run_b")
+    _set_scenario_identity(run_a, "scenario-a@1.0.0:" + "a" * 64)
+    _set_scenario_identity(run_b, "scenario-b@1.0.0:" + "b" * 64)
+
+    with pytest.raises(IncompatibleRunsError) as exc_info:
+        compare_runs([run_a, run_b])
+
+    assert any(
+        item["field"] == "scenario_identity"
+        for item in exc_info.value.mismatches
+    )
+
+
 def _make_run(
     run_dir: Path,
     *,
@@ -292,4 +307,17 @@ def _set_stressor_config(run_dir: Path, *, severity: float, condition_id: str) -
     manifest_path = run_dir / "dataset_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["run"]["stressor_config"] = stressor_config
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def _set_scenario_identity(run_dir: Path, identity: str) -> None:
+    context = {"scenario_identity": identity}
+    for filename in ("run.yaml", "config.yaml"):
+        path = run_dir / filename
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        payload["scenario_context"] = context
+        path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    manifest_path = run_dir / "dataset_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["run"]["scenario_context"] = context
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")

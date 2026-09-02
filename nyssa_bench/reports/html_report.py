@@ -51,6 +51,7 @@ class Report:
         failure_event_summary = self.summary.get("failure_event_summary", {})
         failure_detector_summary = self.summary.get("failure_detector_summary", {})
         metric_vector = self.summary.get("metric_vector", {})
+        scenario = self.summary.get("scenario", {})
         per_task = self.summary.get("per_task", {})
         per_seed = self.summary.get("per_seed", {})
         return f"""<!doctype html>
@@ -100,6 +101,9 @@ class Report:
 
   <h2>Stressor Execution</h2>
   {_stressor_execution_table(stressor_execution)}
+
+  <h2>Scenario Package</h2>
+  {_scenario_table(scenario)}
 
   <h2>Metric Vector</h2>
   {_metric_vector_table(metric_vector)}
@@ -177,6 +181,33 @@ def _metric_vector_table(vector: Any) -> str:
         "<th>95% CI</th><th>Sample size</th><th>Direction</th><th>Missingness</th>"
         f"</tr></thead><tbody>{''.join(rows)}</tbody></table>"
     )
+
+
+def _scenario_table(value: Any) -> str:
+    if not isinstance(value, dict) or not value:
+        return "<p>No external scenario package.</p>"
+    generator = value.get("generator", {})
+    validation = value.get("validation", {})
+    rows = {
+        "scenario_identity": value.get("scenario_identity"),
+        "content_sha256": value.get("content_sha256"),
+        "generator_id": generator.get("generator_id")
+        if isinstance(generator, dict)
+        else None,
+        "generator_revision": generator.get("revision")
+        if isinstance(generator, dict)
+        else None,
+        "validation_status": validation.get("valid")
+        if isinstance(validation, dict)
+        else None,
+        "execution_ready": validation.get("execution_ready")
+        if isinstance(validation, dict)
+        else None,
+        "claim_ready": validation.get("claim_ready")
+        if isinstance(validation, dict)
+        else None,
+    }
+    return _table(rows)
 
 
 def _validation_table(data: Any) -> str:

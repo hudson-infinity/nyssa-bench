@@ -143,6 +143,21 @@ def load_comparison_contract(run_dir: str | Path) -> dict[str, Any]:
         if any(value is not None for _, value in stressor_sources)
         else None
     )
+    scenario_sources = [
+        ("run.yaml", run_metadata.get("scenario_context")),
+        ("config.yaml", config.get("scenario_context")),
+        ("dataset_manifest.json:run", manifest_run.get("scenario_context")),
+    ]
+    scenario_identity = (
+        _select_consistent_value(
+            "scenario_identity",
+            scenario_sources,
+            metadata_issues,
+            normalize=_normalize_scenario_identity,
+        )
+        if any(value is not None for _, value in scenario_sources)
+        else None
+    )
     normalized_task_ids = _normalize_task_ids(task_ids)
     manifest_tasks = manifest.get("tasks")
     task_definitions = (
@@ -218,6 +233,7 @@ def load_comparison_contract(run_dir: str | Path) -> dict[str, Any]:
         "episodes_per_task": int(episodes_per_task),
         "seed_protocol": normalized_seed_protocol,
         "stressor_config": _normalize_stressor_config(stressor_config),
+        "scenario_identity": _normalize_scenario_identity(scenario_identity),
     }
 
 
@@ -530,6 +546,13 @@ def _normalize_stressor_config(value: Any) -> dict[str, Any]:
         "unsupported_policy": value.get("unsupported_policy", "error"),
         "stressors": value.get("stressors", []),
     }
+
+
+def _normalize_scenario_identity(value: Any) -> str | None:
+    if isinstance(value, dict):
+        identity = value.get("scenario_identity")
+        return str(identity) if identity else None
+    return str(value) if value else None
 
 
 def _load_yaml_mapping(path: Path) -> dict[str, Any]:
