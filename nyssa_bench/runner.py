@@ -65,6 +65,18 @@ from nyssa_bench.replay.video import (
 )
 from nyssa_bench.replay.viewer import write_replay_viewer
 from nyssa_bench.reports.html_report import Report
+from nyssa_bench.runners import (
+    EpisodeComponents,
+    EpisodeRequest,
+    EpisodeRunner,
+    LifecycleContext,
+    LifecycleDispatcher,
+    LifecycleExecutionError,
+    LifecycleHook,
+    MetricRecorder,
+    TransitionLifecycle,
+    invoke_component,
+)
 from nyssa_bench.scenarios import SCENARIO_EXECUTION_FORMAT, write_scenario_execution
 from nyssa_bench.stressors import (
     StressorConfig,
@@ -145,6 +157,8 @@ class PolicyRunner:
         counterfactual_max_branch_points: int = DEFAULT_COUNTERFACTUAL_MAX_BRANCH_POINTS,
         stressor_config: StressorConfig | dict[str, Any] | str | Path | None = None,
         scenario_context: dict[str, Any] | None = None,
+        lifecycle_hooks: tuple[LifecycleHook, ...] = (),
+        metric_recorders: tuple[MetricRecorder, ...] = (),
     ) -> None:
         if int(episodes) <= 0:
             raise ValueError("episodes must be a positive integer")
@@ -197,38 +211,117 @@ class PolicyRunner:
         self.episode_results: list[EpisodeResult] = []
         self.run_metadata: dict[str, Any] = {}
         self._failure_mapper = FailureMapper()
+        self.lifecycle_hooks = tuple(lifecycle_hooks)
+        self.metric_recorders = tuple(metric_recorders)
+        self._lifecycle_dispatcher = LifecycleDispatcher(self.lifecycle_hooks)
+        self._transition_lifecycle = TransitionLifecycle(self.lifecycle_hooks)
 
     def evaluate(self, suite: Suite) -> Report:
         policy = self._load_policy()
         engine = make_engine(self.engine_name)
         expert_provider = make_expert_provider(self.expert_provider_ref)
         results: list[EpisodeResult] = []
+        episode_runner = EpisodeRunner(
+            self._execute_episode,
+            hooks=self.lifecycle_hooks,
+        )
         started_at = utc_now()
         started_perf = time.perf_counter()
+        primary_error: BaseException | None = None
+        active_task_id = suite.suite_id
 
         try:
             for task in suite.tasks:
-                engine.load_task(task)
+                active_task_id = task.task_id
+                task_context = LifecycleContext(
+                    task_id=task.task_id,
+                    episode_index=0,
+                    episode_seed=self.seed,
+                    phase="task_load",
+                )
+                self._lifecycle_dispatcher.emit(task_context, {"task": task})
+                invoke_component(
+                    engine.__class__.__name__,
+                    task_context,
+                    engine.load_task,
+                    task,
+                )
                 for episode_index in range(self.episodes):
                     episode_seed = _episode_seed(self.seed, episode_index)
+                    reset_context = LifecycleContext(
+                        task_id=task.task_id,
+                        episode_index=episode_index,
+                        episode_seed=episode_seed,
+                        phase="component_reset",
+                    )
+                    self._lifecycle_dispatcher.emit(reset_context, None)
                     if hasattr(policy, "reset"):
-                        policy.reset(task=task, seed=episode_seed)
-                    expert_provider.reset(task=task, seed=episode_seed, engine=engine)
+                        invoke_component(
+                            policy.__class__.__name__,
+                            reset_context,
+                            policy.reset,
+                            task=task,
+                            seed=episode_seed,
+                        )
+                    invoke_component(
+                        expert_provider.__class__.__name__,
+                        reset_context,
+                        expert_provider.reset,
+                        task=task,
+                        seed=episode_seed,
+                        engine=engine,
+                    )
+                    request = EpisodeRequest(
+                        task=task,
+                        episode_index=episode_index,
+                        episode_seed=episode_seed,
+                    )
                     results.append(
-                        self._run_episode(
-                            engine,
-                            policy,
-                            expert_provider,
-                            task,
-                            episode_index,
-                            episode_seed,
+                        episode_runner.run(
+                            request,
+                            EpisodeComponents(
+                                engine=engine,
+                                policy=policy,
+                                expert=expert_provider,
+                                stressor_factory=self._make_stressor_pipeline,
+                                detector_factory=self._make_detector_manager,
+                                branch_factory=self._make_branch_runner,
+                                metric_recorders=self.metric_recorders,
+                            ),
                         )
                     )
+        except BaseException as exc:
+            primary_error = exc
+            raise
         finally:
-            engine.close()
-            if hasattr(policy, "close"):
-                policy.close()
-            expert_provider.close()
+            cleanup_context = LifecycleContext(
+                task_id=active_task_id,
+                episode_index=0,
+                episode_seed=self.seed,
+                phase="resource_cleanup",
+            )
+            cleanup_errors: list[LifecycleExecutionError] = []
+            try:
+                self._lifecycle_dispatcher.emit(cleanup_context, None)
+            except LifecycleExecutionError as cleanup_error:
+                cleanup_errors.append(cleanup_error)
+            for component_id, close in (
+                (engine.__class__.__name__, engine.close),
+                (policy.__class__.__name__, getattr(policy, "close", None)),
+                (expert_provider.__class__.__name__, expert_provider.close),
+            ):
+                if not callable(close):
+                    continue
+                try:
+                    invoke_component(component_id, cleanup_context, close)
+                except LifecycleExecutionError as cleanup_error:
+                    cleanup_errors.append(cleanup_error)
+            if cleanup_errors:
+                if primary_error is None:
+                    first, *remaining = cleanup_errors
+                    setattr(first, "additional_cleanup_errors", tuple(remaining))
+                    raise first
+                setattr(primary_error, "lifecycle_cleanup_errors", tuple(cleanup_errors))
 
         self.episode_results = results
         summary = aggregate_episodes(results)
@@ -353,6 +446,26 @@ class PolicyRunner:
             )
         return report
 
+    def _execute_episode(
+        self,
+        request: EpisodeRequest,
+        components: EpisodeComponents,
+    ) -> EpisodeResult:
+        return self._run_episode(
+            components.engine,
+            components.policy,
+            components.expert,
+            request.task,
+            request.episode_index,
+            request.episode_seed,
+            stressor_pipeline=components.stressor_factory(request),
+            detector_manager=components.detector_factory(request),
+            branch_runner=components.branch_factory(request)
+            if components.branch_factory is not None
+            else None,
+            metric_recorders=components.metric_recorders,
+        )
+
     def _run_episode(
         self,
         engine: Any,
@@ -361,26 +474,59 @@ class PolicyRunner:
         task: Any,
         episode_index: int,
         seed: int,
+        *,
+        stressor_pipeline: StressorPipeline | None = None,
+        detector_manager: FailureDetectorManager | None = None,
+        branch_runner: CounterfactualBranchRunner | None = None,
+        metric_recorders: tuple[MetricRecorder, ...] = (),
     ) -> EpisodeResult:
         stressor_config = self._task_stressor_config(task)
-        stressor_pipeline = StressorPipeline(
-            stressor_config.stressors,
-            context=StressorContext(
-                engine_name=self.engine_name,
-                task_id=task.task_id,
-                observation_mode=_task_mode(task, "obs_mode", "observation"),
-                action_mode=_task_mode(task, "control_mode", "action"),
-            ),
-            episode_seed=seed,
-            condition_id=stressor_config.condition_id,
-            unsupported_policy=stressor_config.unsupported_policy,
+        stressor_pipeline = stressor_pipeline or self._make_stressor_pipeline(
+            EpisodeRequest(task=task, episode_index=episode_index, episode_seed=seed)
         )
-        stressor_pipeline.before_reset(engine)
-        observation, reset_info = engine.reset(seed=seed)
+        before_reset_context = LifecycleContext(
+            task_id=task.task_id,
+            episode_index=episode_index,
+            episode_seed=seed,
+            phase="before_reset",
+        )
+        self._lifecycle_dispatcher.emit(before_reset_context, None)
+        invoke_component(
+            "stressor_pipeline",
+            before_reset_context,
+            stressor_pipeline.before_reset,
+            engine,
+        )
+        observation, reset_info = invoke_component(
+            engine.__class__.__name__,
+            before_reset_context,
+            engine.reset,
+            seed=seed,
+        )
         observation = _restore_policy_initial_state(engine, policy, observation)
-        stressor_pipeline.after_reset(engine, observation)
-        observation = stressor_pipeline.transform_observation(
-            observation, step_index=-1
+        after_reset_context = LifecycleContext(
+            task_id=task.task_id,
+            episode_index=episode_index,
+            episode_seed=seed,
+            phase="after_reset",
+        )
+        invoke_component(
+            "stressor_pipeline",
+            after_reset_context,
+            stressor_pipeline.after_reset,
+            engine,
+            observation,
+        )
+        observation = invoke_component(
+            "stressor_pipeline",
+            after_reset_context,
+            stressor_pipeline.transform_observation,
+            observation,
+            step_index=-1,
+        )
+        self._lifecycle_dispatcher.emit(
+            after_reset_context,
+            {"observation": observation, "reset_info": reset_info},
         )
         active_stressors = compact_stressor_context(
             stressor_pipeline.application_context()
@@ -418,9 +564,8 @@ class PolicyRunner:
             expert_provider_id,
             annotation_source="recovery_runner",
         )
-        detector_manager = FailureDetectorManager(
-            detectors=build_default_failure_detectors(),
-            engine_name=self.engine_name,
+        detector_manager = detector_manager or self._make_detector_manager(
+            EpisodeRequest(task=task, episode_index=episode_index, episode_seed=seed)
         )
         detector_manager.reset(
             task=task,
@@ -447,15 +592,6 @@ class PolicyRunner:
         expert_intervention_count = 0
         recovery_attempts: list[_RecoveryAttempt] = []
         counterfactual_records: list[Any] = []
-        branch_runner = (
-            CounterfactualBranchRunner(
-                repeats=self.counterfactual_repeats,
-                horizon_steps=self.counterfactual_horizon,
-                include_oracle=self.counterfactual_oracle,
-            )
-            if self.counterfactual_repeats > 0
-            else None
-        )
         active_recovery_attempt: _RecoveryAttempt | None = None
         verifier_rejection_count = 0
         action_assessment_count = 0
@@ -494,7 +630,32 @@ class PolicyRunner:
                     pending_recovery_action_index = 1
                 chunk_size = 0
             else:
-                raw_action = policy.act(observation)
+                before_policy_context = LifecycleContext(
+                    task_id=task.task_id,
+                    episode_index=episode_index,
+                    episode_seed=seed,
+                    phase="before_policy",
+                    step_index=step_index,
+                )
+                self._lifecycle_dispatcher.emit(
+                    before_policy_context, {"observation": observation}
+                )
+                raw_action = invoke_component(
+                    policy.__class__.__name__,
+                    before_policy_context,
+                    policy.act,
+                    observation,
+                )
+                self._lifecycle_dispatcher.emit(
+                    LifecycleContext(
+                        task_id=task.task_id,
+                        episode_index=episode_index,
+                        episode_seed=seed,
+                        phase="after_policy",
+                        step_index=step_index,
+                    ),
+                    {"action": raw_action},
+                )
                 drain_component_failure_events(
                     policy,
                     policy_event_emitter,
@@ -552,8 +713,25 @@ class PolicyRunner:
             if (
                 self.enable_verifier or self.enable_recovery
             ) and action_source != "recovery":
-                score = expert_provider.score_action(
-                    observation, action, task=task, engine=engine
+                verifier_context = LifecycleContext(
+                    task_id=task.task_id,
+                    episode_index=episode_index,
+                    episode_seed=seed,
+                    phase="before_verifier",
+                    step_index=step_index,
+                )
+                self._lifecycle_dispatcher.emit(
+                    verifier_context,
+                    {"observation": observation, "action": action},
+                )
+                score = invoke_component(
+                    expert_provider_id,
+                    verifier_context,
+                    expert_provider.score_action,
+                    observation,
+                    action,
+                    task=task,
+                    engine=engine,
                 )
                 score_payload = score.to_dict()
                 action_assessment_count += 1
@@ -580,6 +758,16 @@ class PolicyRunner:
                     verifier_event_emitter,
                     default_step=step_index,
                 )
+                self._lifecycle_dispatcher.emit(
+                    LifecycleContext(
+                        task_id=task.task_id,
+                        episode_index=episode_index,
+                        episode_seed=seed,
+                        phase="after_verifier",
+                        step_index=step_index,
+                    ),
+                    score_payload,
+                )
             if self.enable_recovery and expert_info["action_rejected"]:
                 if active_recovery_attempt is not None:
                     active_recovery_attempt.resolve(
@@ -602,7 +790,21 @@ class PolicyRunner:
                     copy.deepcopy(action),
                     *copy.deepcopy(pending_actions),
                 ]
-                recovery_plan = expert_provider.recover(
+                recovery_context = LifecycleContext(
+                    task_id=task.task_id,
+                    episode_index=episode_index,
+                    episode_seed=seed,
+                    phase="before_recovery",
+                    step_index=step_index,
+                )
+                self._lifecycle_dispatcher.emit(
+                    recovery_context,
+                    {"recovery_attempt_id": recovery_attempt_id},
+                )
+                recovery_plan = invoke_component(
+                    expert_provider_id,
+                    recovery_context,
+                    expert_provider.recover,
                     state=_safe_get_state(engine, observation=observation),
                     failure=expert_info.get("action_assessment", {}).get("reason"),
                     task=task,
@@ -667,6 +869,20 @@ class PolicyRunner:
                         expert_info["recovery_plan"] = recovery_details
                 else:
                     recovery_attempt.resolve("not_applied", step_index)
+                self._lifecycle_dispatcher.emit(
+                    LifecycleContext(
+                        task_id=task.task_id,
+                        episode_index=episode_index,
+                        episode_seed=seed,
+                        phase="after_recovery",
+                        step_index=step_index,
+                    ),
+                    {
+                        "recovery_attempt_id": recovery_attempt_id,
+                        "applied": recovery_attempt.applied,
+                        "plan_length": recovery_attempt.plan_length,
+                    },
+                )
                 recovery_event_emitter.emit(
                     recovery_attempt_draft(
                         step_index=step_index,
@@ -704,53 +920,57 @@ class PolicyRunner:
                 verifier_event_emitter,
                 default_step=step_index,
             )
-            action_before_stressors = action
-            stressor_pipeline.before_step(engine, step_index=step_index)
-            action = stressor_pipeline.transform_action(
-                action,
+            def after_engine_step(step_info: dict[str, Any]) -> None:
+                engine_info_events = emit_info_failure_events(
+                    step_info,
+                    engine_event_emitter,
+                    default_step=step_index,
+                )
+                if "failure_events" in step_info:
+                    step_info["engine_failure_event_ids"] = [
+                        event.event_id for event in engine_info_events
+                    ]
+                    step_info.pop("failure_events", None)
+                drain_component_failure_events(
+                    engine,
+                    engine_event_emitter,
+                    default_step=step_index,
+                )
+
+            def after_stressors(_: Any) -> None:
+                nonlocal active_stressors
+                active_stressors = compact_stressor_context(
+                    stressor_pipeline.application_context()
+                )
+                failure_ledger.set_stressor_context(active_stressors)
+                drain_component_failure_events(
+                    stressor_pipeline,
+                    stressor_event_emitter,
+                    default_step=step_index,
+                )
+
+            transition = self._transition_lifecycle.execute(
+                engine=engine,
+                stressors=stressor_pipeline,
                 observation=observation,
+                action=action,
+                task_id=task.task_id,
+                episode_index=episode_index,
+                episode_seed=seed,
                 step_index=step_index,
+                after_engine_step=after_engine_step,
+                after_stressors=after_stressors,
             )
-            active_stressors = compact_stressor_context(
-                stressor_pipeline.application_context()
-            )
-            failure_ledger.set_stressor_context(active_stressors)
-            next_observation, reward, terminated, truncated, info = engine.step(action)
+            action_before_stressors = transition.action_before_stressors
+            action = transition.action
+            next_observation = transition.observation
+            reward = transition.reward
+            terminated = transition.terminated
+            truncated = transition.truncated
+            info = transition.info
             last_reward = reward
             last_terminated = terminated
             last_truncated = truncated
-            engine_info_events = emit_info_failure_events(
-                info,
-                engine_event_emitter,
-                default_step=step_index,
-            )
-            if "failure_events" in info:
-                info = {
-                    **info,
-                    "engine_failure_event_ids": [
-                        event.event_id for event in engine_info_events
-                    ],
-                }
-                info.pop("failure_events", None)
-            drain_component_failure_events(
-                engine,
-                engine_event_emitter,
-                default_step=step_index,
-            )
-            stressor_pipeline.after_step(engine, info, step_index=step_index)
-            next_observation = stressor_pipeline.transform_observation(
-                next_observation,
-                step_index=step_index + 1,
-            )
-            active_stressors = compact_stressor_context(
-                stressor_pipeline.application_context()
-            )
-            failure_ledger.set_stressor_context(active_stressors)
-            drain_component_failure_events(
-                stressor_pipeline,
-                stressor_event_emitter,
-                default_step=step_index,
-            )
             detector_emissions = detector_manager.observe_after_action(
                 step_index=step_index,
                 pre_observation=observation,
@@ -812,6 +1032,21 @@ class PolicyRunner:
                     info=info,
                 )
             )
+            transition_context = LifecycleContext(
+                task_id=task.task_id,
+                episode_index=episode_index,
+                episode_seed=seed,
+                phase="after_step",
+                step_index=step_index,
+            )
+            for recorder in metric_recorders:
+                invoke_component(
+                    recorder.recorder_id,
+                    transition_context,
+                    recorder.record_transition,
+                    transition_context,
+                    transition,
+                )
             if recovery_attempt_id is not None:
                 attempt = recovery_attempts[recovery_attempt_id - 1]
                 if step_index not in attempt.event_step_indices:
@@ -1049,6 +1284,44 @@ class PolicyRunner:
             condition_id=self.stressor_config.condition_id,
             stressors=(*task_specs, *self.stressor_config.stressors),
             unsupported_policy=self.stressor_config.unsupported_policy,
+        )
+
+    def _make_stressor_pipeline(self, request: EpisodeRequest) -> StressorPipeline:
+        task = request.task
+        config = self._task_stressor_config(task)
+        return StressorPipeline(
+            config.stressors,
+            context=StressorContext(
+                engine_name=self.engine_name,
+                task_id=task.task_id,
+                observation_mode=_task_mode(task, "obs_mode", "observation"),
+                action_mode=_task_mode(task, "control_mode", "action"),
+            ),
+            episode_seed=request.episode_seed,
+            condition_id=config.condition_id,
+            unsupported_policy=config.unsupported_policy,
+        )
+
+    def _make_detector_manager(
+        self, request: EpisodeRequest
+    ) -> FailureDetectorManager:
+        del request
+        return FailureDetectorManager(
+            detectors=build_default_failure_detectors(),
+            engine_name=self.engine_name,
+        )
+
+    def _make_branch_runner(
+        self, request: EpisodeRequest
+    ) -> CounterfactualBranchRunner | None:
+        del request
+        if self.counterfactual_repeats <= 0:
+            return None
+        return CounterfactualBranchRunner(
+            repeats=self.counterfactual_repeats,
+            horizon_steps=self.counterfactual_horizon,
+            include_oracle=self.counterfactual_oracle,
+            transition_lifecycle=self._transition_lifecycle,
         )
 
     def _counterfactual_configuration(self) -> dict[str, Any]:

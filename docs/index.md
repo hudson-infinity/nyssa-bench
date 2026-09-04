@@ -27,6 +27,7 @@ Start here:
 - [VLA robustness protocol](vla_robustness_protocol.md)
 - [Failure and recovery metrics](failure_and_recovery_metrics.md)
 - [Counterfactual recovery](counterfactual_recovery.md)
+- [Runner lifecycle](runner_lifecycle.md)
 - [Real-to-sim roadmap](real_to_sim_roadmap.md)
 - [Reports](reports.md)
 - [Dataset export](dataset_export.md)
