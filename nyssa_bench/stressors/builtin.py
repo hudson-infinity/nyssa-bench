@@ -235,7 +235,9 @@ def _add_gaussian_noise(
         if not np.issubdtype(value.dtype, np.floating):
             return value.copy()
         noisy = value + rng.normal(0.0, std, size=value.shape)
-        return np.clip(noisy, clip_min, clip_max).astype(value.dtype, copy=False)
+        if clip_min is not None or clip_max is not None:
+            noisy = np.clip(noisy, clip_min, clip_max)
+        return noisy.astype(value.dtype, copy=False)
     if _is_floating_tensor(value):
         noise = rng.normal(0.0, std, size=tuple(value.shape))
         noisy = value + value.new_tensor(noise)

@@ -26,6 +26,7 @@ from nyssa_bench.stressors import (
     robustness_sweep_metrics,
     save_robustness_report,
 )
+from nyssa_bench.stressors.builtin import _add_gaussian_noise
 
 
 def test_stressor_spec_and_config_round_trip(tmp_path: Path):
@@ -106,6 +107,35 @@ def test_noise_is_seed_deterministic_and_severity_resolves_distinct_parameters()
     assert high.applications[0].applied_parameters["std"] == pytest.approx(0.3)
     assert np.array_equal(low_value, repeated_value)
     assert not np.array_equal(low_value, high_value)
+    assert low_value.dtype == observation["raw"].dtype
+
+
+@pytest.mark.parametrize(
+    ("clip_min", "clip_max", "expected"),
+    [
+        (None, None, [-2.0, 2.0]),
+        (-1.0, None, [-1.0, 2.0]),
+        (None, 1.0, [-2.0, 1.0]),
+        (-1.0, 1.0, [-1.0, 1.0]),
+    ],
+)
+def test_array_noise_supports_unbounded_and_one_sided_clipping(
+    clip_min: float | None,
+    clip_max: float | None,
+    expected: list[float],
+) -> None:
+    value = np.asarray([-2.0, 2.0], dtype=np.float32)
+
+    transformed = _add_gaussian_noise(
+        value,
+        rng=np.random.default_rng(0),
+        std=0.0,
+        clip_min=clip_min,
+        clip_max=clip_max,
+    )
+
+    assert transformed.dtype == np.float32
+    np.testing.assert_array_equal(transformed, np.asarray(expected, dtype=np.float32))
 
 
 def test_visual_brightness_only_changes_declared_rgb_image_fields():
