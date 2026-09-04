@@ -59,6 +59,12 @@ from nyssa_bench.runner import (
     DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     PolicyRunner,
 )
+from nyssa_bench.runners import (
+    ExperimentCell,
+    ExperimentRunner,
+    ablation_cells,
+    policy_seed_cells,
+)
 from nyssa_bench.scenarios import (
     SCENARIO_PACKAGE_FORMAT,
     ScenarioPackage,
@@ -735,34 +741,16 @@ def main(argv: list[str] | None = None) -> int:
 def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
     suite = _load_suite(args)
     out_dir = Path(args.out)
-    run_dirs: list[Path] = []
-    for policy in args.policies:
-        for seed in args.seeds:
-            run_dir = out_dir / policy / f"seed_{seed}"
-            runner = PolicyRunner(
-                policy=policy,
-                engine=args.engine,
-                episodes=args.episodes,
-                seed=seed,
-                out=run_dir,
-                max_steps=args.max_steps,
-                capture_replay=_capture_replay_default(
-                    args.engine, args.no_replay, args.capture_replay
-                ),
-                expert_provider=args.expert_provider,
-                enable_recovery=args.enable_recovery,
-                enable_verifier=args.enable_verifier,
-                policy_action_horizon=args.policy_action_horizon,
-                policy_execution_horizon=args.policy_execution_horizon,
-                recovery_attribution_horizon=args.recovery_attribution_horizon,
-                counterfactual_repeats=args.counterfactual_repeats,
-                counterfactual_horizon=args.counterfactual_horizon,
-                counterfactual_oracle=args.counterfactual_oracle,
-                counterfactual_max_branch_points=args.counterfactual_max_branch_points,
-                stressor_config=args.stressor_config,
-            )
-            runner.evaluate(suite)
-            run_dirs.append(run_dir)
+    cells = policy_seed_cells(
+        policies=args.policies,
+        seeds=args.seeds,
+        out_dir=out_dir,
+        enable_verifier=args.enable_verifier,
+        enable_recovery=args.enable_recovery,
+    )
+    run_dirs = ExperimentRunner(
+        lambda cell: _matrix_policy_runner(args, cell)
+    ).execute(suite, cells)
 
     comparison_path = out_dir / "comparison.html"
     leaderboard_path = out_dir / "leaderboard.json"
@@ -820,41 +808,16 @@ def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
 def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
     suite = _load_suite(args)
     out_dir = Path(args.out)
-    run_dirs: list[Path] = []
     variants = list(args.variants)
-    for variant in variants:
-        enable_verifier = variant in {"verifier", "verifier_recovery"}
-        enable_recovery = variant in {"recovery", "verifier_recovery"}
-        for seed in args.seeds:
-            run_dir = out_dir / variant / f"seed_{seed}"
-            runner = PolicyRunner(
-                policy=args.policy,
-                engine=args.engine,
-                episodes=args.episodes,
-                seed=seed,
-                out=run_dir,
-                max_steps=args.max_steps,
-                capture_replay=_capture_replay_default(
-                    args.engine, args.no_replay, args.capture_replay
-                ),
-                expert_provider=args.expert_provider,
-                enable_recovery=enable_recovery,
-                enable_verifier=enable_verifier,
-                policy_action_horizon=args.policy_action_horizon,
-                policy_execution_horizon=args.policy_execution_horizon,
-                recovery_attribution_horizon=args.recovery_attribution_horizon,
-                counterfactual_repeats=(
-                    args.counterfactual_repeats if enable_recovery else 0
-                ),
-                counterfactual_horizon=args.counterfactual_horizon,
-                counterfactual_oracle=(
-                    args.counterfactual_oracle if enable_recovery else False
-                ),
-                counterfactual_max_branch_points=args.counterfactual_max_branch_points,
-                stressor_config=args.stressor_config,
-            )
-            runner.evaluate(suite)
-            run_dirs.append(run_dir)
+    cells = ablation_cells(
+        policy=args.policy,
+        variants=variants,
+        seeds=args.seeds,
+        out_dir=out_dir,
+    )
+    run_dirs = ExperimentRunner(
+        lambda cell: _matrix_policy_runner(args, cell)
+    ).execute(suite, cells)
 
     comparison_path = out_dir / "comparison.html"
     leaderboard_path = out_dir / "leaderboard.json"
@@ -907,6 +870,37 @@ def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
         "leaderboard": leaderboard_path,
         "scorecard": scorecard_path,
     }
+
+
+def _matrix_policy_runner(
+    args: argparse.Namespace, cell: ExperimentCell
+) -> PolicyRunner:
+    return PolicyRunner(
+        policy=cell.policy,
+        engine=args.engine,
+        episodes=args.episodes,
+        seed=cell.seed,
+        out=cell.run_dir,
+        max_steps=args.max_steps,
+        capture_replay=_capture_replay_default(
+            args.engine, args.no_replay, args.capture_replay
+        ),
+        expert_provider=args.expert_provider,
+        enable_recovery=cell.enable_recovery,
+        enable_verifier=cell.enable_verifier,
+        policy_action_horizon=args.policy_action_horizon,
+        policy_execution_horizon=args.policy_execution_horizon,
+        recovery_attribution_horizon=args.recovery_attribution_horizon,
+        counterfactual_repeats=(
+            args.counterfactual_repeats if cell.enable_recovery else 0
+        ),
+        counterfactual_horizon=args.counterfactual_horizon,
+        counterfactual_oracle=(
+            args.counterfactual_oracle if cell.enable_recovery else False
+        ),
+        counterfactual_max_branch_points=args.counterfactual_max_branch_points,
+        stressor_config=args.stressor_config,
+    )
 
 
 def _train_bc_from_episode_files(

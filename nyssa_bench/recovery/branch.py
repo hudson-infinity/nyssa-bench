@@ -18,6 +18,7 @@ from nyssa_bench.recovery.state import (
     reseed_branch_streams,
     state_sha256,
 )
+from nyssa_bench.runners.lifecycle import TransitionLifecycle
 
 
 class CounterfactualBranchRunner:
@@ -27,6 +28,7 @@ class CounterfactualBranchRunner:
         repeats: int,
         horizon_steps: int,
         include_oracle: bool = False,
+        transition_lifecycle: TransitionLifecycle | None = None,
     ) -> None:
         if repeats <= 0:
             raise ValueError("counterfactual repeats must be positive")
@@ -35,6 +37,7 @@ class CounterfactualBranchRunner:
         self.repeats = int(repeats)
         self.horizon_steps = int(horizon_steps)
         self.include_oracle = bool(include_oracle)
+        self.transition_lifecycle = transition_lifecycle or TransitionLifecycle()
 
     def evaluate_recovery(
         self,
@@ -149,6 +152,9 @@ class CounterfactualBranchRunner:
                             matched_rng_sha256=trial.randomness_sha256,
                             initial_actions=initial_actions,
                             start_step_index=step_index,
+                            task_id=task_id,
+                            episode_index=episode_index,
+                            episode_seed=episode_seed,
                             observation=trial.observation,
                             engine=engine,
                             policy=policy,
@@ -174,6 +180,9 @@ class CounterfactualBranchRunner:
                             matched_rng_sha256=trial.randomness_sha256,
                             initial_actions=(),
                             start_step_index=step_index,
+                            task_id=task_id,
+                            episode_index=episode_index,
+                            episode_seed=episode_seed,
                             observation=trial.observation,
                             engine=engine,
                             policy=policy,
@@ -247,6 +256,9 @@ class CounterfactualBranchRunner:
         matched_rng_sha256: str,
         initial_actions: Sequence[Any],
         start_step_index: int,
+        task_id: str,
+        episode_index: int,
+        episode_seed: int,
         observation: dict[str, Any],
         engine: Any,
         policy: Any,
@@ -275,22 +287,23 @@ class CounterfactualBranchRunner:
                     raise RuntimeError(
                         f"{branch_kind} branch produced no action at offset {offset}"
                     )
-                stressors.before_step(engine, step_index=absolute_step)
-                executed_action = stressors.transform_action(
-                    action,
+                transition = self.transition_lifecycle.execute(
+                    engine=engine,
+                    stressors=stressors,
                     observation=observation,
+                    action=action,
+                    task_id=task_id,
+                    episode_index=episode_index,
+                    episode_seed=episode_seed,
                     step_index=absolute_step,
+                    branch_kind=branch_kind,
                 )
-                next_observation, reward, terminated, truncated, info = engine.step(
-                    executed_action
-                )
-                info = dict(info)
-                stressors.after_step(engine, info, step_index=absolute_step)
-                next_observation = stressors.transform_observation(
-                    next_observation,
-                    step_index=absolute_step + 1,
-                )
-                reward = float(reward)
+                executed_action = transition.action
+                next_observation = transition.observation
+                reward = transition.reward
+                terminated = transition.terminated
+                truncated = transition.truncated
+                info = transition.info
                 if not math.isfinite(reward):
                     raise ValueError("branch reward must be finite")
                 total_reward += reward
