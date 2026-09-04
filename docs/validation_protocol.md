@@ -26,6 +26,7 @@ A public NyssaBench benchmark result must include:
 - a recorded git commit from a clean worktree
 - diagnosed failure labels from the environment or `FailureMapper`
 - unsupported stressors reported honestly
+- a claim-ready, content-hashed benchmark-validity report
 
 ## Non-Public Runs
 
@@ -64,6 +65,15 @@ For compatibility with the intended public API, it is also re-exported from:
 ```txt
 nyssa_bench.validation.run_claim
 ```
+
+Benchmark design is evaluated separately by:
+
+```txt
+nyssa_bench.validity.BenchmarkValidityEvaluator
+```
+
+See [Benchmark validity](benchmark_validity.md) for audit inputs, statuses,
+claim impacts, CLI commands, and result-pack integration.
 
 ## Audit Risks
 

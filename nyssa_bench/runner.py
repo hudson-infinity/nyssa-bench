@@ -95,6 +95,11 @@ from nyssa_bench.utils.reproducibility import (
     utc_now,
     write_json,
 )
+from nyssa_bench.validity import (
+    BenchmarkValidityReport,
+    load_benchmark_validity_report,
+    write_benchmark_validity_report,
+)
 
 EPISODE_SEED_STRIDE = 1_000_000
 EPISODE_SEED_FORMAT = "nyssa-episode-seed-v2"
@@ -159,6 +164,7 @@ class PolicyRunner:
         scenario_context: dict[str, Any] | None = None,
         lifecycle_hooks: tuple[LifecycleHook, ...] = (),
         metric_recorders: tuple[MetricRecorder, ...] = (),
+        benchmark_validity: BenchmarkValidityReport | str | Path | None = None,
     ) -> None:
         if int(episodes) <= 0:
             raise ValueError("episodes must be a positive integer")
@@ -215,6 +221,7 @@ class PolicyRunner:
         self.metric_recorders = tuple(metric_recorders)
         self._lifecycle_dispatcher = LifecycleDispatcher(self.lifecycle_hooks)
         self._transition_lifecycle = TransitionLifecycle(self.lifecycle_hooks)
+        self.benchmark_validity = _coerce_benchmark_validity(benchmark_validity)
 
     def evaluate(self, suite: Suite) -> Report:
         policy = self._load_policy()
@@ -329,6 +336,12 @@ class PolicyRunner:
         counterfactual_recovery["requested"] = self.counterfactual_repeats > 0
         counterfactual_recovery["configuration"] = self._counterfactual_configuration()
         summary["counterfactual_recovery"] = counterfactual_recovery
+        benchmark_validity_payload = (
+            self.benchmark_validity.to_dict()
+            if self.benchmark_validity is not None
+            else None
+        )
+        summary["benchmark_validity"] = benchmark_validity_payload
         summary_metrics = cast(dict[str, Any], summary.setdefault("metrics", {}))
         summary_metric_ci95 = cast(
             dict[str, Any], summary.setdefault("metric_ci95", {})
@@ -412,6 +425,7 @@ class PolicyRunner:
             "failure_detector_summary": failure_detector_summary,
             "metric_vector_format": METRIC_VECTOR_FORMAT,
             "scenario_context": self.scenario_context or None,
+            "benchmark_validity": benchmark_validity_payload,
         }
         env_metadata = environment_metadata()
         versions = package_versions()
@@ -429,6 +443,7 @@ class PolicyRunner:
             scenario_validation=self.scenario_context.get("validation")
             if self.scenario_context
             else None,
+            benchmark_validity=self.benchmark_validity,
         )
         summary["benchmark_tier"] = validation.benchmark_tier
         summary["public_claim"] = validation.public_claim
@@ -1399,6 +1414,7 @@ class PolicyRunner:
             "stressor_config": self.run_metadata.get("stressor_config"),
             "stressor_execution": self.run_metadata.get("stressor_execution"),
             "scenario_context": self.run_metadata.get("scenario_context"),
+            "benchmark_validity": self.run_metadata.get("benchmark_validity"),
         }
         with (self.out / "run.yaml").open("w", encoding="utf-8") as handle:
             yaml.safe_dump(self.run_metadata, handle, sort_keys=False)
@@ -1433,6 +1449,10 @@ class PolicyRunner:
             self.out,
             configuration=self._counterfactual_configuration(),
         )
+        if self.benchmark_validity is not None:
+            write_benchmark_validity_report(
+                self.benchmark_validity, self.out / "benchmark_validity.json"
+            )
         artifact_names = [
             "episodes.json",
             "episodes.jsonl",
@@ -1449,6 +1469,8 @@ class PolicyRunner:
         ]
         if self.scenario_context:
             artifact_names.append("scenario_execution.json")
+        if self.benchmark_validity is not None:
+            artifact_names.append("benchmark_validity.json")
         write_dataset_manifest(
             out_dir=self.out,
             suite=suite,
@@ -1509,6 +1531,14 @@ def _coerce_stressor_config(
     if isinstance(value, dict):
         return StressorConfig.from_dict(value)
     return StressorConfig.load(value)
+
+
+def _coerce_benchmark_validity(
+    value: BenchmarkValidityReport | str | Path | None,
+) -> BenchmarkValidityReport | None:
+    if value is None or isinstance(value, BenchmarkValidityReport):
+        return value
+    return load_benchmark_validity_report(value)
 
 
 def _coerce_scenario_context(

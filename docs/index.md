@@ -20,6 +20,7 @@ Start here:
 - [Result tiers](result_tiers.md)
 - [Validation protocol](validation_protocol.md)
 - [Benchmark audit checklist](benchmark_audit_checklist.md)
+- [Benchmark validity](benchmark_validity.md)
 - [Stressor protocol](stressor_protocol.md)
 - [External scenario packages](external_scenarios.md)
 - [Real and reconstructed evidence ingestion](real_evidence_ingestion.md)

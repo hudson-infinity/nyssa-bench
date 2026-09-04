@@ -133,6 +133,12 @@ expected, present, missing, extra, failure-clip, gallery, and duplicate-media
 counts. Failure clips and duplicate files never increase per-episode replay
 coverage, and missing or unsafe replay paths downgrade the pack to non-public.
 
+Run completeness is separate from benchmark validity. Use `nyssa
+audit-benchmark <spec> --out benchmark_validity.json`, then pass the validated
+report with `--benchmark-validity`. Missing, failed, or tampered audit evidence
+cannot satisfy the public claim gate. See
+[Benchmark validity](docs/benchmark_validity.md).
+
 Do not use `pip install -e ".[full]"` for normal benchmark runs. The `full`
 extra intentionally pulls heavy experimental stacks, including Genesis,
 RoboMimic, LeRobot, VLA, and diffusion dependencies, and native packages in
