@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import copy
 import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -51,6 +52,11 @@ from nyssa_bench.randomization import (
     aggregate_stressor_support,
     summarize_stressor_support,
 )
+from nyssa_bench.recovery import (
+    CounterfactualBranchRunner,
+    summarize_counterfactual_recovery,
+    write_counterfactual_recovery_manifest,
+)
 from nyssa_bench.replay.video import (
     write_episode_video,
     write_failure_clip,
@@ -81,6 +87,8 @@ from nyssa_bench.utils.reproducibility import (
 EPISODE_SEED_STRIDE = 1_000_000
 EPISODE_SEED_FORMAT = "nyssa-episode-seed-v2"
 DEFAULT_RECOVERY_ATTRIBUTION_HORIZON = 5
+DEFAULT_COUNTERFACTUAL_HORIZON = 10
+DEFAULT_COUNTERFACTUAL_MAX_BRANCH_POINTS = 1
 RECOVERY_OUTCOME_FORMAT = "nyssa-recovery-outcomes-v1"
 RECOVERY_ATTRIBUTION_CRITERION = (
     "task_success_within_bounded_window_before_next_attempt"
@@ -131,6 +139,10 @@ class PolicyRunner:
         policy_action_horizon: int = 1,
         policy_execution_horizon: int = 1,
         recovery_attribution_horizon: int = DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
+        counterfactual_repeats: int = 0,
+        counterfactual_horizon: int = DEFAULT_COUNTERFACTUAL_HORIZON,
+        counterfactual_oracle: bool = False,
+        counterfactual_max_branch_points: int = DEFAULT_COUNTERFACTUAL_MAX_BRANCH_POINTS,
         stressor_config: StressorConfig | dict[str, Any] | str | Path | None = None,
         scenario_context: dict[str, Any] | None = None,
     ) -> None:
@@ -142,6 +154,22 @@ class PolicyRunner:
             raise ValueError("seed must be a non-negative integer")
         if int(recovery_attribution_horizon) <= 0:
             raise ValueError("recovery_attribution_horizon must be a positive integer")
+        if int(counterfactual_repeats) < 0:
+            raise ValueError("counterfactual_repeats must be non-negative")
+        if int(counterfactual_horizon) <= 0:
+            raise ValueError("counterfactual_horizon must be a positive integer")
+        if int(counterfactual_max_branch_points) <= 0:
+            raise ValueError(
+                "counterfactual_max_branch_points must be a positive integer"
+            )
+        if counterfactual_oracle and int(counterfactual_repeats) == 0:
+            raise ValueError(
+                "counterfactual_oracle requires counterfactual_repeats to be positive"
+            )
+        if int(counterfactual_repeats) > 0 and not enable_recovery:
+            raise ValueError(
+                "counterfactual branch evaluation requires enable_recovery=True"
+            )
         self.policy_ref = policy
         self.engine_name = engine
         self.episodes = episodes
@@ -155,6 +183,10 @@ class PolicyRunner:
         self.policy_action_horizon = max(1, int(policy_action_horizon))
         self.policy_execution_horizon = max(1, int(policy_execution_horizon))
         self.recovery_attribution_horizon = int(recovery_attribution_horizon)
+        self.counterfactual_repeats = int(counterfactual_repeats)
+        self.counterfactual_horizon = int(counterfactual_horizon)
+        self.counterfactual_oracle = bool(counterfactual_oracle)
+        self.counterfactual_max_branch_points = int(counterfactual_max_branch_points)
         self.stressor_config = _coerce_stressor_config(stressor_config)
         self.scenario_context = _coerce_scenario_context(
             scenario_context,
@@ -200,6 +232,17 @@ class PolicyRunner:
 
         self.episode_results = results
         summary = aggregate_episodes(results)
+        counterfactual_recovery = summarize_counterfactual_recovery(results)
+        counterfactual_recovery["requested"] = self.counterfactual_repeats > 0
+        counterfactual_recovery["configuration"] = self._counterfactual_configuration()
+        summary["counterfactual_recovery"] = counterfactual_recovery
+        summary_metrics = cast(dict[str, Any], summary.setdefault("metrics", {}))
+        summary_metric_ci95 = cast(
+            dict[str, Any], summary.setdefault("metric_ci95", {})
+        )
+        if self.counterfactual_repeats > 0:
+            summary_metrics.update(counterfactual_recovery["metrics"])
+            summary_metric_ci95.update(counterfactual_recovery["metric_ci95"])
         recovery_outcomes = {
             "format": RECOVERY_OUTCOME_FORMAT,
             "attribution_horizon_steps": self.recovery_attribution_horizon,
@@ -261,6 +304,7 @@ class PolicyRunner:
             "recovery_enabled": self.enable_recovery,
             "verifier_enabled": self.enable_verifier,
             "recovery_outcomes": recovery_outcomes,
+            "counterfactual_recovery": self._counterfactual_configuration(),
             "policy_metadata": _policy_metadata(policy),
             "action_sequence": {
                 "action_horizon": self.policy_action_horizon,
@@ -402,6 +446,16 @@ class PolicyRunner:
         last_truncated = False
         expert_intervention_count = 0
         recovery_attempts: list[_RecoveryAttempt] = []
+        counterfactual_records: list[Any] = []
+        branch_runner = (
+            CounterfactualBranchRunner(
+                repeats=self.counterfactual_repeats,
+                horizon_steps=self.counterfactual_horizon,
+                include_oracle=self.counterfactual_oracle,
+            )
+            if self.counterfactual_repeats > 0
+            else None
+        )
         active_recovery_attempt: _RecoveryAttempt | None = None
         verifier_rejection_count = 0
         action_assessment_count = 0
@@ -414,7 +468,7 @@ class PolicyRunner:
         pending_action_source: str | None = None
         pending_recovery_attempt_id: int | None = None
         pending_recovery_action_index = 1
-        step_limit = self.max_steps or getattr(engine, "max_steps", 1000)
+        step_limit = int(self.max_steps or getattr(engine, "max_steps", 1000))
         if self.out and self.capture_replay:
             frame = _safe_render(engine)
             if frame is not None:
@@ -544,6 +598,10 @@ class PolicyRunner:
                 expert_info["recovery_attempted"] = True
                 expert_info["recovery_attempt_id"] = recovery_attempt_id
                 expert_info["recovery_attribution_attempt_id"] = recovery_attempt_id
+                continuation_actions = [
+                    copy.deepcopy(action),
+                    *copy.deepcopy(pending_actions),
+                ]
                 recovery_plan = expert_provider.recover(
                     state=_safe_get_state(engine, observation=observation),
                     failure=expert_info.get("action_assessment", {}).get("reason"),
@@ -552,6 +610,37 @@ class PolicyRunner:
                 )
                 if recovery_plan:
                     recovery_plan = list(recovery_plan)
+                    if (
+                        branch_runner is not None
+                        and len(counterfactual_records)
+                        < self.counterfactual_max_branch_points
+                    ):
+                        branch_record = branch_runner.evaluate_recovery(
+                            engine=engine,
+                            policy=policy,
+                            expert=expert_provider,
+                            stressors=stressor_pipeline,
+                            task=task,
+                            observation=observation,
+                            task_id=task.task_id,
+                            episode_index=episode_index,
+                            episode_seed=seed,
+                            step_index=step_index,
+                            recovery_attempt_id=recovery_attempt_id,
+                            continuation_actions=continuation_actions,
+                            recovery_actions=recovery_plan,
+                            trigger_reason=expert_info.get("action_assessment", {}).get(
+                                "reason"
+                            ),
+                            trigger_event_id=verifier_failure_event_id,
+                        )
+                        counterfactual_records.append(branch_record)
+                        expert_info["counterfactual_branch_point_id"] = (
+                            branch_record.branch_point.branch_point_id
+                        )
+                        expert_info["counterfactual_restoration_grade"] = (
+                            branch_record.branch_point.restoration_grade
+                        )
                     recovery_attempt.applied = True
                     recovery_attempt.plan_length = len(recovery_plan)
                     active_recovery_attempt = recovery_attempt
@@ -823,6 +912,30 @@ class PolicyRunner:
         recovery_episode_attempt_count = int(recovery_attempt_count > 0)
         recovery_episode_applied_count = int(recovery_applied_count > 0)
         recovery_episode_success_count = int(recovery_success_count > 0)
+        counterfactual_episode_summary = summarize_counterfactual_recovery(
+            [
+                {
+                    "counterfactual_recovery": counterfactual_records,
+                    "metrics": {
+                        "counterfactual_eligible_branch_point_count": float(
+                            recovery_applied_count
+                            if self.counterfactual_repeats > 0
+                            else 0
+                        )
+                    },
+                }
+            ]
+        )
+        counterfactual_episode_metrics = (
+            {
+                "counterfactual_skipped_branch_point_count": float(
+                    max(0, recovery_applied_count - len(counterfactual_records))
+                ),
+                **counterfactual_episode_summary["metrics"],
+            }
+            if self.counterfactual_repeats > 0
+            else {}
+        )
         metrics = {
             "completion_time": float(last_info.get("completion_time", len(steps))),
             "path_efficiency": float(last_info.get("path_efficiency", 0.0)),
@@ -877,6 +990,7 @@ class PolicyRunner:
             )
             if steps
             else 0.0,
+            **counterfactual_episode_metrics,
             "drop_rate": 1.0 if failure_label == "object_slip" else 0.0,
             "stressor_applied_count": float(
                 sum(
@@ -905,6 +1019,7 @@ class PolicyRunner:
             stressor_context=stressor_pipeline.manifest(),
             failure_detector_context=failure_detector_context,
             failure_ledger=failure_ledger_record,
+            counterfactual_recovery=counterfactual_records,
         )
         if self.out and self.capture_replay:
             episode.replay_path = write_episode_video(
@@ -935,6 +1050,27 @@ class PolicyRunner:
             stressors=(*task_specs, *self.stressor_config.stressors),
             unsupported_policy=self.stressor_config.unsupported_policy,
         )
+
+    def _counterfactual_configuration(self) -> dict[str, Any]:
+        return {
+            "enabled": self.counterfactual_repeats > 0,
+            "repeats": self.counterfactual_repeats,
+            "horizon_steps": self.counterfactual_horizon,
+            "include_oracle": self.counterfactual_oracle,
+            "max_branch_points_per_episode": self.counterfactual_max_branch_points,
+            "trigger": "applied_recovery_decision",
+            "required_state": [
+                "simulator",
+                "policy",
+                "stressor_pipeline",
+                "process_rng",
+            ],
+            "matched_branches": [
+                "continue",
+                "recovery",
+                *(["oracle"] if self.counterfactual_oracle else []),
+            ],
+        }
 
     def _load_policy(self) -> PolicyLike:
         if isinstance(self.policy_ref, Policy):
@@ -978,6 +1114,7 @@ class PolicyRunner:
             "recovery_enabled": self.enable_recovery,
             "verifier_enabled": self.enable_verifier,
             "recovery_outcomes": self.run_metadata.get("recovery_outcomes"),
+            "counterfactual_recovery": self.run_metadata.get("counterfactual_recovery"),
             "action_sequence": self.run_metadata.get(
                 "action_sequence",
                 {
@@ -1018,6 +1155,11 @@ class PolicyRunner:
             write_scenario_execution(self.scenario_context, self.out)
         write_failure_gallery(self.episode_results, self.out)
         write_recovery_dataset(self.episode_results, self.out)
+        write_counterfactual_recovery_manifest(
+            self.episode_results,
+            self.out,
+            configuration=self._counterfactual_configuration(),
+        )
         artifact_names = [
             "episodes.json",
             "episodes.jsonl",
@@ -1029,6 +1171,7 @@ class PolicyRunner:
             "failure_ledger.json",
             "failure_detector_manifest.json",
             "failure_gallery.html",
+            "counterfactual_recovery.json",
             "recovery_dataset/episodes.jsonl",
         ]
         if self.scenario_context:
@@ -1126,7 +1269,9 @@ def _coerce_scenario_context(
     if int(initial_state.get("run_seed", -1)) != run_seed:
         raise ValueError("scenario_context run seed does not match the runner seed")
     if validation.get("scenario_identity") != normalized.get("scenario_identity"):
-        raise ValueError("scenario_context validation identity does not match the package")
+        raise ValueError(
+            "scenario_context validation identity does not match the package"
+        )
     configured = stressor_config.to_dict() if stressor_config is not None else None
     if normalized.get("stressor_config") != configured:
         raise ValueError(

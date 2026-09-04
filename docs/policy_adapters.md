@@ -91,6 +91,20 @@ methods. The current LeRobot, diffusion, and OpenVLA hooks do not forward model
 reset/close. Use a direct custom `Policy` when the external model needs strict
 lifecycle management or richer metadata.
 
+## Counterfactual State
+
+Policies used in matched recovery branches must expose `get_state()`,
+`set_state(state)`, and `state_restore_capability()`. Stochastic policies should
+also implement `seed_branch_rng(seed)` so repeated branch pairs can use distinct
+but matched random streams. State includes recurrent memory, action queues,
+sampler RNGs, and any mutable preprocessing cache that can affect later actions.
+
+`random`, the repository BC policies, the repository scripted controller, and
+`demo_replay_policy` provide explicit state contracts. External adapter hooks remain unsupported for exact
+branching until the loaded model or a custom adapter declares restoration.
+NyssaBench records unsupported branch points instead of assuming an opaque
+model is stateless. See [Counterfactual Recovery](counterfactual_recovery.md).
+
 ## Optional Dependencies
 
 Install all stable stacks:

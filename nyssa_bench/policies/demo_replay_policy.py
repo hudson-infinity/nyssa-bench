@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 from pathlib import Path
@@ -52,6 +53,33 @@ class DemoReplayPolicy(Policy):
         index = min(self.cursor, len(self.current_actions) - 1)
         self.cursor += 1
         return fit_action_to_observation(self.current_actions[index], observation)
+
+    def get_state(self) -> dict[str, Any]:
+        return {
+            "current_task_id": self.current_task_id,
+            "current_actions": copy.deepcopy(self.current_actions),
+            "current_episode": copy.deepcopy(self.current_episode),
+            "pending_seed": self.pending_seed,
+            "cursor": self.cursor,
+        }
+
+    def set_state(self, state: Any) -> None:
+        if not isinstance(state, dict):
+            raise TypeError("demo replay policy state must be a mapping")
+        self.current_task_id = state.get("current_task_id")
+        self.current_actions = copy.deepcopy(state.get("current_actions", []))
+        self.current_episode = copy.deepcopy(state.get("current_episode"))
+        self.pending_seed = state.get("pending_seed")
+        self.cursor = int(state.get("cursor", 0))
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return {
+            "supported": True,
+            "fidelity": "exact_demo_replay_cursor",
+            "captures_rng": False,
+            "exact": True,
+            "reason": None,
+        }
 
     def _select_episode(self, task_id: str, observation: dict[str, Any]) -> "_DemoEpisode | None":
         episodes = self._load_task_episodes(task_id)

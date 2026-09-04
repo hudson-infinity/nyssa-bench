@@ -146,6 +146,9 @@ class StressorPipeline:
             "episode_seed": self.episode_seed,
             "context": self.context.to_dict(),
             "composition_order": list(self.composition_order),
+            "applications": [
+                application.to_dict() for application in self.applications
+            ],
             "stressors": {
                 stressor.stressor_id: stressor.get_state()
                 for stressor, application in zip(
@@ -184,6 +187,25 @@ class StressorPipeline:
             raise StressorCompositionError(
                 "Cannot restore stressor state into a different engine or task context"
             )
+        application_states = state.get("applications")
+        if application_states is None:
+            application_states = [
+                application.to_dict() for application in self.applications
+            ]
+        if not isinstance(application_states, list) or len(application_states) != len(self.applications):
+            raise ValueError("stressor state must include every application")
+        for application, payload in zip(
+            self.applications, application_states, strict=True
+        ):
+            if (
+                not isinstance(payload, dict)
+                or payload.get("stressor_id") != application.stressor_id
+            ):
+                raise ValueError("stressor application identity changed during restore")
+            application.status = payload.get("status", application.status)
+            application.reason = payload.get("reason")
+            application.applied_parameters = dict(payload.get("applied_parameters", {}))
+            application.backend_evidence = dict(payload.get("backend_evidence", {}))
         stressor_states = state.get("stressors", {})
         if not isinstance(stressor_states, dict):
             raise ValueError("stressor state payload must be a mapping")
@@ -198,6 +220,34 @@ class StressorPipeline:
                     f"Missing state for applied stressor '{stressor.stressor_id}'"
                 )
             stressor.set_state(payload, engine=engine)
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        for index, (stressor, application) in enumerate(
+            zip(self.stressors, self.applications, strict=True)
+        ):
+            if application.status != "applied":
+                continue
+            stressor.seed_branch_rng(_derived_seed(seed, index, stressor.stressor_id))
+        return True
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        capabilities = [
+            stressor.state_restore_capability() for stressor in self.stressors
+        ]
+        supported = all(bool(item.get("supported")) for item in capabilities)
+        exact = supported and all(bool(item.get("exact")) for item in capabilities)
+        captures_rng = all(bool(item.get("captures_rng")) for item in capabilities)
+        return {
+            "supported": supported,
+            "fidelity": "exact_stressor_pipeline"
+            if exact
+            else "qualified_stressor_pipeline",
+            "captures_rng": captures_rng,
+            "exact": exact,
+            "reason": None
+            if supported
+            else "one or more stressors cannot restore runtime state",
+        }
 
     def manifest(self) -> dict[str, Any]:
         return {

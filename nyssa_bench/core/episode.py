@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from nyssa_bench.failures.protocol import FailureLedgerRecord
+    from nyssa_bench.recovery.protocol import CounterfactualRecoveryRecord
 
 
 @dataclass
@@ -42,6 +43,9 @@ class EpisodeResult:
     stressor_context: dict[str, Any] = field(default_factory=dict)
     failure_detector_context: dict[str, Any] = field(default_factory=dict)
     failure_ledger: FailureLedgerRecord | None = None
+    counterfactual_recovery: list[CounterfactualRecoveryRecord] = field(
+        default_factory=list
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +63,9 @@ class EpisodeResult:
             "failure_ledger": self.failure_ledger.to_dict()
             if self.failure_ledger is not None
             else None,
+            "counterfactual_recovery": [
+                record.to_dict() for record in self.counterfactual_recovery
+            ],
             "steps": [step.to_dict() for step in self.steps],
         }
 

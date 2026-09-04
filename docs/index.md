@@ -26,6 +26,7 @@ Start here:
 - [Pairwise evaluation protocol](pairwise_evaluation_protocol.md)
 - [VLA robustness protocol](vla_robustness_protocol.md)
 - [Failure and recovery metrics](failure_and_recovery_metrics.md)
+- [Counterfactual recovery](counterfactual_recovery.md)
 - [Real-to-sim roadmap](real_to_sim_roadmap.md)
 - [Reports](reports.md)
 - [Dataset export](dataset_export.md)

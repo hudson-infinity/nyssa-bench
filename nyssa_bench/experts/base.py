@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -79,6 +80,28 @@ class ExpertProvider:
     def close(self) -> None:
         return None
 
+    def get_state(self) -> Any:
+        return None
+
+    def set_state(self, state: Any) -> None:
+        if state is not None:
+            raise RuntimeError(
+                f"{self.__class__.__name__} does not support expert state restoration"
+            )
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return {
+            "supported": False,
+            "fidelity": "unsupported",
+            "captures_rng": False,
+            "exact": False,
+            "reason": "expert provider does not declare restorable internal state",
+        }
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        del seed
+        return False
+
     def drain_failure_events(self) -> list[FailureEventDraft | dict[str, Any]]:
         """Return and clear queued verifier or recovery event drafts."""
 
@@ -87,6 +110,9 @@ class ExpertProvider:
 
 class NoOpExpertProvider(ExpertProvider):
     provider_id = "none"
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return _stateless_restore_capability()
 
 
 class PolicyExpertProvider(ExpertProvider):
@@ -128,11 +154,34 @@ class PolicyExpertProvider(ExpertProvider):
         if callable(close):
             close()
 
+    def get_state(self) -> Any:
+        getter = getattr(self.policy, "get_state", None)
+        return getter() if callable(getter) else None
+
+    def set_state(self, state: Any) -> None:
+        setter = getattr(self.policy, "set_state", None)
+        if not callable(setter):
+            if state is not None:
+                raise RuntimeError("expert policy cannot restore captured state")
+            return
+        setter(state)
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        method = getattr(self.policy, "state_restore_capability", None)
+        return dict(method()) if callable(method) else super().state_restore_capability()
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        method = getattr(self.policy, "seed_branch_rng", None)
+        return bool(method(seed)) if callable(method) else False
+
 
 class BoundsVerifierExpertProvider(ExpertProvider):
     """Verifier that rejects actions that need clipping to fit the live action space."""
 
     provider_id = "bounds-verifier"
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return _stateless_restore_capability()
 
     def act(self, observation: dict[str, Any], *, task: Any, engine: Any | None = None) -> Any | None:
         low, high, shape = action_bounds(observation)
@@ -210,6 +259,15 @@ class ManiSkillScriptedExpertProvider(ExpertProvider):
 
     def metadata(self) -> dict[str, Any]:
         return {"provider_id": self.provider_id, "capabilities": ["act", "recover", "score_action"]}
+
+    def get_state(self) -> Any:
+        return self.controller.get_state()
+
+    def set_state(self, state: Any) -> None:
+        self.controller.set_state(state)
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return self.controller.state_restore_capability()
 
 
 class MuJoCoHeuristicExpertProvider(ExpertProvider):
@@ -316,6 +374,45 @@ class MuJoCoHeuristicExpertProvider(ExpertProvider):
             self._rng = np.random.default_rng(self.random_seed if seed is None else self.random_seed + int(seed))
         except Exception:
             self._rng = None
+
+    def get_state(self) -> dict[str, Any]:
+        rng_state = None
+        if self._rng is not None and hasattr(self._rng, "bit_generator"):
+            rng_state = copy.deepcopy(self._rng.bit_generator.state)
+        return {
+            "rng_state": rng_state,
+            "last_plan_details": copy.deepcopy(self.last_plan_details),
+            "last_recovery_details": copy.deepcopy(self.last_recovery_details),
+        }
+
+    def set_state(self, state: Any) -> None:
+        if not isinstance(state, dict):
+            raise TypeError("MuJoCo expert state must be a mapping")
+        rng_state = state.get("rng_state")
+        if rng_state is None:
+            self._rng = None
+        else:
+            import numpy as np
+
+            self._rng = np.random.default_rng()
+            self._rng.bit_generator.state = copy.deepcopy(rng_state)
+        self.last_plan_details = copy.deepcopy(state.get("last_plan_details"))
+        self.last_recovery_details = copy.deepcopy(state.get("last_recovery_details"))
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return {
+            "supported": True,
+            "fidelity": "exact_mujoco_expert_rng_and_cache",
+            "captures_rng": True,
+            "exact": True,
+            "reason": None,
+        }
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        import numpy as np
+
+        self._rng = np.random.default_rng(int(seed))
+        return True
 
     def act(self, observation: dict[str, Any], *, task: Any, engine: Any | None = None) -> Any | None:
         if engine is not None:
@@ -881,6 +978,16 @@ def _prod(values: tuple[int, ...]) -> int:
     for value in values:
         total *= int(value)
     return total
+
+
+def _stateless_restore_capability() -> dict[str, Any]:
+    return {
+        "supported": True,
+        "fidelity": "exact_declared_stateless",
+        "captures_rng": False,
+        "exact": True,
+        "reason": None,
+    }
 
 
 def _parse_float_list(value: str, *, default: list[float]) -> list[float]:

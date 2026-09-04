@@ -130,6 +130,16 @@ METRIC_DEFINITIONS = (
         "proportion_points",
     ),
     MetricDefinition(
+        "counterfactual_branch_coverage",
+        "eligible applied recovery decisions",
+        "eligible branch points",
+        "branch points with at least one valid matched pair divided by eligible branch points",
+        "unsupported, skipped, and incomplete branch points remain in the denominator",
+        "higher",
+        "none; numerator and denominator are reported",
+        "proportion",
+    ),
+    MetricDefinition(
         "expert_intervention_rate",
         "executed policy steps",
         "executed steps",
@@ -148,6 +158,36 @@ METRIC_DEFINITIONS = (
         "lower",
         "Wilson 95% binomial interval",
         "proportion",
+    ),
+    MetricDefinition(
+        "harmful_intervention_rate",
+        "interventions with a valid matched continuation and recovery outcome",
+        "counterfactually evaluated interventions",
+        "interventions where continuation succeeds and recovery fails divided by evaluated interventions",
+        "not applicable without matched counterfactual evidence",
+        "lower",
+        "Wilson 95% binomial interval",
+        "proportion",
+    ),
+    MetricDefinition(
+        "mean_intervention_cost_steps",
+        "valid matched continuation and recovery outcomes",
+        "matched branch pairs",
+        "mean recovery steps minus continuation steps",
+        "not applicable without matched counterfactual evidence",
+        "lower",
+        "normal-approximation 95% interval over matched pairs",
+        "steps",
+    ),
+    MetricDefinition(
+        "mean_intervention_plan_actions",
+        "valid matched recovery outcomes",
+        "matched branch pairs",
+        "mean number of proposed recovery-plan actions at the branch point",
+        "not applicable without matched counterfactual evidence",
+        "lower",
+        "normal-approximation 95% interval over matched pairs",
+        "actions",
     ),
     MetricDefinition(
         "safety_violation_rate",
@@ -256,23 +296,29 @@ def build_metric_vector(
             absence_status="not_applicable",
             absence_reason="no calibrated failure-monitor predictions",
         ),
-        "counterfactual_recovery_gain": _optional_metric_measurement(
+        "counterfactual_recovery_gain": _counterfactual_measurement(
             summary,
             "counterfactual_recovery_gain",
-            absence_status="not_applicable",
-            absence_reason="no matched counterfactual recovery branches",
+        ),
+        "counterfactual_branch_coverage": _counterfactual_measurement(
+            summary, "counterfactual_branch_coverage"
         ),
         "expert_intervention_rate": _pooled_step_rate(
             episodes,
             count_key="expert_intervention_count",
             absence_reason="step-level intervention evidence is unavailable",
         ),
-        "false_intervention_rate": _optional_count_rate(
-            episodes,
-            numerator_key="false_intervention_count",
-            denominator_key="counterfactual_intervention_count",
-            absence_status="not_applicable",
-            absence_reason="no counterfactually evaluated interventions",
+        "false_intervention_rate": _counterfactual_measurement(
+            summary, "false_intervention_rate"
+        ),
+        "harmful_intervention_rate": _counterfactual_measurement(
+            summary, "harmful_intervention_rate"
+        ),
+        "mean_intervention_cost_steps": _counterfactual_measurement(
+            summary, "mean_intervention_cost_steps"
+        ),
+        "mean_intervention_plan_actions": _counterfactual_measurement(
+            summary, "mean_intervention_plan_actions"
         ),
         "safety_violation_rate": _episode_indicator_rate(
             episodes,
@@ -749,6 +795,53 @@ def _optional_metric_measurement(
         "numerator": None,
         "denominator": int(summary.get("episodes", 0) or 0),
         "source": "aggregate_episode_metrics",
+        "reason": None,
+    }
+
+
+def _counterfactual_measurement(
+    summary: Mapping[str, Any], metric_id: str
+) -> dict[str, Any]:
+    evidence = _mapping(summary.get("counterfactual_recovery"))
+    if not evidence or evidence.get("requested") is not True:
+        return _missing(
+            "not_applicable", "counterfactual recovery evaluation was not requested"
+        )
+    metrics = _mapping(evidence.get("metrics")) or {}
+    value = _finite_float(metrics.get(metric_id))
+    if value is None:
+        return _missing(
+            "unavailable",
+            "no valid matched counterfactual recovery branches",
+            sample_size=int(evidence.get("matched_branch_points", 0) or 0),
+        )
+    intervals = _mapping(evidence.get("metric_ci95")) or {}
+    matched_pairs = int(evidence.get("matched_pairs", 0) or 0)
+    matched_points = int(evidence.get("matched_branch_points", 0) or 0)
+    if metric_id == "counterfactual_branch_coverage":
+        coverage = _mapping(evidence.get("coverage")) or {}
+        sample_size = int(coverage.get("denominator", 0) or 0)
+        numerator: float | int | None = int(coverage.get("numerator", 0) or 0)
+        denominator: float | int | None = sample_size
+    else:
+        sample_size = (
+            matched_points
+            if metric_id == "counterfactual_recovery_gain"
+            else matched_pairs
+        )
+        numerator = None
+        denominator = matched_pairs
+    return {
+        "status": "available",
+        "value": value,
+        "ci95": _interval(intervals.get(metric_id)),
+        "sample_size": sample_size,
+        "numerator": numerator,
+        "denominator": denominator,
+        "matched_pairs": matched_pairs,
+        "matched_branch_points": matched_points,
+        "source": str(evidence.get("format", "counterfactual_recovery")),
+        "claim_tier": evidence.get("claim_tier"),
         "reason": None,
     }
 

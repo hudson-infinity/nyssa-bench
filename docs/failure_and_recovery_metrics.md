@@ -52,6 +52,11 @@ Attempt outcomes are `success`, `not_applied`, `superseded`, `window_expired`,
 `episode_terminated`, `episode_truncated`, or `episode_ended`. Eventual episode
 success outside the window does not relabel an earlier recovery as successful.
 
+These bounded outcomes are temporal attribution diagnostics, not causal
+effects. Use the matched state-fork protocol in
+[Counterfactual Recovery](counterfactual_recovery.md) to estimate recovery gain
+against continuation from the same simulator state.
+
 ## Aggregate Metrics
 
 Reports should include:
@@ -61,6 +66,10 @@ Reports should include:
 - recovery attempt, applied, successful, failed, and not-applied counts
 - recovery success rate over applied attempts
 - recovery episode success rate over episodes with applied recovery
+- counterfactual recovery gain with matched-pair and branch-point denominators
+- exact, qualified, unsupported, and incomplete branch coverage
+- false, helpful, harmful, and safety-harmful intervention rates
+- recovery-minus-continuation step and reward costs
 - mean steps before failure
 - mean steps to recovery
 - drop rate
