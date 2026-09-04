@@ -51,6 +51,7 @@ class Report:
         failure_event_summary = self.summary.get("failure_event_summary", {})
         failure_detector_summary = self.summary.get("failure_detector_summary", {})
         counterfactual_recovery = self.summary.get("counterfactual_recovery", {})
+        benchmark_validity = self.summary.get("benchmark_validity", {})
         metric_vector = self.summary.get("metric_vector", {})
         scenario = self.summary.get("scenario", {})
         per_task = self.summary.get("per_task", {})
@@ -90,6 +91,9 @@ class Report:
 
   <h2>Public-Claim Validation</h2>
   {_validation_table(validation)}
+
+  <h2>Benchmark Validity</h2>
+  {_benchmark_validity_table(benchmark_validity)}
 
   <h2>Per-Task Results</h2>
   {_per_task_table(per_task)}
@@ -363,6 +367,36 @@ def _failure_timeline_table(run_dir: Path | None, *, limit: int = 60) -> str:
         "<th>Provenance</th><th>Evidence</th><th>Candidate parents</th>"
         "<th>Recovery</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table>"
+    )
+
+
+def _benchmark_validity_table(value: Any) -> str:
+    if not isinstance(value, dict):
+        return "<p>No benchmark-validity report attached.</p>"
+    audits = value.get("audits", [])
+    if not isinstance(audits, list):
+        return "<p>Invalid benchmark-validity report.</p>"
+    rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(item.get('audit_id', 'unknown')))}</td>"
+        f"<td>{html.escape(str(item.get('status', 'missing')))}</td>"
+        f"<td>{html.escape(str(item.get('severity', 'blocking')))}</td>"
+        f"<td>{html.escape(str(item.get('claim_impact', 'block')))}</td>"
+        f"<td>{html.escape(str(item.get('summary', '')))}</td>"
+        f"<td>{html.escape(str(item.get('remediation', '')))}</td>"
+        "</tr>"
+        for item in audits
+        if isinstance(item, dict)
+    )
+    heading = (
+        f"<p>Status: <strong>{html.escape(str(value.get('status', 'missing')))}</strong>; "
+        f"claim ready: {html.escape(str(value.get('claim_ready', False)))}</p>"
+    )
+    return (
+        heading
+        + "<table><thead><tr><th>Audit</th><th>Status</th><th>Severity</th>"
+        "<th>Claim impact</th><th>Summary</th><th>Remediation</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
     )
 
 

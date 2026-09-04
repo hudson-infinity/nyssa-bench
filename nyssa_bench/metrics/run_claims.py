@@ -8,6 +8,7 @@ from nyssa_bench.core.episode import EpisodeResult
 from nyssa_bench.core.suite import Suite
 from nyssa_bench.core.task import TaskSpec
 from nyssa_bench.metrics.vector import sim_real_metrics_are_supported
+from nyssa_bench.validity.protocol import BenchmarkValidityReport
 
 
 PUBLIC_CLAIM_ENGINES = {"maniskill", "mujoco"}
@@ -23,6 +24,7 @@ class RunClaimValidation:
     checks: dict[str, bool]
     failures: list[str]
     warnings: list[str]
+    benchmark_validity: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -32,6 +34,7 @@ class RunClaimValidation:
             "checks": self.checks,
             "failures": self.failures,
             "warnings": self.warnings,
+            "benchmark_validity": self.benchmark_validity,
         }
 
 
@@ -52,7 +55,9 @@ class RunClaimValidator:
         metric_vector: dict[str, Any] | None = None,
         scenario_validation: dict[str, Any] | None = None,
         real_evidence_validation: dict[str, Any] | None = None,
+        benchmark_validity: BenchmarkValidityReport | dict[str, Any] | None = None,
     ) -> RunClaimValidation:
+        benchmark_validity_payload = _benchmark_validity_payload(benchmark_validity)
         checks = {
             "supported_real_simulator_backend": engine_name in PUBLIC_CLAIM_ENGINES,
             "non_experimental_backend": engine_name not in EXPERIMENTAL_ENGINES,
@@ -87,6 +92,19 @@ class RunClaimValidator:
             or bool(scenario_validation.get("claim_ready", False)),
             "real_evidence_claim_ready": real_evidence_validation is None
             or bool(real_evidence_validation.get("claim_ready", False)),
+            "benchmark_validity_present": benchmark_validity_payload is not None,
+            "benchmark_validity_claim_ready": bool(
+                (benchmark_validity_payload or {}).get("claim_ready", False)
+            ),
+            "benchmark_validity_matches_suite": bool(
+                benchmark_validity_payload
+                and benchmark_validity_payload.get("benchmark_id") == suite.suite_id
+            ),
+            "benchmark_validity_identity_present": bool(
+                benchmark_validity_payload
+                and benchmark_validity_payload.get("spec_sha256")
+                and benchmark_validity_payload.get("report_sha256")
+            ),
         }
         failures = [name for name, passed in checks.items() if not passed]
         warnings = _warnings(suite.tasks, engine_name)
@@ -96,6 +114,9 @@ class RunClaimValidator:
             status = "validated"
         elif engine_name in EXPERIMENTAL_ENGINES:
             tier = "experimental_contract_only"
+            status = "not_public"
+        elif (benchmark_validity_payload or {}).get("status") == "downgraded":
+            tier = "benchmark_validity_downgraded"
             status = "not_public"
         else:
             tier = "prototype"
@@ -107,7 +128,20 @@ class RunClaimValidator:
             checks=checks,
             failures=failures,
             warnings=warnings,
+            benchmark_validity=benchmark_validity_payload,
         )
+
+
+def _benchmark_validity_payload(
+    value: BenchmarkValidityReport | dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if isinstance(value, BenchmarkValidityReport):
+        return value.to_dict()
+    if not isinstance(value, dict):
+        raise TypeError("benchmark_validity must be a report or report mapping")
+    return BenchmarkValidityReport.from_dict(value).to_dict()
 
 
 def _has_explicit_mapping(task: TaskSpec, engine_name: str) -> bool:

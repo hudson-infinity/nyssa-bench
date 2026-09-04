@@ -84,6 +84,14 @@ from nyssa_bench.stressors import (
     load_robustness_sweep,
     save_robustness_report,
 )
+from nyssa_bench.validity import (
+    BENCHMARK_VALIDITY_REPORT_FORMAT,
+    BENCHMARK_VALIDITY_SPEC_FORMAT,
+    BenchmarkValidityEvaluator,
+    load_benchmark_validity_report,
+    load_benchmark_validity_spec,
+    write_benchmark_validity_report,
+)
 
 
 def _add_counterfactual_arguments(parser: argparse.ArgumentParser) -> None:
@@ -122,6 +130,10 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("list-policies")
     subparsers.add_parser("list-stressors")
 
+    benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
+    benchmark_audit_parser.add_argument("spec")
+    benchmark_audit_parser.add_argument("--out", required=True)
+
     scenario_validate_parser = subparsers.add_parser("validate-scenario")
     scenario_validate_parser.add_argument("scenario")
     scenario_validate_parser.add_argument("--engine")
@@ -143,6 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     scenario_run_parser.add_argument("--expert-provider", default="none")
     scenario_run_parser.add_argument("--enable-recovery", action="store_true")
     scenario_run_parser.add_argument("--enable-verifier", action="store_true")
+    scenario_run_parser.add_argument("--benchmark-validity")
     scenario_run_parser.add_argument("--policy-action-horizon", type=int, default=1)
     scenario_run_parser.add_argument("--policy-execution-horizon", type=int, default=1)
 
@@ -182,6 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
     run_parser.add_argument("--stressor-config")
+    run_parser.add_argument("--benchmark-validity")
     _add_counterfactual_arguments(run_parser)
 
     report_parser = subparsers.add_parser("report")
@@ -266,6 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
     experiment_parser.add_argument("--stressor-config")
+    experiment_parser.add_argument("--benchmark-validity")
     _add_counterfactual_arguments(experiment_parser)
 
     ablate_parser = subparsers.add_parser("ablate")
@@ -294,6 +309,7 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
     ablate_parser.add_argument("--stressor-config")
+    ablate_parser.add_argument("--benchmark-validity")
     _add_counterfactual_arguments(ablate_parser)
 
     train_bc_parser = subparsers.add_parser("train-bc")
@@ -410,6 +426,14 @@ def main(argv: list[str] | None = None) -> int:
             print(stressor)
         return 0
 
+    if args.command == "audit-benchmark":
+        spec = load_benchmark_validity_spec(args.spec)
+        report = BenchmarkValidityEvaluator().evaluate(spec)
+        path = write_benchmark_validity_report(report, args.out)
+        print(f"benchmark_validity: {path}")
+        print(f"status: {report.status}")
+        return 0 if report.claim_ready else 2
+
     if args.command == "validate-scenario":
         package = ScenarioPackage.load(args.scenario)
         validation = ScenarioPackageValidator().validate(
@@ -474,6 +498,7 @@ def main(argv: list[str] | None = None) -> int:
             counterfactual_max_branch_points=args.counterfactual_max_branch_points,
             stressor_config=stressor_config,
             scenario_context=context,
+            benchmark_validity=args.benchmark_validity,
         )
         report = runner.evaluate(suite)
         print(f"scenario: {package.identity}")
@@ -522,6 +547,7 @@ def main(argv: list[str] | None = None) -> int:
             counterfactual_oracle=args.counterfactual_oracle,
             counterfactual_max_branch_points=args.counterfactual_max_branch_points,
             stressor_config=args.stressor_config,
+            benchmark_validity=args.benchmark_validity,
         )
         report = runner.evaluate(suite)
         print(f"report: {Path(args.out) / 'report.html'}")
@@ -900,6 +926,7 @@ def _matrix_policy_runner(
         ),
         counterfactual_max_branch_points=args.counterfactual_max_branch_points,
         stressor_config=args.stressor_config,
+        benchmark_validity=args.benchmark_validity,
     )
 
 
@@ -1009,6 +1036,12 @@ def _validate_target(target: str) -> None:
             return
         if data.get("format") == COUNTERFACTUAL_RECOVERY_MANIFEST_FORMAT:
             load_counterfactual_recovery_manifest(path)
+            return
+        if data.get("format") == BENCHMARK_VALIDITY_SPEC_FORMAT:
+            load_benchmark_validity_spec(path)
+            return
+        if data.get("format") == BENCHMARK_VALIDITY_REPORT_FORMAT:
+            load_benchmark_validity_report(path)
             return
         if "tasks" in data:
             Suite.load(path)
