@@ -13,6 +13,23 @@ class RandomPolicy(Policy):
     def reset(self, task: Any | None = None, seed: int | None = None) -> None:
         self.rng.seed(seed)
 
+    def get_state(self) -> object:
+        return self.rng.getstate()
+
+    def set_state(self, state: Any) -> None:
+        self.rng.setstate(state)
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return {
+            "supported": True,
+            "fidelity": "exact_policy_rng",
+            "reason": None,
+        }
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        self.rng.seed(int(seed))
+        return True
+
     def act(self, observation: dict[str, Any]) -> Any:
         action_space = observation.get("action_space")
         if isinstance(action_space, dict):

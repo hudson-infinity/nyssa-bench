@@ -111,6 +111,19 @@ class Stressor(ABC):
         if isinstance(runtime, dict):
             self.restore_runtime_state(runtime, engine=engine)
 
+    def seed_branch_rng(self, seed: int) -> bool:
+        self.rng = np.random.default_rng(int(seed))
+        return True
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return {
+            "supported": True,
+            "fidelity": "exact_stressor_runtime",
+            "captures_rng": True,
+            "exact": True,
+            "reason": None,
+        }
+
     def restore_runtime_state(
         self, state: dict[str, Any], *, engine: Any | None = None
     ) -> None:

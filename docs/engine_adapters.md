@@ -177,15 +177,16 @@ written. A `--no-replay` smoke run is not public replay evidence.
 
 ### `get_state()`
 
-Return a serializable privileged snapshot for diagnostics, expert/recovery
-planning, or future branch evaluation. At minimum document exactly what is and
+Return a restorable privileged snapshot for diagnostics, expert/recovery
+planning, or branch evaluation. At minimum document exactly what is and
 is not included. A dictionary containing only time is not a full state snapshot.
 
 State capture must not mutate the simulator and must not leak into policy input.
-When the adapter claims restoration, provide `set_state(state)` even though it
-is not yet an abstract base method. Restore robot/object/articulation/controller
-and RNG state, then return a refreshed wrapped observation. Test round-trip and
-next-transition equivalence.
+When the adapter claims restoration, provide `set_state(state)` and
+`state_restore_capability()`. Restore robot/object/articulation/controller,
+wrapper counters, and RNG state, then return a refreshed wrapped observation.
+Test round-trip and next-transition equivalence. Implement `seed_branch_rng()`
+when independent matched repeats can be generated without resetting physics.
 
 ### `close()`
 
@@ -261,8 +262,8 @@ Use [Installation](installation.md) for system rendering packages and
 
 | Engine | Executable robot selection | Controller/observation selection | Current state capability |
 | --- | --- | --- | --- |
-| ManiSkill | `success.robot_uids` or environment default | `success.control_mode`, `success.obs_mode`, render/backend/device fields | Capture and structured/flat restore |
-| MuJoCo | Robot/model owned by `success.engine_env_ids.mujoco` | Environment ID; Nyssa passes render mode | Time-only capture, no adapter restore |
+| ManiSkill | `success.robot_uids` or environment default | `success.control_mode`, `success.obs_mode`, render/backend/device fields | Structured/flat restore with controller, wrapper, and discovered RNG state |
+| MuJoCo | Robot/model owned by `success.engine_env_ids.mujoco` | Environment ID; Nyssa passes render mode | Integration-state restore with environment RNG and wrapper counters; qualified manual fallback |
 | RoboCasa | `task.robot` passed unchanged to robosuite, or factory-owned | Upstream/factory contract | Experimental capture-only |
 | Genesis | Factory receives complete task spec | Factory contract | Experimental capture-only |
 
@@ -358,14 +359,16 @@ privileged simulator evidence separate from policy-visible observations.
 claim state-aligned replay or counterfactual recovery also need a tested
 `set_state` path and refreshed observation.
 
-ManiSkill currently unwraps common `raw`, `env_states`, `states`, or `state`
-containers, sends dictionaries to `set_state_dict` where available, otherwise
-uses `set_state`, and refreshes observations through `get_obs`/`_get_obs`.
+ManiSkill prefers a matched `get_state_dict`/`set_state_dict` pair and records
+controller state, wrapper counters, and discovered main/episode RNG objects.
+Flat state remains a qualified fallback. MuJoCo uses `mjSTATE_INTEGRATION` where
+available, including warm-start and applied-force state, plus Gym wrapper
+counters and environment RNG state. Its manual `qpos`/`qvel` path is explicitly
+qualified. RoboCasa and Genesis remain capture-only until full
+robot/object/controller/RNG round-trip tests exist.
 
-MuJoCo currently returns only simulator time and has no `MuJoCoEngine.set_state`.
-RoboCasa and Genesis delegate capture where available but have no adapter restore.
-Mark these paths capture-only until full robot/object/controller/RNG round-trip
-tests exist.
+See [Counterfactual Recovery](counterfactual_recovery.md) for branch evidence,
+claim grades, and third-party component requirements.
 
 ## Compatibility Errors
 

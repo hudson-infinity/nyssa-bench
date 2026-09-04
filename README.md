@@ -199,6 +199,33 @@ uv run nyssa run \
   --no-replay
 ```
 
+To measure whether recovery changes the outcome, add matched state-fork
+branches. This is opt-in because it executes extra simulator trajectories:
+
+```bash
+uv run nyssa run \
+  --suite mujoco_control_v0 \
+  --tasks mujoco_pusher \
+  --engine mujoco \
+  --policy random \
+  --episodes 20 \
+  --seed 0 \
+  --expert-provider mujoco-heuristic \
+  --enable-verifier \
+  --enable-recovery \
+  --counterfactual-repeats 5 \
+  --counterfactual-horizon 10 \
+  --counterfactual-max-branch-points 1 \
+  --out benchmark_results/mujoco_counterfactual_smoke \
+  --no-replay
+```
+
+The run writes `counterfactual_recovery.json` with matched continuation and
+recovery outcomes, restoration fidelity, RNG matching, coverage, uncertainty,
+false interventions, harmful interventions, and intervention cost. See the
+[counterfactual recovery protocol](docs/counterfactual_recovery.md) before
+interpreting qualified or unsupported branch evidence.
+
 Use `nyssa robustness-report` on matched severity result packs to produce clean
 and shifted success, degradation, robustness AUC, Wilson intervals, and paired
 bootstrap uncertainty. See [the Stressor Protocol](docs/stressor_protocol.md)

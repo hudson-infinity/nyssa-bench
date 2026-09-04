@@ -49,7 +49,16 @@ from nyssa_bench.real_evidence import (
     RealEvidenceValidator,
     write_real_evidence_artifacts,
 )
-from nyssa_bench.runner import DEFAULT_RECOVERY_ATTRIBUTION_HORIZON, PolicyRunner
+from nyssa_bench.recovery import (
+    COUNTERFACTUAL_RECOVERY_MANIFEST_FORMAT,
+    load_counterfactual_recovery_manifest,
+)
+from nyssa_bench.runner import (
+    DEFAULT_COUNTERFACTUAL_HORIZON,
+    DEFAULT_COUNTERFACTUAL_MAX_BRANCH_POINTS,
+    DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
+    PolicyRunner,
+)
 from nyssa_bench.scenarios import (
     SCENARIO_PACKAGE_FORMAT,
     ScenarioPackage,
@@ -69,6 +78,32 @@ from nyssa_bench.stressors import (
     load_robustness_sweep,
     save_robustness_report,
 )
+
+
+def _add_counterfactual_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--counterfactual-repeats",
+        type=int,
+        default=0,
+        help="run this many matched continuation/recovery trials at each sampled recovery decision",
+    )
+    parser.add_argument(
+        "--counterfactual-horizon",
+        type=int,
+        default=DEFAULT_COUNTERFACTUAL_HORIZON,
+        help="maximum steps to execute in each counterfactual branch",
+    )
+    parser.add_argument(
+        "--counterfactual-oracle",
+        action="store_true",
+        help="also execute a matched expert/oracle branch when expert state is restorable",
+    )
+    parser.add_argument(
+        "--counterfactual-max-branch-points",
+        type=int,
+        default=DEFAULT_COUNTERFACTUAL_MAX_BRANCH_POINTS,
+        help="maximum recovery decisions to branch from per episode",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,9 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     scenario_run_parser.add_argument("--enable-recovery", action="store_true")
     scenario_run_parser.add_argument("--enable-verifier", action="store_true")
     scenario_run_parser.add_argument("--policy-action-horizon", type=int, default=1)
-    scenario_run_parser.add_argument(
-        "--policy-execution-horizon", type=int, default=1
-    )
+    scenario_run_parser.add_argument("--policy-execution-horizon", type=int, default=1)
 
     real_validate_parser = subparsers.add_parser("validate-real-evidence")
     real_validate_parser.add_argument("package")
@@ -120,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
+    _add_counterfactual_arguments(scenario_run_parser)
 
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--suite", required=True)
@@ -142,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
     run_parser.add_argument("--stressor-config")
+    _add_counterfactual_arguments(run_parser)
 
     report_parser = subparsers.add_parser("report")
     report_parser.add_argument("run")
@@ -225,6 +260,7 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
     experiment_parser.add_argument("--stressor-config")
+    _add_counterfactual_arguments(experiment_parser)
 
     ablate_parser = subparsers.add_parser("ablate")
     ablate_parser.add_argument("--suite", required=True)
@@ -252,6 +288,7 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
     ablate_parser.add_argument("--stressor-config")
+    _add_counterfactual_arguments(ablate_parser)
 
     train_bc_parser = subparsers.add_parser("train-bc")
     train_bc_parser.add_argument("episodes", nargs="+")
@@ -425,6 +462,10 @@ def main(argv: list[str] | None = None) -> int:
             policy_action_horizon=args.policy_action_horizon,
             policy_execution_horizon=args.policy_execution_horizon,
             recovery_attribution_horizon=args.recovery_attribution_horizon,
+            counterfactual_repeats=args.counterfactual_repeats,
+            counterfactual_horizon=args.counterfactual_horizon,
+            counterfactual_oracle=args.counterfactual_oracle,
+            counterfactual_max_branch_points=args.counterfactual_max_branch_points,
             stressor_config=stressor_config,
             scenario_context=context,
         )
@@ -470,6 +511,10 @@ def main(argv: list[str] | None = None) -> int:
             policy_action_horizon=args.policy_action_horizon,
             policy_execution_horizon=args.policy_execution_horizon,
             recovery_attribution_horizon=args.recovery_attribution_horizon,
+            counterfactual_repeats=args.counterfactual_repeats,
+            counterfactual_horizon=args.counterfactual_horizon,
+            counterfactual_oracle=args.counterfactual_oracle,
+            counterfactual_max_branch_points=args.counterfactual_max_branch_points,
             stressor_config=args.stressor_config,
         )
         report = runner.evaluate(suite)
@@ -710,6 +755,10 @@ def _run_experiment(args: argparse.Namespace) -> dict[str, Path]:
                 policy_action_horizon=args.policy_action_horizon,
                 policy_execution_horizon=args.policy_execution_horizon,
                 recovery_attribution_horizon=args.recovery_attribution_horizon,
+                counterfactual_repeats=args.counterfactual_repeats,
+                counterfactual_horizon=args.counterfactual_horizon,
+                counterfactual_oracle=args.counterfactual_oracle,
+                counterfactual_max_branch_points=args.counterfactual_max_branch_points,
                 stressor_config=args.stressor_config,
             )
             runner.evaluate(suite)
@@ -794,6 +843,14 @@ def _run_ablation(args: argparse.Namespace) -> dict[str, Path]:
                 policy_action_horizon=args.policy_action_horizon,
                 policy_execution_horizon=args.policy_execution_horizon,
                 recovery_attribution_horizon=args.recovery_attribution_horizon,
+                counterfactual_repeats=(
+                    args.counterfactual_repeats if enable_recovery else 0
+                ),
+                counterfactual_horizon=args.counterfactual_horizon,
+                counterfactual_oracle=(
+                    args.counterfactual_oracle if enable_recovery else False
+                ),
+                counterfactual_max_branch_points=args.counterfactual_max_branch_points,
                 stressor_config=args.stressor_config,
             )
             runner.evaluate(suite)
@@ -955,6 +1012,9 @@ def _validate_target(target: str) -> None:
             return
         if data.get("format") == STRESSOR_CONFIG_FORMAT:
             StressorConfig.from_dict(data)
+            return
+        if data.get("format") == COUNTERFACTUAL_RECOVERY_MANIFEST_FORMAT:
+            load_counterfactual_recovery_manifest(path)
             return
         if "tasks" in data:
             Suite.load(path)

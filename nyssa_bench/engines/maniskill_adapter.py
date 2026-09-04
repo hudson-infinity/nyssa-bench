@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 from typing import Any
 
@@ -62,9 +63,68 @@ class ManiSkillEngine(NyssaEngine):
         return self.env.render()
 
     def get_state(self) -> dict[str, Any]:
-        if self.env is not None and hasattr(self.env, "get_state"):
-            return {"raw": self.env.get_state()}
-        return {}
+        target = getattr(self.env, "unwrapped", self.env)
+        if target is not None and all(
+            hasattr(target, name) for name in ("get_state_dict", "set_state_dict")
+        ):
+            kind = "state_dict"
+            raw = target.get_state_dict()
+        elif target is not None and all(
+            hasattr(target, name) for name in ("get_state", "set_state")
+        ):
+            kind = "flat_state"
+            raw = target.get_state()
+        else:
+            return {}
+        return {
+            "kind": kind,
+            "raw": raw,
+            "rng": _capture_maniskill_rng_state(target),
+            "elapsed_steps": _capture_wrapper_elapsed_steps(self.env),
+            "controller": _capture_controller_state(target),
+        }
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        target = getattr(self.env, "unwrapped", self.env)
+        state_dict_supported = target is not None and all(
+            hasattr(target, name) for name in ("get_state_dict", "set_state_dict")
+        )
+        flat_state_supported = target is not None and all(
+            hasattr(target, name) for name in ("get_state", "set_state")
+        )
+        supported = state_dict_supported or flat_state_supported
+        captures_rng = bool(target is not None and _maniskill_rng_attributes(target))
+        controller_supported = bool(
+            target is not None and _controller_restore_supported(target)
+        )
+        exact = bool(state_dict_supported and captures_rng and controller_supported)
+        return {
+            "supported": supported,
+            "fidelity": (
+                "exact_maniskill_state_dict_and_rng"
+                if exact
+                else "qualified_maniskill_state"
+                if supported
+                else "unsupported"
+            ),
+            "captures_rng": captures_rng,
+            "exact": exact,
+            "reason": None
+            if exact
+            else "ManiSkill restoration lacks a state-dict pair, controller state, or discoverable episode RNG state"
+            if supported
+            else "loaded ManiSkill environment exposes no matching state restoration API",
+        }
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        target = getattr(self.env, "unwrapped", self.env)
+        if target is None:
+            return False
+        setter = getattr(target, "_set_episode_rng", None)
+        if callable(setter):
+            setter(int(seed))
+            return True
+        return _seed_numpy_rng_attributes(target, int(seed))
 
     def failure_signal_capabilities(
         self, *, info: dict[str, Any] | None = None
@@ -76,15 +136,33 @@ class ManiSkillEngine(NyssaEngine):
     def set_state(self, state: Any) -> dict[str, Any] | None:
         self._require_env()
         target = getattr(self.env, "unwrapped", self.env)
-        state_payload = _to_numpy_state(state)
-        if isinstance(state_payload, dict) and hasattr(target, "set_state_dict"):
+        branch_state = state if isinstance(state, dict) and "kind" in state else None
+        state_payload = _to_numpy_state(
+            branch_state.get("raw") if branch_state is not None else state
+        )
+        kind = branch_state.get("kind") if branch_state is not None else None
+        if kind == "state_dict" and hasattr(target, "set_state_dict"):
             target.set_state_dict(state_payload)
-        elif hasattr(target, "set_state"):
+        elif kind == "flat_state" and hasattr(target, "set_state"):
+            target.set_state(state_payload)
+        elif (
+            kind is None
+            and isinstance(state_payload, dict)
+            and hasattr(target, "set_state_dict")
+        ):
+            target.set_state_dict(state_payload)
+        elif kind is None and hasattr(target, "set_state"):
             target.set_state(state_payload)
         else:
             raise RuntimeError(
-                "Loaded ManiSkill environment does not support state restore."
+                f"Loaded ManiSkill environment cannot restore state kind {kind!r}."
             )
+        if branch_state is not None:
+            _restore_maniskill_rng_state(target, branch_state.get("rng", {}))
+            _restore_wrapper_elapsed_steps(
+                self.env, branch_state.get("elapsed_steps", [])
+            )
+            _restore_controller_state(target, branch_state.get("controller"))
         observation = _get_observation_after_state_restore(self.env)
         return (
             wrap_observation(self.env, observation) if observation is not None else None
@@ -309,8 +387,148 @@ def _get_observation_after_state_restore(env: Any) -> Any | None:
             try:
                 return method()
             except TypeError:
-                continue
+                get_info = getattr(target, "get_info", None)
+                if callable(get_info):
+                    try:
+                        return method(get_info())
+                    except TypeError:
+                        continue
     return None
+
+
+_MANISKILL_RNG_ATTRIBUTES = (
+    "_main_rng",
+    "_batched_main_rng",
+    "_episode_rng",
+    "_batched_episode_rng",
+    "np_random",
+    "_np_random",
+    "_main_seed",
+    "_episode_seed",
+)
+
+
+def _maniskill_rng_attributes(target: Any) -> tuple[str, ...]:
+    return tuple(name for name in _MANISKILL_RNG_ATTRIBUTES if hasattr(target, name))
+
+
+def _capture_maniskill_rng_state(target: Any) -> dict[str, Any]:
+    state: dict[str, Any] = {}
+    for name in _maniskill_rng_attributes(target):
+        try:
+            state[name] = copy.deepcopy(getattr(target, name))
+        except Exception:
+            value = getattr(target, name)
+            bit_generator = getattr(value, "bit_generator", None)
+            if bit_generator is not None:
+                state[name] = {
+                    "kind": "numpy_bit_generator",
+                    "state": copy.deepcopy(bit_generator.state),
+                }
+    return state
+
+
+def _restore_maniskill_rng_state(target: Any, state: Any) -> None:
+    if not isinstance(state, dict):
+        raise ValueError("ManiSkill RNG state must be a mapping")
+    for name, value in state.items():
+        if isinstance(value, dict) and value.get("kind") == "numpy_bit_generator":
+            current = getattr(target, name, None)
+            bit_generator = getattr(current, "bit_generator", None)
+            if bit_generator is None:
+                raise RuntimeError(f"ManiSkill RNG attribute {name!r} changed type")
+            bit_generator.state = copy.deepcopy(value["state"])
+        else:
+            setattr(target, name, copy.deepcopy(value))
+
+
+def _seed_numpy_rng_attributes(target: Any, seed: int) -> bool:
+    seeded = False
+    for name in ("np_random", "_np_random", "_main_rng", "_episode_rng"):
+        value = getattr(target, name, None)
+        bit_generator = getattr(value, "bit_generator", None)
+        if bit_generator is None:
+            continue
+        bit_generator.state = copy.deepcopy(
+            __import__("numpy").random.default_rng(seed).bit_generator.state
+        )
+        seeded = True
+    return seeded
+
+
+def _wrapper_chain(env: Any) -> list[Any]:
+    chain: list[Any] = []
+    seen: set[int] = set()
+    current = env
+    while current is not None and id(current) not in seen:
+        chain.append(current)
+        seen.add(id(current))
+        current = getattr(current, "env", None)
+    return chain
+
+
+def _capture_wrapper_elapsed_steps(env: Any) -> list[Any]:
+    return [
+        copy.deepcopy(getattr(wrapper, "_elapsed_steps", None))
+        for wrapper in _wrapper_chain(env)
+    ]
+
+
+def _restore_wrapper_elapsed_steps(env: Any, values: Any) -> None:
+    if not isinstance(values, list):
+        raise ValueError("wrapper elapsed-step state must be a list")
+    chain = _wrapper_chain(env)
+    if len(chain) != len(values):
+        raise RuntimeError("ManiSkill wrapper chain changed after state capture")
+    for wrapper, value in zip(chain, values, strict=True):
+        if value is not None:
+            setattr(wrapper, "_elapsed_steps", copy.deepcopy(value))
+
+
+def _capture_controller_state(target: Any) -> Any:
+    controller = getattr(getattr(target, "agent", None), "controller", None)
+    if isinstance(controller, dict):
+        return {
+            key: copy.deepcopy(value.get_state())
+            for key, value in controller.items()
+            if callable(getattr(value, "get_state", None))
+        }
+    getter = getattr(controller, "get_state", None)
+    return copy.deepcopy(getter()) if callable(getter) else None
+
+
+def _controller_restore_supported(target: Any) -> bool:
+    controller = getattr(getattr(target, "agent", None), "controller", None)
+    if controller is None:
+        return True
+    if isinstance(controller, dict):
+        return all(
+            callable(getattr(item, "get_state", None))
+            and callable(getattr(item, "set_state", None))
+            for item in controller.values()
+        )
+    return callable(getattr(controller, "get_state", None)) and callable(
+        getattr(controller, "set_state", None)
+    )
+
+
+def _restore_controller_state(target: Any, state: Any) -> None:
+    if state is None:
+        return
+    controller = getattr(getattr(target, "agent", None), "controller", None)
+    if isinstance(controller, dict):
+        if not isinstance(state, dict):
+            raise ValueError("controller state must be a mapping")
+        for key, value in state.items():
+            setter = getattr(controller.get(key), "set_state", None)
+            if not callable(setter):
+                raise RuntimeError(f"controller {key!r} cannot restore state")
+            setter(copy.deepcopy(value))
+        return
+    setter = getattr(controller, "set_state", None)
+    if not callable(setter):
+        raise RuntimeError("ManiSkill controller cannot restore captured state")
+    setter(copy.deepcopy(state))
 
 
 def _maniskill_collision_materials(env: Any) -> list[tuple[Any, float, float]]:

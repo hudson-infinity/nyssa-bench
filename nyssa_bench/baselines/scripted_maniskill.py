@@ -28,6 +28,29 @@ class ManiSkillScriptedHeuristic:
         self.stage = 0
         self.close_steps = 0
 
+    def get_state(self) -> dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "stage": self.stage,
+            "close_steps": self.close_steps,
+        }
+
+    def set_state(self, state: dict[str, Any]) -> None:
+        if not isinstance(state, dict):
+            raise TypeError("scripted controller state must be a mapping")
+        self.task_id = str(state["task_id"])
+        self.stage = int(state["stage"])
+        self.close_steps = int(state["close_steps"])
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return {
+            "supported": True,
+            "fidelity": "exact_scripted_controller_state",
+            "captures_rng": False,
+            "exact": True,
+            "reason": None,
+        }
+
     def act(self, observation: dict[str, Any]) -> Any:
         low, high, shape = action_bounds(observation)
         size = int(np.prod(shape))

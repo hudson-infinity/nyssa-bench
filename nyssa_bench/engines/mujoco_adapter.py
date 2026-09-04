@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 from typing import Any
 
@@ -87,8 +88,125 @@ class MuJoCoEngine(NyssaEngine):
     def get_state(self) -> dict[str, Any]:
         target = getattr(self.env, "unwrapped", self.env)
         if target is not None and hasattr(target, "data"):
-            return {"time": float(getattr(target.data, "time", 0.0))}
+            data = target.data
+            state = {
+                "qpos": np.asarray(data.qpos).copy(),
+                "qvel": np.asarray(data.qvel).copy(),
+                "time": float(getattr(data, "time", 0.0)),
+                "episode_return": self.episode_return,
+                "elapsed_steps": self.elapsed_steps,
+                "wrapper_elapsed_steps": _capture_wrapper_elapsed_steps(self.env),
+            }
+            for name in (
+                "act",
+                "ctrl",
+                "mocap_pos",
+                "mocap_quat",
+                "userdata",
+                "qacc_warmstart",
+                "qfrc_applied",
+                "xfrc_applied",
+            ):
+                value = getattr(data, name, None)
+                if value is not None:
+                    state[name] = np.asarray(value).copy()
+            rng = getattr(target, "np_random", None)
+            if rng is not None and hasattr(rng, "bit_generator"):
+                state["env_rng_state"] = copy.deepcopy(rng.bit_generator.state)
+            integration_state = _capture_mujoco_integration_state(target)
+            if integration_state is not None:
+                state["integration_state"] = integration_state
+            return state
         return {}
+
+    def set_state(self, state: Any) -> dict[str, Any] | None:
+        self._require_env()
+        if not isinstance(state, dict) or not {"qpos", "qvel"} <= set(state):
+            raise ValueError("MuJoCo state requires qpos and qvel")
+        target = getattr(self.env, "unwrapped", self.env)
+        data = target.data
+        integration_state = state.get("integration_state")
+        if integration_state is not None:
+            _restore_mujoco_integration_state(target, integration_state)
+        else:
+            _restore_array(data.qpos, state["qpos"], name="qpos")
+            _restore_array(data.qvel, state["qvel"], name="qvel")
+            for name in (
+                "act",
+                "ctrl",
+                "mocap_pos",
+                "mocap_quat",
+                "userdata",
+                "qacc_warmstart",
+                "qfrc_applied",
+                "xfrc_applied",
+            ):
+                target_array = getattr(data, name, None)
+                if name in state and target_array is not None:
+                    _restore_array(target_array, state[name], name=name)
+            data.time = float(state.get("time", data.time))
+        self.episode_return = float(state.get("episode_return", 0.0))
+        self.elapsed_steps = int(state.get("elapsed_steps", 0))
+        _restore_wrapper_elapsed_steps(
+            self.env,
+            state.get("wrapper_elapsed_steps", [self.elapsed_steps]),
+        )
+        rng_state = state.get("env_rng_state")
+        rng = getattr(target, "np_random", None)
+        if rng_state is not None and rng is not None and hasattr(rng, "bit_generator"):
+            rng.bit_generator.state = copy.deepcopy(rng_state)
+        try:
+            import mujoco
+
+            if target.model is not None:
+                mujoco.mj_forward(target.model, data)
+        except ImportError:
+            pass
+        observation = _mujoco_observation(target)
+        return (
+            wrap_observation(self.env, observation) if observation is not None else None
+        )
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        target = getattr(self.env, "unwrapped", self.env)
+        supported = target is not None and all(
+            hasattr(target, name) for name in ("data", "model")
+        )
+        exact_integration = bool(
+            supported and _mujoco_integration_state_supported(target)
+        )
+        captures_rng = bool(
+            supported and hasattr(getattr(target, "np_random", None), "bit_generator")
+        )
+        exact = exact_integration and captures_rng
+        return {
+            "supported": supported,
+            "fidelity": (
+                "exact_mujoco_integration_state_and_rng"
+                if exact
+                else "qualified_mujoco_physics_state"
+                if supported
+                else "unsupported"
+            ),
+            "captures_rng": captures_rng,
+            "exact": exact,
+            "reason": None
+            if exact
+            else "MuJoCo integration-state API or environment RNG is unavailable"
+            if supported
+            else "MuJoCo model/data are unavailable",
+        }
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        target = getattr(self.env, "unwrapped", self.env)
+        rng = getattr(target, "np_random", None)
+        bit_generator = getattr(rng, "bit_generator", None)
+        if bit_generator is None:
+            return False
+        bit_generator.state = copy.deepcopy(
+            np.random.default_rng(int(seed)).bit_generator.state
+        )
+        return True
 
     def failure_signal_capabilities(
         self, *, info: dict[str, Any] | None = None
@@ -341,3 +459,94 @@ def _as_bool(value: Any) -> bool:
     if hasattr(value, "all"):
         return bool(value.all())
     return bool(value)
+
+
+def _mujoco_observation(target: Any) -> Any | None:
+    for name in ("_get_obs", "get_obs"):
+        method = getattr(target, name, None)
+        if callable(method):
+            try:
+                return method()
+            except TypeError:
+                continue
+    return None
+
+
+def _capture_mujoco_integration_state(target: Any) -> dict[str, Any] | None:
+    model = getattr(target, "model", None)
+    data = getattr(target, "data", None)
+    if model is None or data is None:
+        return None
+    try:
+        import mujoco
+
+        spec = mujoco.mjtState.mjSTATE_INTEGRATION
+        values = np.empty(mujoco.mj_stateSize(model, spec), dtype=np.float64)
+        mujoco.mj_getState(model, data, values, spec)
+    except (ImportError, AttributeError, TypeError, ValueError):
+        return None
+    return {"spec": int(spec), "values": values}
+
+
+def _restore_mujoco_integration_state(target: Any, state: Any) -> None:
+    if not isinstance(state, dict) or "spec" not in state or "values" not in state:
+        raise ValueError("MuJoCo integration state must contain spec and values")
+    try:
+        import mujoco
+    except ImportError as exc:
+        raise RuntimeError(
+            "MuJoCo is required to restore a captured integration state"
+        ) from exc
+    spec = mujoco.mjtState(int(state["spec"]))
+    values = np.asarray(state["values"], dtype=np.float64)
+    expected_size = mujoco.mj_stateSize(target.model, spec)
+    if values.shape != (expected_size,):
+        raise ValueError(
+            "MuJoCo integration state has shape "
+            f"{values.shape}; expected {(expected_size,)}"
+        )
+    mujoco.mj_setState(target.model, target.data, values, spec)
+
+
+def _mujoco_integration_state_supported(target: Any) -> bool:
+    return _capture_mujoco_integration_state(target) is not None
+
+
+def _restore_array(target: Any, value: Any, *, name: str) -> None:
+    source = np.asarray(value, dtype=target.dtype)
+    if source.shape != target.shape:
+        raise ValueError(
+            f"MuJoCo {name} state has shape {source.shape}; expected {target.shape}"
+        )
+    target[...] = source
+
+
+def _wrapper_chain(env: Any) -> list[Any]:
+    chain: list[Any] = []
+    seen: set[int] = set()
+    current = env
+    while current is not None and id(current) not in seen:
+        chain.append(current)
+        seen.add(id(current))
+        current = getattr(current, "env", None)
+    return chain
+
+
+def _capture_wrapper_elapsed_steps(env: Any) -> list[Any]:
+    return [
+        copy.deepcopy(getattr(wrapper, "_elapsed_steps", None))
+        for wrapper in _wrapper_chain(env)
+    ]
+
+
+def _restore_wrapper_elapsed_steps(env: Any, values: Any) -> None:
+    if not isinstance(values, list):
+        raise ValueError("MuJoCo wrapper elapsed-step state must be a list")
+    chain = _wrapper_chain(env)
+    if len(values) == 1 and len(chain) > 1:
+        values = [values[0], *([None] * (len(chain) - 1))]
+    if len(chain) != len(values):
+        raise RuntimeError("MuJoCo wrapper chain changed after state capture")
+    for wrapper, value in zip(chain, values, strict=True):
+        if value is not None:
+            setattr(wrapper, "_elapsed_steps", copy.deepcopy(value))

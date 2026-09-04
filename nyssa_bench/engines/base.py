@@ -37,6 +37,23 @@ class NyssaEngine(ABC):
     def get_state(self) -> dict[str, Any]:
         raise NotImplementedError
 
+    def set_state(self, state: Any) -> dict[str, Any] | None:
+        raise RuntimeError(
+            f"{self.__class__.__name__} does not support simulator state restoration"
+        )
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return {
+            "supported": False,
+            "fidelity": "unsupported",
+            "captures_rng": False,
+            "reason": "engine adapter does not implement state restoration",
+        }
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        del seed
+        return False
+
     @abstractmethod
     def close(self) -> None:
         raise NotImplementedError

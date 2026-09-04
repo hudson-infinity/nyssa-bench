@@ -27,6 +27,26 @@ class Policy(ABC):
     def close(self) -> None:
         return None
 
+    def get_state(self) -> Any:
+        return None
+
+    def set_state(self, state: Any) -> None:
+        if state is not None:
+            raise RuntimeError(
+                f"{self.__class__.__name__} does not support policy state restoration"
+            )
+
+    def state_restore_capability(self) -> dict[str, Any]:
+        return {
+            "supported": False,
+            "fidelity": "stateless_or_unsupported",
+            "reason": "policy does not declare restorable internal state",
+        }
+
+    def seed_branch_rng(self, seed: int) -> bool:
+        del seed
+        return False
+
     def drain_failure_events(self) -> list[FailureEventDraft | dict[str, Any]]:
         """Return and clear queued policy-originated failure event drafts."""
 

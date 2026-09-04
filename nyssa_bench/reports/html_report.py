@@ -50,6 +50,7 @@ class Report:
         failure_counts = self.summary.get("failure_counts", {})
         failure_event_summary = self.summary.get("failure_event_summary", {})
         failure_detector_summary = self.summary.get("failure_detector_summary", {})
+        counterfactual_recovery = self.summary.get("counterfactual_recovery", {})
         metric_vector = self.summary.get("metric_vector", {})
         scenario = self.summary.get("scenario", {})
         per_task = self.summary.get("per_task", {})
@@ -110,6 +111,9 @@ class Report:
 
   <h2>Aggregate Metrics</h2>
   {_table(metrics)}
+
+  <h2>Counterfactual Recovery</h2>
+  {_table(counterfactual_recovery)}
 
   <h2>Compute Cost</h2>
   {_table(compute)}
