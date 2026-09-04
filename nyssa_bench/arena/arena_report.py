@@ -4,6 +4,7 @@ import csv
 import html
 import json
 from pathlib import Path
+from typing import Any
 
 from nyssa_bench.arena.pairwise_runner import EpisodeKey, PairwiseSummary
 from nyssa_bench.arena.preference_schema import PreferenceRecord
@@ -17,9 +18,12 @@ def save_pairwise_results(summary: PairwiseSummary, out_dir: str | Path) -> Path
     path = out_dir / "pairwise_results.jsonl"
     with path.open("w", encoding="utf-8") as handle:
         for outcome in summary.outcomes:
-            handle.write(json.dumps(outcome.to_dict(), sort_keys=True) + "\n")
+            handle.write(
+                json.dumps(outcome.to_dict(), sort_keys=True, allow_nan=False) + "\n"
+            )
     save_pairwise_summary(summary, out_dir)
     save_pairwise_coverage(summary, out_dir)
+    save_pairwise_metrics(summary, out_dir)
     return path
 
 
@@ -28,7 +32,9 @@ def save_pairwise_summary(summary: PairwiseSummary, out_dir: str | Path) -> Path
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "pairwise_summary.json"
     path.write_text(
-        json.dumps(summary.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(summary.to_dict(), indent=2, sort_keys=True, allow_nan=False)
+        + "\n",
+        encoding="utf-8",
     )
     return path
 
@@ -41,6 +47,7 @@ def save_pairwise_coverage(summary: PairwiseSummary, out_dir: str | Path) -> Pat
     row = {
         "comparison_mode": summary.comparison_mode,
         "pairing_claim_eligible": str(summary.pairing_claim_eligible).lower(),
+        "comparison_contract_sha256": summary.comparison_contract_sha256,
         "policy_a_label": coverage.policy_a_label,
         "policy_b_label": coverage.policy_b_label,
         "policy_a_requested_count": coverage.policy_a_requested_count,
@@ -55,6 +62,12 @@ def save_pairwise_coverage(summary: PairwiseSummary, out_dir: str | Path) -> Pat
         "policy_a_coverage": coverage.policy_a_coverage,
         "policy_b_coverage": coverage.policy_b_coverage,
         "joint_coverage": coverage.joint_coverage,
+        "condition_compatible_count": summary.paired_metrics.get(
+            "condition_compatible_pairs", 0
+        ),
+        "condition_incompatible_count": summary.paired_metrics.get(
+            "condition_incompatible_pairs", 0
+        ),
         "unmatched_a_keys": _keys_json(coverage.unmatched_a_keys),
         "unmatched_b_keys": _keys_json(coverage.unmatched_b_keys),
         "caveats": json.dumps(summary.caveats),
@@ -63,6 +76,31 @@ def save_pairwise_coverage(summary: PairwiseSummary, out_dir: str | Path) -> Pat
         writer = csv.DictWriter(handle, fieldnames=list(row))
         writer.writeheader()
         writer.writerow(row)
+    return path
+
+
+def save_pairwise_metrics(summary: PairwiseSummary, out_dir: str | Path) -> Path:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "pairwise_metrics.csv"
+    metrics = summary.paired_metrics
+    rows = [
+        _metric_row("success_difference", metrics.get("success_difference", {})),
+        _metric_row(
+            "time_to_failure_difference",
+            metrics.get("time_to_failure_difference", {}),
+        ),
+    ]
+    rows.extend(
+        _metric_row(metric_id, value)
+        for metric_id, value in sorted(
+            dict(metrics.get("numeric_deltas", {})).items()
+        )
+    )
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
     return path
 
 
@@ -108,6 +146,8 @@ def save_arena_report(
         f"<td>{html.escape(item.winner)}</td>"
         f"<td>{html.escape(str(item.policy_a_failure or ''))}</td>"
         f"<td>{html.escape(str(item.policy_b_failure or ''))}</td>"
+        f"<td>{'yes' if item.condition_compatible else 'no'}</td>"
+        f"<td>{html.escape(item.evidence['time_to_failure']['status'])}</td>"
         "</tr>"
         for item in summary.outcomes
     )
@@ -134,6 +174,8 @@ def save_arena_report(
     caveat_section = f"<h2>Caveats</h2><ul>{caveats}</ul>" if caveats else ""
     unmatched_a = _key_table_rows(coverage.unmatched_a_keys)
     unmatched_b = _key_table_rows(coverage.unmatched_b_keys)
+    paired_metrics = _paired_metrics_table(summary.paired_metrics)
+    condition_mismatches = _condition_mismatch_table(summary.condition_mismatches)
     body = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -169,7 +211,12 @@ def save_arena_report(
   <p>Total pairs: {summary.total_pairs}</p>
   <p>Wins: {wins or "none"}</p>
   <p>Failure deltas: {failure_deltas or "none"}</p>
+  <p>Comparison contract: <code>{html.escape(summary.comparison_contract_sha256)}</code></p>
   {caveat_section}
+  <h2>Paired metrics</h2>
+  {paired_metrics}
+  <h2>Condition mismatches</h2>
+  {condition_mismatches}
   <h2>Unmatched {html.escape(coverage.policy_a_label)} episodes</h2>
   {_key_table(unmatched_a)}
   <h2>Unmatched {html.escape(coverage.policy_b_label)} episodes</h2>
@@ -177,7 +224,7 @@ def save_arena_report(
   <h2>Matched outcomes</h2>
   <table>
     <thead>
-      <tr><th>Task</th><th>Seed</th><th>Episode</th><th>Winner</th><th>Policy A failure</th><th>Policy B failure</th></tr>
+      <tr><th>Task</th><th>Seed</th><th>Episode</th><th>Winner</th><th>Policy A failure</th><th>Policy B failure</th><th>Condition matched</th><th>Failure-time comparison</th></tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>
@@ -191,6 +238,70 @@ def save_arena_report(
 
 def _keys_json(keys: tuple[EpisodeKey, ...]) -> str:
     return json.dumps([key.to_dict() for key in keys], separators=(",", ":"))
+
+
+def _metric_row(metric_id: str, value: Any) -> dict[str, Any]:
+    measurement = dict(value) if isinstance(value, dict) else {}
+    interval = measurement.get("ci95")
+    return {
+        "metric": metric_id,
+        "status": measurement.get("status", "unavailable"),
+        "value": measurement.get("value"),
+        "ci95_low": interval[0]
+        if isinstance(interval, (list, tuple)) and len(interval) == 2
+        else None,
+        "ci95_high": interval[1]
+        if isinstance(interval, (list, tuple)) and len(interval) == 2
+        else None,
+        "sample_size": measurement.get("sample_size", 0),
+        "missing_count": measurement.get("missing_count", 0),
+    }
+
+
+def _paired_metrics_table(metrics: dict[str, Any]) -> str:
+    values = {
+        "success_difference": metrics.get("success_difference", {}),
+        "time_to_failure_difference": metrics.get(
+            "time_to_failure_difference", {}
+        ),
+        **dict(metrics.get("numeric_deltas", {})),
+    }
+    rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(metric_id)}</td>"
+        f"<td>{html.escape(str(value.get('status', 'unavailable')))}</td>"
+        f"<td>{html.escape(str(value.get('value', '')))}</td>"
+        f"<td>{html.escape(str(value.get('ci95', '')))}</td>"
+        f"<td>{int(value.get('sample_size', 0) or 0)}</td>"
+        f"<td>{int(value.get('missing_count', 0) or 0)}</td>"
+        "</tr>"
+        for metric_id, value in sorted(values.items())
+        if isinstance(value, dict)
+    )
+    return (
+        "<table><thead><tr><th>Metric</th><th>Status</th><th>A-B</th>"
+        "<th>95% CI</th><th>Pairs</th><th>Missing</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
+
+
+def _condition_mismatch_table(values: tuple[dict[str, Any], ...]) -> str:
+    if not values:
+        return "<p>None</p>"
+    rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(item.get('episode_key', {})))}</td>"
+        f"<td>{html.escape(', '.join(item.get('differing_fields', [])))}</td>"
+        f"<td><code>{html.escape(str(item.get('policy_a_condition_sha256', '')))}</code></td>"
+        f"<td><code>{html.escape(str(item.get('policy_b_condition_sha256', '')))}</code></td>"
+        "</tr>"
+        for item in values
+    )
+    return (
+        "<table><thead><tr><th>Episode</th><th>Differing fields</th>"
+        "<th>Policy A condition</th><th>Policy B condition</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
 
 
 def _key_table_rows(keys: tuple[EpisodeKey, ...]) -> str:

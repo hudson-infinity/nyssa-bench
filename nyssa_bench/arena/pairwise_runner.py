@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from nyssa_bench.core.episode import EpisodeResult
+from nyssa_bench.arena.paired_metrics import (
+    aggregate_paired_evidence,
+    build_comparison_contract,
+    comparison_contract_sha256,
+    condition_sha256,
+    pair_condition,
+    paired_episode_evidence,
+)
 
 
 @dataclass(frozen=True, order=True)
@@ -128,6 +136,17 @@ class IncompletePairwiseComparisonError(PairwiseComparisonError):
     pass
 
 
+class PairwiseConditionMismatchError(PairwiseComparisonError):
+    def __init__(
+        self,
+        message: str,
+        coverage: PairwiseCoverage,
+        mismatches: tuple[dict[str, Any], ...],
+    ) -> None:
+        super().__init__(message, coverage)
+        self.mismatches = mismatches
+
+
 @dataclass(frozen=True)
 class PairwiseOutcome:
     task_id: str
@@ -138,9 +157,18 @@ class PairwiseOutcome:
     policy_b_success: bool
     policy_a_failure: str | None
     policy_b_failure: str | None
+    comparison_contract_sha256: str
+    condition_identity: str | None
+    policy_a_condition_sha256: str
+    policy_b_condition_sha256: str
+    policy_a_condition: dict[str, Any]
+    policy_b_condition: dict[str, Any]
+    condition_compatible: bool
+    evidence: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "format": "nyssa-pairwise-outcome-v2",
             "task_id": self.task_id,
             "seed": self.seed,
             "episode_index": self.episode_index,
@@ -149,6 +177,14 @@ class PairwiseOutcome:
             "policy_b_success": self.policy_b_success,
             "policy_a_failure": self.policy_a_failure,
             "policy_b_failure": self.policy_b_failure,
+            "comparison_contract_sha256": self.comparison_contract_sha256,
+            "condition_identity": self.condition_identity,
+            "policy_a_condition_sha256": self.policy_a_condition_sha256,
+            "policy_b_condition_sha256": self.policy_b_condition_sha256,
+            "policy_a_condition": self.policy_a_condition,
+            "policy_b_condition": self.policy_b_condition,
+            "condition_compatible": self.condition_compatible,
+            "evidence": self.evidence,
         }
 
 
@@ -161,6 +197,10 @@ class PairwiseSummary:
     comparison_mode: str
     pairing_claim_eligible: bool
     caveats: tuple[str, ...]
+    comparison_contract: dict[str, Any]
+    comparison_contract_sha256: str
+    paired_metrics: dict[str, Any]
+    condition_mismatches: tuple[dict[str, Any], ...]
 
     @property
     def total_pairs(self) -> int:
@@ -168,13 +208,17 @@ class PairwiseSummary:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "format": "nyssa-pairwise-summary-v1",
+            "format": "nyssa-pairwise-summary-v2",
             "comparison_mode": self.comparison_mode,
             "pairing_claim_eligible": self.pairing_claim_eligible,
             "caveats": list(self.caveats),
             "total_pairs": self.total_pairs,
             "wins": self.wins,
             "failure_deltas": self.failure_deltas,
+            "comparison_contract": self.comparison_contract,
+            "comparison_contract_sha256": self.comparison_contract_sha256,
+            "paired_metrics": self.paired_metrics,
+            "condition_mismatches": list(self.condition_mismatches),
             "coverage": self.coverage.to_dict(),
             "outcomes": [outcome.to_dict() for outcome in self.outcomes],
         }
@@ -216,6 +260,8 @@ def compare_episode_pairs(
     policy_a_label: str = "policy_a",
     policy_b_label: str = "policy_b",
     allow_partial: bool = False,
+    allow_condition_mismatch: bool = False,
+    comparison_contract: dict[str, Any] | None = None,
 ) -> PairwiseSummary:
     """Compare episodes matched by task, seed, and episode index.
 
@@ -240,13 +286,72 @@ def compare_episode_pairs(
 
     a_by_key = {_key(episode): episode for episode in policy_a}
     b_by_key = {_key(episode): episode for episode in policy_b}
+    contract = build_comparison_contract(
+        policy_a_label, policy_b_label, comparison_contract
+    )
+    conditions_by_key: dict[
+        EpisodeKey, tuple[dict[str, Any], dict[str, Any], str, str]
+    ] = {}
+    for key in coverage.matched_keys:
+        condition_a = pair_condition(a_by_key[key])
+        condition_b = pair_condition(b_by_key[key])
+        conditions_by_key[key] = (
+            condition_a,
+            condition_b,
+            condition_sha256(condition_a),
+            condition_sha256(condition_b),
+        )
+    contract = {
+        **contract,
+        "pairing": {
+            "mode": "complete" if coverage.complete else "partial_exploratory",
+            "matched_keys": [key.to_dict() for key in coverage.matched_keys],
+            "unmatched_a_keys": [key.to_dict() for key in coverage.unmatched_a_keys],
+            "unmatched_b_keys": [key.to_dict() for key in coverage.unmatched_b_keys],
+        },
+        "comparison_options": {
+            "allow_partial": allow_partial,
+            "allow_condition_mismatch": allow_condition_mismatch,
+        },
+        "matched_conditions": [
+            {
+                "episode_key": key.to_dict(),
+                "policy_a_condition_sha256": conditions_by_key[key][2],
+                "policy_b_condition_sha256": conditions_by_key[key][3],
+            }
+            for key in coverage.matched_keys
+        ],
+    }
+    contract_sha256 = comparison_contract_sha256(contract)
     outcomes: list[PairwiseOutcome] = []
     wins: Counter[str] = Counter()
     failure_deltas: Counter[str] = Counter()
+    condition_mismatches: list[dict[str, Any]] = []
 
     for key in coverage.matched_keys:
         episode_a = a_by_key[key]
         episode_b = b_by_key[key]
+        (
+            condition_a,
+            condition_b,
+            condition_a_sha256,
+            condition_b_sha256,
+        ) = conditions_by_key[key]
+        condition_compatible = condition_a == condition_b
+        condition_identity = condition_a_sha256 if condition_compatible else None
+        if not condition_compatible:
+            condition_mismatches.append(
+                {
+                    "episode_key": key.to_dict(),
+                    "policy_a_condition_sha256": condition_a_sha256,
+                    "policy_b_condition_sha256": condition_b_sha256,
+                    "differing_fields": sorted(
+                        field
+                        for field in set(condition_a) | set(condition_b)
+                        if condition_a.get(field) != condition_b.get(field)
+                    ),
+                }
+            )
         winner = _winner(episode_a, episode_b, policy_a_label, policy_b_label)
         wins[winner] += 1
         _count_failure_delta(
@@ -262,19 +367,48 @@ def compare_episode_pairs(
                 policy_b_success=episode_b.success,
                 policy_a_failure=episode_a.failure_label,
                 policy_b_failure=episode_b.failure_label,
+                comparison_contract_sha256=contract_sha256,
+                condition_identity=condition_identity,
+                policy_a_condition_sha256=condition_a_sha256,
+                policy_b_condition_sha256=condition_b_sha256,
+                policy_a_condition=condition_a,
+                policy_b_condition=condition_b,
+                condition_compatible=condition_compatible,
+                evidence=paired_episode_evidence(
+                    episode_a,
+                    episode_b,
+                    condition_compatible=condition_compatible,
+                ),
             )
         )
 
+    if condition_mismatches and not allow_condition_mismatch:
+        raise PairwiseConditionMismatchError(
+            "Matched episode keys have incompatible initial observations, stressors, or detector contracts. "
+            "Use allow_condition_mismatch=True only for exploratory diagnostics.",
+            coverage,
+            tuple(condition_mismatches),
+        )
+
     comparison_mode = "complete" if coverage.complete else "partial_exploratory"
-    caveats = () if coverage.complete else _partial_caveats(coverage)
+    caveats = list(() if coverage.complete else _partial_caveats(coverage))
+    if condition_mismatches:
+        caveats.append(
+            "Condition mismatch: scientific paired deltas exclude incompatible pairs; this output is not claim eligible."
+        )
+    paired_metrics = aggregate_paired_evidence(outcomes)
     return PairwiseSummary(
         outcomes=tuple(outcomes),
         wins=dict(wins),
         failure_deltas=dict(failure_deltas),
         coverage=coverage,
         comparison_mode=comparison_mode,
-        pairing_claim_eligible=coverage.complete,
-        caveats=caveats,
+        pairing_claim_eligible=coverage.complete and not condition_mismatches,
+        caveats=tuple(caveats),
+        comparison_contract=contract,
+        comparison_contract_sha256=contract_sha256,
+        paired_metrics=paired_metrics,
+        condition_mismatches=tuple(condition_mismatches),
     )
 
 
