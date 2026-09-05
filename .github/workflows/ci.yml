@@ -15,3 +15,53 @@ jobs:
       - run: python -m pip install -e ".[dev]"
       - run: pre-commit run --all-files --show-diff-on-failure
       - run: pytest -q
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade build twine
+      - run: python -m build
+      - run: python -m twine check --strict dist/*
+      - run: python scripts/validate_distributions.py dist/* --out distribution-validation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-python-distributions
+          path: |
+            dist/
+            distribution-validation.json
+          if-no-files-found: error
+
+  installed-artifact:
+    needs: package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pr-python-distributions
+          path: package-artifacts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install wheel without a source checkout
+        run: python -m pip install package-artifacts/dist/*.whl
+      - name: Validate installed resources and report generation
+        working-directory: ${{ runner.temp }}
+        run: |
+          nyssa --help
+          nyssa --version
+          nyssa list-suites
+          nyssa list-stressors
+          python -m nyssa_bench.packaging_smoke --out "${RUNNER_TEMP}/nyssa-installed-smoke"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installed-smoke-python-${{ matrix.python-version }}
+          path: ${{ runner.temp }}/nyssa-installed-smoke/
+          if-no-files-found: error

@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from nyssa_bench.package_resources import resource_root
+
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PACKAGE_ROOT.parent
@@ -91,7 +93,7 @@ def resolve_task_path(task_id_or_path: str | Path) -> Path:
         return candidate
 
     task_id = str(task_id_or_path)
-    search_roots = [PACKAGE_ROOT / "tasks", REPO_ROOT / "configs" / "tasks"]
+    search_roots = _task_roots()
     for root in search_roots:
         for path in root.rglob("*.yaml"):
             if path.stem == task_id:
@@ -100,9 +102,17 @@ def resolve_task_path(task_id_or_path: str | Path) -> Path:
 
 
 def list_tasks() -> list[str]:
-    roots = [PACKAGE_ROOT / "tasks", REPO_ROOT / "configs" / "tasks"]
+    roots = _task_roots()
     task_ids: set[str] = set()
     for root in roots:
         if root.exists():
             task_ids.update(path.stem for path in root.rglob("*.yaml"))
     return sorted(task_ids)
+
+
+def _task_roots() -> list[Path]:
+    roots = [PACKAGE_ROOT / "tasks"]
+    legacy = resource_root("configs") / "tasks"
+    if legacy.is_dir():
+        roots.append(legacy)
+    return roots

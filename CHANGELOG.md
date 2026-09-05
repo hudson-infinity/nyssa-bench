@@ -4,6 +4,8 @@
 
 - Establish the single-distribution PyPI contract, complete simulator replay
   extras, package metadata, version checks, and OIDC trusted-publishing workflow.
+- Validate wheel and source-distribution contents, packaged resource identity,
+  external working-directory execution, and installed simulator workflows.
 - Add pinned pre-commit and pre-push hooks for structural checks, Ruff, config
   validation, release files, and the full test suite.
 - Bound numeric observation flattening to the requested feature size and avoid

@@ -6,7 +6,8 @@ from typing import Any
 
 import yaml
 
-from nyssa_bench.core.task import REPO_ROOT, TaskSpec
+from nyssa_bench.core.task import TaskSpec
+from nyssa_bench.package_resources import config_root
 
 
 @dataclass(frozen=True)
@@ -76,7 +77,7 @@ def resolve_suite_path(suite_id_or_path: str | Path) -> Path:
         return candidate
 
     suite_id = str(suite_id_or_path)
-    search_roots = [REPO_ROOT / "configs" / "suites"]
+    search_roots = [config_root("suites")]
     for root in search_roots:
         path = root / f"{suite_id}.yaml"
         if path.exists():
@@ -85,7 +86,7 @@ def resolve_suite_path(suite_id_or_path: str | Path) -> Path:
 
 
 def list_suites() -> list[str]:
-    root = REPO_ROOT / "configs" / "suites"
+    root = config_root("suites")
     if not root.exists():
         return []
     return sorted(path.stem for path in root.glob("*.yaml"))
