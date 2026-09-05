@@ -35,6 +35,8 @@ The six interoperable evaluation contracts are versioned under
 [Nyssa Evaluation Protocol 0.1](docs/nyssa_evaluation_protocol.md).
 External policy authors can generate a packaged example and run strict preflight
 through the [policy conformance quickstart](docs/external_policy_quickstart.md).
+Validated real-evidence packages can be analyzed through the prespecified
+[paired sim-real study](docs/sim_real_study.md) module.
 
 ```python
 from nyssa_bench import PolicyRunner, Suite

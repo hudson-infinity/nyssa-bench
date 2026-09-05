@@ -32,6 +32,7 @@ REQUIRED_WHEEL_SUFFIXES = {
     "nyssa_bench/__init__.py",
     "nyssa_bench/packaging_smoke.py",
     "nyssa_bench/simulator_smoke.py",
+    "nyssa_bench/simreal/protocol.py",
     "nyssa_bench/_resources/configs/suites/tabletop_manipulation_v0.yaml",
     "nyssa_bench/tasks/tabletop/pick_cube.yaml",
     "nyssa_bench/_resources/conformance/scenario/README.md",

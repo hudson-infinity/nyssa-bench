@@ -79,6 +79,11 @@ from nyssa_bench.scenarios import (
     ScenarioPackageValidator,
     scenario_execution_context,
 )
+from nyssa_bench.simreal import (
+    evaluate_sim_real_study,
+    load_sim_real_study,
+    write_sim_real_report,
+)
 from nyssa_bench.metrics.run_claims import PUBLIC_CLAIM_ENGINES
 from nyssa_bench.metrics.vector import migrate_metric_summary
 from nyssa_bench.monitors import (
@@ -217,6 +222,10 @@ def main(argv: list[str] | None = None) -> int:
         "--kind", choices=["state", "image-chunk"], required=True
     )
     policy_example_parser.add_argument("--out", required=True)
+
+    sim_real_parser = subparsers.add_parser("sim-real-study")
+    sim_real_parser.add_argument("spec")
+    sim_real_parser.add_argument("--out", required=True)
 
     benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
     benchmark_audit_parser.add_argument("spec")
@@ -641,6 +650,17 @@ def main(argv: list[str] | None = None) -> int:
         for key, path in paths.items():
             print(f"{key}: {path}")
         return 0
+
+    if args.command == "sim-real-study":
+        spec_path = Path(args.spec)
+        report = evaluate_sim_real_study(
+            load_sim_real_study(spec_path), spec_root=spec_path.parent
+        )
+        paths = write_sim_real_report(report, args.out)
+        print(f"sim_real_report: {paths['json']}")
+        print(f"sim_real_html: {paths['html']}")
+        print(f"status: {report['status']}")
+        return {"complete": 0, "inconclusive": 2, "invalid": 3}[report["status"]]
 
     if args.command == "audit-benchmark":
         spec = load_benchmark_validity_spec(args.spec)

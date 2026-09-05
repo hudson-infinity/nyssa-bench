@@ -32,6 +32,7 @@ Start here:
 - [Stress search](stress_search.md)
 - [External scenario packages](external_scenarios.md)
 - [Real and reconstructed evidence ingestion](real_evidence_ingestion.md)
+- [Paired sim-real studies](sim_real_study.md)
 - [Pairwise evaluation protocol](pairwise_evaluation_protocol.md)
 - [Policy regression gates](policy_regression_gates.md)
 - [VLA robustness protocol](vla_robustness_protocol.md)
