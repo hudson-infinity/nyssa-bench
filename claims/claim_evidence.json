@@ -214,6 +214,30 @@
       ]
     },
     {
+      "claim_id": "external_policy_conformance",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench validates external policy metadata, lifecycle, observations, actions, horizons, deterministic resets, and smoke artifacts before full evaluation.",
+      "authorized_public_assertion": true,
+      "issue_ids": [57],
+      "source_paths": [
+        "nyssa_bench/policy_conformance",
+        "examples/policies"
+      ],
+      "test_paths": [
+        "tests/test_policy_conformance.py"
+      ],
+      "artifact_requirements": [
+        "policy_conformance.json",
+        "policy_conformance.html",
+        "smoke_run/dataset_manifest.json"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "Conformance is task, engine, checkpoint, and contract specific and does not establish a validated reference track."
+      ]
+    },
+    {
       "claim_id": "validated_learned_policy_coverage",
       "status": "integration_only",
       "evidence_tier": "integration_only",

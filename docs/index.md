@@ -14,6 +14,7 @@ Start here:
 - [Task spec](task_spec.md)
 - [Engine adapters](engine_adapters.md)
 - [Policy adapters](policy_adapters.md)
+- [External policy conformance quickstart](external_policy_quickstart.md)
 - [Metrics](metrics.md)
 - [Failure taxonomy](failure_taxonomy.md)
 - [Failure event protocol](failure_event_protocol.md)

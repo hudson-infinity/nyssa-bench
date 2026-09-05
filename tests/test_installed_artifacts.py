@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from nyssa_bench.package_resources import config_root, resource_root
+from nyssa_bench.package_resources import config_root, policy_example_root, resource_root
 from nyssa_bench.packaging_smoke import run_packaging_smoke
 from scripts.validate_distributions import validate_distributions
 
@@ -15,6 +15,7 @@ def test_resource_resolver_finds_source_bundles() -> None:
     assert (
         resource_root("schemas") / "nep" / "0.1.0" / "nep-manifest.schema.json"
     ).is_file()
+    assert (policy_example_root() / "state_policy.py").is_file()
 
 
 @pytest.mark.parametrize("name", ["", ".", "..", "../configs", "a/b", "a\\b"])

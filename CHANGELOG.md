@@ -10,6 +10,8 @@
   ManiSkill path, retained failure diagnostics, and simulator flakiness policy.
 - Add Nyssa Evaluation Protocol 0.1 with six strict contracts, canonical hashes,
   claim-tier checks, schemas, migration rules, and conformance fixtures.
+- Add external policy preflight, state-leak and action-chunk validation,
+  machine/HTML conformance reports, and packaged state/RGB examples.
 - Add pinned pre-commit and pre-push hooks for structural checks, Ruff, config
   validation, release files, and the full test suite.
 - Bound numeric observation flattening to the requested feature size and avoid

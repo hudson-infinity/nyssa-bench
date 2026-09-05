@@ -62,6 +62,17 @@ jobs:
           python -m nyssa_bench.simulator_smoke \
             --engine mujoco \
             --out "${RUNNER_TEMP}/nyssa-mujoco-installed"
+          nyssa write-policy-example \
+            --kind state \
+            --out "${RUNNER_TEMP}/nyssa-mujoco-installed/policy-example"
+          nyssa conform-policy \
+            --policy "${RUNNER_TEMP}/nyssa-mujoco-installed/policy-example/state_policy.py" \
+            --policy-contract "${RUNNER_TEMP}/nyssa-mujoco-installed/policy-example/state_policy_contract.json" \
+            --suite mujoco_control_v0 \
+            --task mujoco_inverted_pendulum \
+            --engine mujoco \
+            --episodes 1 \
+            --out "${RUNNER_TEMP}/nyssa-mujoco-installed/policy-conformance"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

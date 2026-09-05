@@ -26,3 +26,14 @@ def config_root(section: str) -> Path:
     if not root.is_dir():
         raise FileNotFoundError(f"NyssaBench config section is missing: {section}")
     return root
+
+
+def policy_example_root() -> Path:
+    packaged = files("nyssa_bench").joinpath("_resources", "policy_examples")
+    packaged_path = Path(str(packaged))
+    if packaged_path.is_dir():
+        return packaged_path
+    source_path = SOURCE_ROOT / "examples" / "policies"
+    if source_path.is_dir():
+        return source_path
+    raise FileNotFoundError("NyssaBench policy examples are missing")

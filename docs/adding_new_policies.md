@@ -63,8 +63,11 @@ engine must support `set_state`; otherwise evaluation fails.
 
 The runner stores `policy.metadata()` under `run.yaml:policy_metadata`. If the
 method is absent or does not return a mapping, it records only `policy_class`.
-There is not yet one strict metadata schema, but a production adapter should
-return at least:
+Production adapters should provide a
+[`nyssa-nep-policy-contract-v0.1`](nyssa_evaluation_protocol.md) and make
+`metadata()` report the same identity. Run `nyssa conform-policy` before a full
+experiment. See the [external policy quickstart](external_policy_quickstart.md).
+The metadata should include at least:
 
 ```python
 {
