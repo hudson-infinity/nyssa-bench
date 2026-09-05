@@ -25,14 +25,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         + "\n"
     )
-    if OUTPUT.exists() and OUTPUT.read_text(encoding="utf-8") == payload:
+    encoded = payload.encode("utf-8")
+    if OUTPUT.exists() and OUTPUT.read_bytes() == encoded:
         print(f"reference candidate is current: {OUTPUT}")
         return 0
     if args.check:
         print(f"reference candidate is stale or missing: {OUTPUT}")
         return 1
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(payload, encoding="utf-8")
+    OUTPUT.write_bytes(encoded)
     print(f"wrote reference candidate: {OUTPUT}")
     return 0
 

@@ -752,7 +752,7 @@
   ],
   "policy_track_registry": {
     "path": "configs/policy_tracks/nyssa_policy_tracks_v0_1.json",
-    "sha256": "4a1117e751fee083a8c7bf15eb670455efb7f6329d32a10e29340ee102d677b1"
+    "sha256": "21bdf5b34175ccad70f8fa5d33fa3daff2162be501aaedcd6bc8420fdd2f88bb"
   },
   "protocol_authored_at": "2026-09-05T22:45:00Z",
   "reference_benchmark": {
