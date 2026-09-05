@@ -27,6 +27,11 @@ from nyssa_bench.reference_benchmark import (
     load_reference_benchmark,
     write_reference_report,
 )
+from nyssa_bench.policy_tracks import (
+    evaluate_policy_tracks,
+    load_policy_track_registry,
+    write_policy_track_report,
+)
 from nyssa_bench.baselines.simple_bc import (
     train_knn_bc,
     train_linear_bc,
@@ -246,6 +251,11 @@ def main(argv: list[str] | None = None) -> int:
     reference_parser.add_argument("spec")
     reference_parser.add_argument("--out", required=True)
     reference_parser.add_argument("--repo-root", default=".")
+
+    policy_tracks_parser = subparsers.add_parser("audit-policy-tracks")
+    policy_tracks_parser.add_argument("registry")
+    policy_tracks_parser.add_argument("--out", required=True)
+    policy_tracks_parser.add_argument("--repo-root", default=".")
 
     benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
     benchmark_audit_parser.add_argument("spec")
@@ -702,6 +712,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"reference_report: {paths['json']}")
         print(f"reference_html: {paths['html']}")
         print(f"reference_status: {report['status']}")
+        return 0 if report["release_ready"] else 2
+
+    if args.command == "audit-policy-tracks":
+        registry = load_policy_track_registry(args.registry)
+        report = evaluate_policy_tracks(registry, root=args.repo_root)
+        paths = write_policy_track_report(report, args.out)
+        print(f"policy_track_report: {paths['json']}")
+        print(f"policy_track_html: {paths['html']}")
+        print(f"policy_track_status: {report['status']}")
         return 0 if report["release_ready"] else 2
 
     if args.command == "audit-benchmark":

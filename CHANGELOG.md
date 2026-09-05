@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a checkpoint-bound policy-track registry and native conformance,
+  provenance, leakage, paired-run, replay, and failure-evidence audit.
 - Add a strict 12-task reference benchmark candidate, protected five-dimension
   split commitments, power design, and native oracle/learned evidence audit.
 - Publish wheel-only core, MuJoCo, and ManiSkill image workflows with immutable

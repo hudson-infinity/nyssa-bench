@@ -69,6 +69,13 @@ repos:
         pass_filenames: false
         files: ^(configs/reference/.*\.json|configs/suites/nyssa_reference_.*\.yaml|nyssa_bench/reference_benchmark/.*\.py|nyssa_bench/tasks/reference/.*\.yaml|nyssa_bench/tasks/tabletop/maniskill_(pick|push|stack)_cube\.yaml|scripts/generate_reference_candidate\.py)$
 
+      - id: validate-policy-track-candidate
+        name: validate the generated policy-track candidate
+        entry: python scripts/generate_policy_track_candidate.py --check
+        language: system
+        pass_filenames: false
+        files: ^(configs/policy_tracks/.*\.json|docs/policy_tracks\.md|nyssa_bench/policy_tracks/.*\.py|scripts/generate_policy_track_candidate\.py)$
+
       - id: validate-release-version
         name: validate package release version
         entry: python scripts/validate_release_version.py

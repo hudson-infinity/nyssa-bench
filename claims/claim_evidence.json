@@ -267,10 +267,13 @@
       "authorized_public_assertion": false,
       "issue_ids": [16],
       "source_paths": [
-        "nyssa_bench/policies"
+        "nyssa_bench/policies",
+        "nyssa_bench/policy_tracks",
+        "configs/policy_tracks/nyssa_policy_tracks_v0_1.json"
       ],
       "test_paths": [
-        "tests/test_cli.py"
+        "tests/test_cli.py",
+        "tests/test_policy_tracks.py"
       ],
       "artifact_requirements": [
         "checkpoint policy contracts",
@@ -282,7 +285,8 @@
         "Pass leakage, action-contract, paired-seed, and replay evidence checks."
       ],
       "limitations": [
-        "Current random, scripted, BC, RoboMimic, LeRobot, VLA, and diffusion entries include controls or adapter paths that are not validated frontier tracks."
+        "The candidate registry defines oracle, RoboMimic, diffusion, VLA, and random tracks, but none has attached checkpoint-bound paired result evidence.",
+        "Random and the repository-local scripted policy remain controls rather than headline learned tracks."
       ]
     },
     {

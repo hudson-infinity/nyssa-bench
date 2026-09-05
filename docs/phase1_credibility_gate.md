@@ -27,7 +27,7 @@ Gate B requires Gate A plus:
 - a release-ready reference benchmark audit with a protected hidden-test split;
 - at least one oracle control;
 - valid result packs for two distinct learned policy families, identified by
-  NEP policy contracts;
+  NEP policy contracts and a release-ready policy-track audit;
 - a paired clean/shifted robustness sweep whose statistical-precision and
   paired-design audits pass;
 - a content-valid BenchmarkValidity report; and
