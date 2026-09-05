@@ -693,6 +693,8 @@ class PolicyRunner:
                 engine=engine,
                 stressor_context=active_stressors,
             )
+            proposed_action = copy.deepcopy(action)
+            proposed_action_source = action_source
             detector_manager.emit(
                 failure_ledger,
                 before_action_events,
@@ -724,6 +726,11 @@ class PolicyRunner:
                 "policy_cached_action": chunk_size == 0 and action_source == "policy",
                 "recovery_cached_action": action_source == "recovery",
                 "action_source": action_source,
+                "proposed_action": proposed_action,
+                "proposed_action_source": proposed_action_source,
+                "rejected_action": None,
+                "oracle_action": action if action_source == "expert" else None,
+                "recovery_action": action if action_source == "recovery" else None,
             }
             if (
                 self.enable_verifier or self.enable_recovery
@@ -757,6 +764,7 @@ class PolicyRunner:
                 if not score.accepted:
                     action_rejection_count += 1
                     expert_info["action_rejected"] = True
+                    expert_info["rejected_action"] = copy.deepcopy(proposed_action)
                     if self.enable_verifier:
                         verifier_rejection_count += 1
                         expert_info["verifier_rejected"] = True
@@ -874,6 +882,7 @@ class PolicyRunner:
                     expert_info["expert_intervention"] = True
                     expert_info["recovery_applied"] = True
                     expert_info["action_source"] = "recovery"
+                    expert_info["recovery_action"] = copy.deepcopy(action)
                     expert_info["recovery_plan_action_index"] = 0
                     expert_info["recovery_plan_length"] = len(recovery_plan)
                     expert_info["recovery_plan_pending_count"] = len(pending_actions)
@@ -930,6 +939,7 @@ class PolicyRunner:
                     expert_intervention_count += 1
                     expert_info["expert_intervention"] = True
                     expert_info["action_source"] = "expert"
+                    expert_info["oracle_action"] = copy.deepcopy(action)
             drain_component_failure_events(
                 expert_provider,
                 verifier_event_emitter,
@@ -1019,6 +1029,7 @@ class PolicyRunner:
                 default_step=step_index,
             )
             expert_info["action_before_stressors"] = action_before_stressors
+            expert_info["executed_action_before_stressors"] = action_before_stressors
             expert_info["stressor_action_modified"] = not _actions_equal(
                 action_before_stressors, action
             )

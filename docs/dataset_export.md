@@ -1,5 +1,9 @@
 # Dataset Export
 
+For failure-driven learning handoff with temporal ledgers, action provenance,
+counterfactual branches, stress-boundary context, and mandatory evaluation
+exclusions, use [Learning evidence export](learning_evidence_export.md).
+
 v0.1 writes JSON rollouts and a lightweight LeRobot-compatible manifest without requiring LeRobot at runtime.
 
 Optional HDF5, robomimic HDF5, and Parquet exporters are available through the `dataset` extra:

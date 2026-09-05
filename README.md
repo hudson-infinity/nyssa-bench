@@ -709,6 +709,12 @@ starting at `1000000`, while every task within that run receives the same seed
 sequence for paired analysis. Result packs generated before this protocol must
 be rerun before making an independent multi-seed claim.
 
+Failure-driven learning systems can use the versioned, content-addressed
+[learning evidence export](docs/learning_evidence_export.md). It preserves
+proposed, rejected, and executed actions, temporal failures, counterfactual
+branches, boundary context, and mandatory evaluation exclusions without
+implementing a training algorithm inside NyssaBench.
+
 Export one source directory or result ZIP:
 
 ```bash
