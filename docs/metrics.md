@@ -70,3 +70,12 @@ bounded attribution rule.
 Failure labels include bad grasp, object slip, collision, missed target, wrong
 object, occlusion failure, planner stuck, joint limit failure, timeout, latency
 failure, unstable contact, unknown failure, and out-of-distribution layout.
+
+External failure-monitor metrics are computed from timestamped prediction
+records and a completed FailureEvent ledger. Fixed-horizon predictions are
+censored when a truncated episode ends before the horizon. Calibration
+uncertainty and paired monitor comparisons resample whole episodes so repeated
+steps from one rollout are not treated as independent trials. Monitor-triggered
+recovery outcomes are reported only by the counterfactual recovery metrics; they
+do not alter prediction labels or monitor calibration. See
+[External failure monitors](failure_monitors.md).

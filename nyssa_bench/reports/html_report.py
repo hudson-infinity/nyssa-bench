@@ -50,6 +50,8 @@ class Report:
         failure_counts = self.summary.get("failure_counts", {})
         failure_event_summary = self.summary.get("failure_event_summary", {})
         failure_detector_summary = self.summary.get("failure_detector_summary", {})
+        failure_monitor_metrics = self.summary.get("failure_monitor_metrics", {})
+        failure_monitor_support = self.summary.get("failure_monitor_support", {})
         counterfactual_recovery = self.summary.get("counterfactual_recovery", {})
         benchmark_validity = self.summary.get("benchmark_validity", {})
         metric_vector = self.summary.get("metric_vector", {})
@@ -130,6 +132,12 @@ class Report:
 
   <h2>Failure Detectors</h2>
   {_table(failure_detector_summary)}
+
+  <h2>External Failure Monitors</h2>
+  {_table(failure_monitor_metrics)}
+
+  <h2>Failure Monitor Support</h2>
+  {_table(failure_monitor_support)}
 
   <h2>Failure Timelines</h2>
   {_failure_timeline_table(self.run_dir)}

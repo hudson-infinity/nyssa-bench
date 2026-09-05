@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from nyssa_bench.failures.protocol import FailureLedgerRecord
+    from nyssa_bench.monitors.protocol import MonitorPredictionRecord
     from nyssa_bench.recovery.protocol import CounterfactualRecoveryRecord
 
 
@@ -43,6 +44,10 @@ class EpisodeResult:
     stressor_context: dict[str, Any] = field(default_factory=dict)
     failure_detector_context: dict[str, Any] = field(default_factory=dict)
     failure_ledger: FailureLedgerRecord | None = None
+    failure_monitor_context: dict[str, Any] = field(default_factory=dict)
+    failure_monitor_records: list[MonitorPredictionRecord] = field(
+        default_factory=list
+    )
     counterfactual_recovery: list[CounterfactualRecoveryRecord] = field(
         default_factory=list
     )
@@ -63,6 +68,10 @@ class EpisodeResult:
             "failure_ledger": self.failure_ledger.to_dict()
             if self.failure_ledger is not None
             else None,
+            "failure_monitor_context": _to_jsonable(self.failure_monitor_context),
+            "failure_monitor_records": [
+                record.to_dict() for record in self.failure_monitor_records
+            ],
             "counterfactual_recovery": [
                 record.to_dict() for record in self.counterfactual_recovery
             ],

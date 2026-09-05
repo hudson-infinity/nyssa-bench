@@ -73,6 +73,10 @@ from nyssa_bench.scenarios import (
 )
 from nyssa_bench.metrics.run_claims import PUBLIC_CLAIM_ENGINES
 from nyssa_bench.metrics.vector import migrate_metric_summary
+from nyssa_bench.monitors import (
+    compare_monitor_records,
+    load_monitor_manifest,
+)
 from nyssa_bench.learning_export import (
     LEARNING_EXPORT_MANIFEST_FORMAT,
     ExportSplit,
@@ -138,6 +142,20 @@ def _add_counterfactual_arguments(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=DEFAULT_COUNTERFACTUAL_MAX_BRANCH_POINTS,
         help="maximum recovery decisions to branch from per episode",
+    )
+
+
+def _add_failure_monitor_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--failure-monitor",
+        action="append",
+        default=[],
+        help="built-in monitor name or Python module path; may be repeated",
+    )
+    parser.add_argument(
+        "--enable-monitor-intervention",
+        action="store_true",
+        help="allow monitor recommendations to request the configured recovery provider",
     )
 
 
@@ -226,6 +244,7 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_RECOVERY_ATTRIBUTION_HORIZON,
     )
     _add_counterfactual_arguments(scenario_run_parser)
+    _add_failure_monitor_arguments(scenario_run_parser)
 
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--suite", required=True)
@@ -250,9 +269,16 @@ def main(argv: list[str] | None = None) -> int:
     run_parser.add_argument("--stressor-config")
     run_parser.add_argument("--benchmark-validity")
     _add_counterfactual_arguments(run_parser)
+    _add_failure_monitor_arguments(run_parser)
 
     report_parser = subparsers.add_parser("report")
     report_parser.add_argument("run")
+
+    monitor_compare_parser = subparsers.add_parser("compare-failure-monitors")
+    monitor_compare_parser.add_argument("manifest")
+    monitor_compare_parser.add_argument("--monitor-a", required=True)
+    monitor_compare_parser.add_argument("--monitor-b", required=True)
+    monitor_compare_parser.add_argument("--out", required=True)
 
     export_parser = subparsers.add_parser("export")
     export_parser.add_argument("--run", required=True)
@@ -372,6 +398,7 @@ def main(argv: list[str] | None = None) -> int:
     experiment_parser.add_argument("--stressor-config")
     experiment_parser.add_argument("--benchmark-validity")
     _add_counterfactual_arguments(experiment_parser)
+    _add_failure_monitor_arguments(experiment_parser)
 
     ablate_parser = subparsers.add_parser("ablate")
     ablate_parser.add_argument("--suite", required=True)
@@ -401,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     ablate_parser.add_argument("--stressor-config")
     ablate_parser.add_argument("--benchmark-validity")
     _add_counterfactual_arguments(ablate_parser)
+    _add_failure_monitor_arguments(ablate_parser)
 
     train_bc_parser = subparsers.add_parser("train-bc")
     train_bc_parser.add_argument("episodes", nargs="+")
@@ -679,6 +707,8 @@ def main(argv: list[str] | None = None) -> int:
             stressor_config=stressor_config,
             scenario_context=context,
             benchmark_validity=args.benchmark_validity,
+            failure_monitors=args.failure_monitor,
+            enable_monitor_intervention=args.enable_monitor_intervention,
         )
         report = runner.evaluate(suite)
         print(f"scenario: {package.identity}")
@@ -728,6 +758,8 @@ def main(argv: list[str] | None = None) -> int:
             counterfactual_max_branch_points=args.counterfactual_max_branch_points,
             stressor_config=args.stressor_config,
             benchmark_validity=args.benchmark_validity,
+            failure_monitors=args.failure_monitor,
+            enable_monitor_intervention=args.enable_monitor_intervention,
         )
         report = runner.evaluate(suite)
         print(f"report: {Path(args.out) / 'report.html'}")
@@ -753,6 +785,26 @@ def main(argv: list[str] | None = None) -> int:
         )
         out = report.save(run_dir / "report.html")
         print(f"report: {out}")
+        return 0
+
+    if args.command == "compare-failure-monitors":
+        manifest = Path(args.manifest)
+        if manifest.is_dir():
+            manifest = manifest / "failure_monitor_predictions.json"
+        _, contracts, records = load_monitor_manifest(manifest)
+        comparison = compare_monitor_records(
+            records,
+            contracts,
+            args.monitor_a,
+            args.monitor_b,
+        )
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            json.dumps(comparison, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        print(f"comparison: {out}")
         return 0
 
     if args.command == "export-learning-evidence":
@@ -1133,6 +1185,8 @@ def _matrix_policy_runner(
         counterfactual_max_branch_points=args.counterfactual_max_branch_points,
         stressor_config=args.stressor_config,
         benchmark_validity=args.benchmark_validity,
+        failure_monitors=args.failure_monitor,
+        enable_monitor_intervention=args.enable_monitor_intervention,
     )
 
 
