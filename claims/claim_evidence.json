@@ -309,6 +309,28 @@
       ]
     },
     {
+      "claim_id": "paired_sim_real_analysis",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench executes versioned paired sim-real studies over content-pinned simulation runs and validated real-evidence packages.",
+      "authorized_public_assertion": true,
+      "issue_ids": [38],
+      "source_paths": [
+        "nyssa_bench/simreal"
+      ],
+      "test_paths": [
+        "tests/test_sim_real_study.py"
+      ],
+      "artifact_requirements": [
+        "sim_real_study.json",
+        "sim_real_study.html"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "The analysis module does not supply hardware evidence or authorize a predictive sim-real claim."
+      ]
+    },
+    {
       "claim_id": "sim_real_predictive_validity",
       "status": "planned",
       "evidence_tier": "planned",
@@ -317,7 +339,8 @@
       "issue_ids": [20, 38],
       "source_paths": [
         "nyssa_bench/research/sim_real_correlation.py",
-        "nyssa_bench/real_evidence"
+        "nyssa_bench/real_evidence",
+        "nyssa_bench/simreal"
       ],
       "test_paths": [],
       "artifact_requirements": [

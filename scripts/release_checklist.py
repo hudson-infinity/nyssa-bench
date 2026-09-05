@@ -24,6 +24,7 @@ REQUIRED = [
     "docs/simulator_ci.md",
     "docs/nyssa_evaluation_protocol.md",
     "docs/external_policy_quickstart.md",
+    "docs/sim_real_study.md",
     "examples/policies/state_policy.py",
     "examples/policies/state_policy_contract.json",
     "schemas/nep/0.1.0/nep-manifest.schema.json",

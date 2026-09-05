@@ -12,6 +12,8 @@
   claim-tier checks, schemas, migration rules, and conformance fixtures.
 - Add external policy preflight, state-leak and action-chunk validation,
   machine/HTML conformance reports, and packaged state/RGB examples.
+- Add versioned paired sim-real studies with rank, failure, shift, censoring,
+  recovery, clustered uncertainty, and held-out predictive analyses.
 - Add pinned pre-commit and pre-push hooks for structural checks, Ruff, config
   validation, release files, and the full test suite.
 - Bound numeric observation flattening to the requested feature size and avoid
