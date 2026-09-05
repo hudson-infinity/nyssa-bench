@@ -10,6 +10,7 @@ Start here:
 - [Installation](installation.md)
 - [Python package releases](releasing.md)
 - [Installed artifact validation](installed_artifact_validation.md)
+- [Simulator-backed CI](simulator_ci.md)
 - [Task spec](task_spec.md)
 - [Engine adapters](engine_adapters.md)
 - [Policy adapters](policy_adapters.md)

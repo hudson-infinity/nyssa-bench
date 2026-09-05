@@ -21,6 +21,7 @@ REQUIRED = [
     "docs/claim_evidence.md",
     "docs/releasing.md",
     "docs/installed_artifact_validation.md",
+    "docs/simulator_ci.md",
     "claims/claim_evidence.json",
     "scripts/validate_claim_evidence.py",
     "scripts/validate_release_version.py",

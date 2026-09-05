@@ -3347,6 +3347,7 @@ all = [
     { name = "matplotlib", version = "3.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "mujoco" },
     { name = "numpy" },
+    { name = "packaging" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or python_full_version >= '3.14'" },
     { name = "pandas", version = "3.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.14'" },
     { name = "pillow" },
@@ -3399,6 +3400,7 @@ full = [
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "matplotlib", version = "3.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "mujoco" },
+    { name = "packaging" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or python_full_version >= '3.14'" },
     { name = "pandas", version = "3.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.14'" },
     { name = "pillow" },
@@ -3420,12 +3422,14 @@ maniskill = [
     { name = "imageio-ffmpeg" },
     { name = "mani-skill" },
     { name = "numpy" },
+    { name = "packaging" },
 ]
 mujoco = [
     { name = "gymnasium" },
     { name = "imageio" },
     { name = "imageio-ffmpeg" },
     { name = "mujoco" },
+    { name = "packaging" },
 ]
 reports = [
     { name = "jinja2" },
@@ -3501,6 +3505,10 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "numpy", marker = "extra == 'all'", specifier = ">=1.26,<2.0" },
     { name = "numpy", marker = "extra == 'maniskill'", specifier = ">=1.26,<2.0" },
+    { name = "packaging", marker = "extra == 'all'", specifier = ">=23.0" },
+    { name = "packaging", marker = "extra == 'full'", specifier = ">=23.0" },
+    { name = "packaging", marker = "extra == 'maniskill'", specifier = ">=23.0" },
+    { name = "packaging", marker = "extra == 'mujoco'", specifier = ">=23.0" },
     { name = "pandas", marker = "extra == 'all'", specifier = ">=2.1" },
     { name = "pandas", marker = "extra == 'dataset'", specifier = ">=2.1" },
     { name = "pandas", marker = "extra == 'full'", specifier = ">=2.1" },
