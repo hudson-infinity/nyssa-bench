@@ -12,6 +12,9 @@ from scripts.validate_distributions import validate_distributions
 def test_resource_resolver_finds_source_bundles() -> None:
     assert (config_root("suites") / "tabletop_manipulation_v0.yaml").is_file()
     assert (resource_root("conformance") / "scenario" / "README.md").is_file()
+    assert (
+        resource_root("schemas") / "nep" / "0.1.0" / "nep-manifest.schema.json"
+    ).is_file()
 
 
 @pytest.mark.parametrize("name", ["", ".", "..", "../configs", "a/b", "a\\b"])

@@ -14,6 +14,7 @@ from nyssa_bench.core.registry import make_engine
 from nyssa_bench.core.suite import Suite
 from nyssa_bench.core.task import TaskSpec
 from nyssa_bench.recovery.state import state_sha256
+from nyssa_bench.nep import result_pack_pipeline_manifest, write_nep_manifest
 from nyssa_bench.runner import PolicyRunner
 from nyssa_bench.stressors import StressorConfig, StressorSpec
 from nyssa_bench.utils.reproducibility import package_versions
@@ -126,6 +127,9 @@ def run_simulator_smoke(
         raise RuntimeError(
             "simulator smoke result pack is incomplete: " + ", ".join(missing)
         )
+    nep_manifest = result_pack_pipeline_manifest(engine_name, run_dir)
+    write_nep_manifest(nep_manifest, run_dir / "nep_manifest.json")
+    required_artifacts.append("nep_manifest.json")
     replay_count = len(list((run_dir / "videos").glob("*.mp4")))
     if replay and replay_count != len(runner.episode_results):
         raise RuntimeError("ManiSkill smoke did not produce one replay per episode")
@@ -158,6 +162,11 @@ def run_simulator_smoke(
             report.summary.get("public_claim_validation") or {}
         ).get("status"),
         "required_artifacts": required_artifacts,
+        "nep": {
+            "version": nep_manifest.nep_version,
+            "content_sha256": nep_manifest.content_sha256,
+            "claim_tier": nep_manifest.claim.requested_tier,
+        },
     }
 
 

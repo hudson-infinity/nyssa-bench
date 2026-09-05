@@ -1,0 +1,159 @@
+{
+  "$defs": {
+    "TrainingDataContract": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_id": {
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "dataset_version": {
+          "title": "Dataset Version",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "split_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Split Ids",
+          "type": "array"
+        },
+        "license_id": {
+          "title": "License Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "dataset_version",
+        "sha256",
+        "split_ids",
+        "license_id"
+      ],
+      "title": "TrainingDataContract",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "nyssa-nep-policy-contract-v0.1",
+      "default": "nyssa-nep-policy-contract-v0.1",
+      "title": "Format",
+      "type": "string"
+    },
+    "contract_version": {
+      "default": "0.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "policy_id": {
+      "title": "Policy Id",
+      "type": "string"
+    },
+    "policy_version": {
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "policy_family": {
+      "title": "Policy Family",
+      "type": "string"
+    },
+    "checkpoint_id": {
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "checkpoint_sha256": {
+      "title": "Checkpoint Sha256",
+      "type": "string"
+    },
+    "preprocessing_sha256": {
+      "title": "Preprocessing Sha256",
+      "type": "string"
+    },
+    "observation_modalities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Observation Modalities",
+      "type": "array"
+    },
+    "action_representation": {
+      "title": "Action Representation",
+      "type": "string"
+    },
+    "action_dimension": {
+      "exclusiveMinimum": 0,
+      "title": "Action Dimension",
+      "type": "integer"
+    },
+    "action_lower_bounds": {
+      "items": {
+        "type": "number"
+      },
+      "title": "Action Lower Bounds",
+      "type": "array"
+    },
+    "action_upper_bounds": {
+      "items": {
+        "type": "number"
+      },
+      "title": "Action Upper Bounds",
+      "type": "array"
+    },
+    "prediction_horizon": {
+      "exclusiveMinimum": 0,
+      "title": "Prediction Horizon",
+      "type": "integer"
+    },
+    "execution_horizon": {
+      "exclusiveMinimum": 0,
+      "title": "Execution Horizon",
+      "type": "integer"
+    },
+    "state_semantics": {
+      "enum": [
+        "stateless",
+        "resettable",
+        "restorable"
+      ],
+      "title": "State Semantics",
+      "type": "string"
+    },
+    "deterministic_seeding": {
+      "title": "Deterministic Seeding",
+      "type": "boolean"
+    },
+    "training_data": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TrainingDataContract"
+      },
+      "title": "Training Data",
+      "type": "array"
+    }
+  },
+  "required": [
+    "policy_id",
+    "policy_version",
+    "policy_family",
+    "checkpoint_id",
+    "checkpoint_sha256",
+    "preprocessing_sha256",
+    "observation_modalities",
+    "action_representation",
+    "action_dimension",
+    "action_lower_bounds",
+    "action_upper_bounds",
+    "prediction_horizon",
+    "execution_horizon",
+    "state_semantics",
+    "deterministic_seeding"
+  ],
+  "title": "PolicyContract",
+  "type": "object"
+}

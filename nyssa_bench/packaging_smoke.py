@@ -71,6 +71,7 @@ def run_packaging_smoke(out_dir: str | Path) -> dict[str, Any]:
         raise RuntimeError("bundled suite or stressor resources are unavailable")
     config_dir = config_root("suites")
     conformance_dir = resource_root("conformance")
+    schema_dir = resource_root("schemas")
     suite = Suite.load("tabletop_manipulation_v0").filter_tasks(["pick_cube"])
     get_plugin_registry().engines["packaging_smoke"] = _PackagingSmokeEngine
     runner = PolicyRunner(
@@ -98,6 +99,7 @@ def run_packaging_smoke(out_dir: str | Path) -> dict[str, Any]:
         "working_directory": Path.cwd().resolve().as_posix(),
         "config_root": config_dir.as_posix(),
         "conformance_root": conformance_dir.as_posix(),
+        "schema_root": schema_dir.as_posix(),
         "suite_count": len(suites),
         "stressor_count": len(stressors),
         "suite_id": suite.suite_id,

@@ -31,6 +31,8 @@ Release artifacts are built and tested as installed wheels outside the source
 checkout. See [installed artifact validation](docs/installed_artifact_validation.md).
 Real simulator checks run separately under the
 [simulator-backed CI protocol](docs/simulator_ci.md).
+The six interoperable evaluation contracts are versioned under
+[Nyssa Evaluation Protocol 0.1](docs/nyssa_evaluation_protocol.md).
 
 ```python
 from nyssa_bench import PolicyRunner, Suite

@@ -1,0 +1,135 @@
+{
+  "format": "nyssa-evaluation-protocol-v0.1",
+  "nep_version": "0.1.0",
+  "evaluation_id": "nep-reference-mujoco",
+  "task": {
+    "format": "nyssa-nep-task-contract-v0.1",
+    "contract_version": "0.1.0",
+    "task_id": "mujoco_inverted_pendulum",
+    "task_version": "1.0.0",
+    "engine_ids": [
+      "mujoco"
+    ],
+    "robot_id": "reference_robot",
+    "scene_id": "reference_scene",
+    "horizon_steps": 200,
+    "observation_modalities": [
+      "state"
+    ],
+    "action_representation": "environment_action",
+    "success_predicate": {
+      "info_key": "success"
+    },
+    "assets": [
+      {
+        "asset_id": "mujoco_inverted_pendulum-definition",
+        "asset_version": "1.0.0",
+        "sha256": "33a08c026fb21e2c9b5758969a454f1840f56d65d272220a476a978b4903b73f",
+        "license_id": "upstream-simulator-license",
+        "split": "public_test"
+      }
+    ],
+    "split_lineage": {
+      "split_id": "mujoco_inverted_pendulum-public-test",
+      "partition": "public_test",
+      "lineage_sha256": "3e2ee23d6ba072ee555d027a51124375a99ebd4aae0cdd7677aae5979ff0efef",
+      "parent_split_ids": [],
+      "training_overlap_allowed": false
+    }
+  },
+  "stressor": {
+    "format": "nyssa-nep-stressor-contract-v0.1",
+    "contract_version": "0.1.0",
+    "condition_id": "clean",
+    "composition_semantics": "ordered",
+    "stressors": []
+  },
+  "policy": {
+    "format": "nyssa-nep-policy-contract-v0.1",
+    "contract_version": "0.1.0",
+    "policy_id": "random_pipeline_control",
+    "policy_version": "1.0.0",
+    "policy_family": "integration_control",
+    "checkpoint_id": "builtin-random-policy-v1",
+    "checkpoint_sha256": "258b3e0af7ca3a945ef5a263f3b5fb2e577195b4062a4f7e56d233dc8f9a030b",
+    "preprocessing_sha256": "7bc358a40bd0e6664d80b3cc54f86baf638bf3676180c14e1abbd32b88e4db57",
+    "observation_modalities": [
+      "state"
+    ],
+    "action_representation": "environment_action",
+    "action_dimension": 1,
+    "action_lower_bounds": [
+      -1.0
+    ],
+    "action_upper_bounds": [
+      1.0
+    ],
+    "prediction_horizon": 1,
+    "execution_horizon": 1,
+    "state_semantics": "stateless",
+    "deterministic_seeding": true,
+    "training_data": []
+  },
+  "failure_evidence": {
+    "format": "nyssa-nep-failure-evidence-contract-v0.1",
+    "contract_version": "0.1.0",
+    "event_format": "nyssa-failure-event-v1",
+    "ledger_artifact_id": "missing-ledger",
+    "detector_contract_artifact_id": "detector-contracts",
+    "temporal_precision": [
+      "exact_step",
+      "terminal_only"
+    ],
+    "evidence_visibility": [
+      "policy_observable",
+      "privileged"
+    ],
+    "causal_semantics": "hypothesis_only"
+  },
+  "intervention": {
+    "format": "nyssa-nep-intervention-contract-v0.1",
+    "contract_version": "0.1.0",
+    "enabled": false,
+    "trigger_sources": [],
+    "intervention_types": [],
+    "cost_metrics": [],
+    "counterfactual_branch_artifact_id": null,
+    "restoration_requirement": "none"
+  },
+  "claim": {
+    "format": "nyssa-nep-claim-contract-v0.1",
+    "contract_version": "0.1.0",
+    "requested_tier": "pipeline",
+    "evidence_artifact_ids": [
+      "failure-ledger",
+      "run-validity"
+    ],
+    "run_validity_artifact_id": "run-validity",
+    "benchmark_validity_artifact_id": null,
+    "real_evidence_artifact_id": null
+  },
+  "artifacts": [
+    {
+      "artifact_id": "failure-ledger",
+      "media_type": "application/json",
+      "sha256": "db4d13da67f8433c11f65a387bf1212fe33f08a08455eb47bc5fbb000568d33c",
+      "uri": "nyssa-reference://mujoco/failure-ledger.json",
+      "required": true
+    },
+    {
+      "artifact_id": "detector-contracts",
+      "media_type": "application/json",
+      "sha256": "9717a5465adb22ceebb877a7834fffca4f38b9b4db8acc99029f57e620ab4f0f",
+      "uri": "nyssa-reference://mujoco/detector-contracts.json",
+      "required": true
+    },
+    {
+      "artifact_id": "run-validity",
+      "media_type": "application/json",
+      "sha256": "62f536564048b01c8cdefced35151598dca1e4a05d538aa915fedd4e9cc883da",
+      "uri": "nyssa-reference://mujoco/run-validity.json",
+      "required": true
+    }
+  ],
+  "content_sha256": "668a25e4041f04e6a97c2140729014eaaf18f2efcf62cc706022ac4cbd08529a"
+}

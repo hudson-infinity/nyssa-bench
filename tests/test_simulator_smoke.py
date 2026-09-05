@@ -10,6 +10,10 @@ import pytest
 from nyssa_bench.engines.base import NyssaEngine
 from nyssa_bench.plugins import get_plugin_registry
 from nyssa_bench.simulator_smoke import TASKS, main, run_simulator_smoke
+from nyssa_bench.nep.reference import (
+    REFERENCE_ACTION_DIMENSIONS,
+    REFERENCE_TASKS,
+)
 
 
 class _SimulatorCiEngine(NyssaEngine):
@@ -79,6 +83,8 @@ def test_simulator_smoke_covers_restore_stressors_seeds_and_artifacts(
     monkeypatch.setitem(
         TASKS, engine_name, ("tabletop_manipulation_v0", "pick_cube")
     )
+    monkeypatch.setitem(REFERENCE_TASKS, engine_name, "pick_cube")
+    monkeypatch.setitem(REFERENCE_ACTION_DIMENSIONS, engine_name, 1)
 
     report = run_simulator_smoke(
         engine_name,

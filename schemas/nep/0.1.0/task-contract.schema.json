@@ -1,0 +1,170 @@
+{
+  "$defs": {
+    "AssetContract": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "asset_version": {
+          "title": "Asset Version",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "license_id": {
+          "title": "License Id",
+          "type": "string"
+        },
+        "split": {
+          "enum": [
+            "train",
+            "validation",
+            "public_test",
+            "hidden_test"
+          ],
+          "title": "Split",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "asset_version",
+        "sha256",
+        "license_id",
+        "split"
+      ],
+      "title": "AssetContract",
+      "type": "object"
+    },
+    "SplitLineageContract": {
+      "additionalProperties": false,
+      "properties": {
+        "split_id": {
+          "title": "Split Id",
+          "type": "string"
+        },
+        "partition": {
+          "enum": [
+            "train",
+            "validation",
+            "public_test",
+            "hidden_test"
+          ],
+          "title": "Partition",
+          "type": "string"
+        },
+        "lineage_sha256": {
+          "title": "Lineage Sha256",
+          "type": "string"
+        },
+        "parent_split_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Parent Split Ids",
+          "type": "array"
+        },
+        "training_overlap_allowed": {
+          "default": false,
+          "title": "Training Overlap Allowed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "split_id",
+        "partition",
+        "lineage_sha256"
+      ],
+      "title": "SplitLineageContract",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "nyssa-nep-task-contract-v0.1",
+      "default": "nyssa-nep-task-contract-v0.1",
+      "title": "Format",
+      "type": "string"
+    },
+    "contract_version": {
+      "default": "0.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "title": "Task Version",
+      "type": "string"
+    },
+    "engine_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Engine Ids",
+      "type": "array"
+    },
+    "robot_id": {
+      "title": "Robot Id",
+      "type": "string"
+    },
+    "scene_id": {
+      "title": "Scene Id",
+      "type": "string"
+    },
+    "horizon_steps": {
+      "exclusiveMinimum": 0,
+      "title": "Horizon Steps",
+      "type": "integer"
+    },
+    "observation_modalities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Observation Modalities",
+      "type": "array"
+    },
+    "action_representation": {
+      "title": "Action Representation",
+      "type": "string"
+    },
+    "success_predicate": {
+      "additionalProperties": true,
+      "title": "Success Predicate",
+      "type": "object"
+    },
+    "assets": {
+      "items": {
+        "$ref": "#/$defs/AssetContract"
+      },
+      "title": "Assets",
+      "type": "array"
+    },
+    "split_lineage": {
+      "$ref": "#/$defs/SplitLineageContract"
+    }
+  },
+  "required": [
+    "task_id",
+    "task_version",
+    "engine_ids",
+    "robot_id",
+    "scene_id",
+    "horizon_steps",
+    "observation_modalities",
+    "action_representation",
+    "success_predicate",
+    "assets",
+    "split_lineage"
+  ],
+  "title": "TaskContract",
+  "type": "object"
+}
