@@ -84,6 +84,20 @@ from nyssa_bench.stressors import (
     load_robustness_sweep,
     save_robustness_report,
 )
+from nyssa_bench.stress_search import (
+    STRESS_SEARCH_SPEC_FORMAT,
+    STRESS_SEARCH_STUDY_FORMAT,
+    StressSearchStudy,
+    compare_stress_search_studies,
+    load_stress_observations,
+    load_stress_search_spec,
+    load_stress_search_study,
+    observation_from_run,
+    write_stress_proposals,
+    write_stress_search_report,
+    write_stress_search_study,
+    write_stress_observations,
+)
 from nyssa_bench.validity import (
     BENCHMARK_VALIDITY_REPORT_FORMAT,
     BENCHMARK_VALIDITY_SPEC_FORMAT,
@@ -133,6 +147,38 @@ def main(argv: list[str] | None = None) -> int:
     benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
     benchmark_audit_parser.add_argument("spec")
     benchmark_audit_parser.add_argument("--out", required=True)
+
+    stress_init_parser = subparsers.add_parser("stress-search-init")
+    stress_init_parser.add_argument("spec")
+    stress_init_parser.add_argument("--out", required=True)
+
+    stress_propose_parser = subparsers.add_parser("stress-search-propose")
+    stress_propose_parser.add_argument("study")
+    stress_propose_parser.add_argument("--count", type=int)
+    stress_propose_parser.add_argument("--out", required=True)
+    stress_propose_parser.add_argument("--proposals-out", required=True)
+
+    stress_observe_parser = subparsers.add_parser("stress-search-observe")
+    stress_observe_parser.add_argument("study")
+    stress_observe_parser.add_argument("observations")
+    stress_observe_parser.add_argument("--confirmation", action="store_true")
+    stress_observe_parser.add_argument("--out", required=True)
+
+    stress_ingest_parser = subparsers.add_parser("stress-search-ingest-run")
+    stress_ingest_parser.add_argument("study")
+    stress_ingest_parser.add_argument("proposal_id")
+    stress_ingest_parser.add_argument("run")
+    stress_ingest_parser.add_argument("--out", required=True)
+    stress_ingest_parser.add_argument("--observation-out", required=True)
+
+    stress_confirm_parser = subparsers.add_parser("stress-search-confirm")
+    stress_confirm_parser.add_argument("study")
+    stress_confirm_parser.add_argument("--out", required=True)
+    stress_confirm_parser.add_argument("--proposals-out", required=True)
+
+    stress_report_parser = subparsers.add_parser("stress-search-report")
+    stress_report_parser.add_argument("studies", nargs="+")
+    stress_report_parser.add_argument("--out", required=True)
 
     scenario_validate_parser = subparsers.add_parser("validate-scenario")
     scenario_validate_parser.add_argument("scenario")
@@ -433,6 +479,96 @@ def main(argv: list[str] | None = None) -> int:
         print(f"benchmark_validity: {path}")
         print(f"status: {report.status}")
         return 0 if report.claim_ready else 2
+
+    if args.command == "stress-search-init":
+        study = StressSearchStudy(load_stress_search_spec(args.spec))
+        path = write_stress_search_study(study, args.out)
+        print(f"study: {path}")
+        return 0
+
+    if args.command == "stress-search-propose":
+        study = load_stress_search_study(args.study)
+        proposals = study.propose(args.count)
+        study_path = write_stress_search_study(study, args.out)
+        proposals_path = write_stress_proposals(
+            proposals,
+            args.proposals_out,
+            search_space=study.spec.search_space,
+        )
+        print(f"study: {study_path}")
+        print(f"proposals: {proposals_path}")
+        print(f"proposal_count: {len(proposals)}")
+        return 0
+
+    if args.command == "stress-search-observe":
+        study = load_stress_search_study(args.study)
+        observations = load_stress_observations(args.observations)
+        if args.confirmation:
+            study.observe_confirmation(observations)
+        else:
+            study.observe(observations)
+        path = write_stress_search_study(study, args.out)
+        print(f"study: {path}")
+        print(f"observation_count: {len(observations)}")
+        return 0
+
+    if args.command == "stress-search-ingest-run":
+        study = load_stress_search_study(args.study)
+        proposals = [
+            *study.sampler.proposals,
+            *study.confirmation_proposals,
+        ]
+        proposal = next(
+            (
+                item
+                for item in proposals
+                if item.proposal_id == args.proposal_id
+            ),
+            None,
+        )
+        if proposal is None:
+            raise ValueError(f"unknown stress-search proposal: {args.proposal_id}")
+        observation = observation_from_run(
+            proposal,
+            args.run,
+            search_space=study.spec.search_space,
+            success_threshold=study.spec.outcome_success_threshold,
+        )
+        if proposal.phase == "confirmation":
+            study.observe_confirmation((observation,))
+        else:
+            study.observe((observation,))
+        study_path = write_stress_search_study(study, args.out)
+        observation_path = write_stress_observations(
+            (observation,), args.observation_out
+        )
+        print(f"study: {study_path}")
+        print(f"observation: {observation_path}")
+        print(f"status: {observation.status}")
+        return 0 if observation.status in {"success", "policy_failure"} else 2
+
+    if args.command == "stress-search-confirm":
+        study = load_stress_search_study(args.study)
+        proposals = study.select_confirmation_conditions()
+        study_path = write_stress_search_study(study, args.out)
+        proposals_path = write_stress_proposals(
+            proposals,
+            args.proposals_out,
+            search_space=study.spec.search_space,
+        )
+        print(f"study: {study_path}")
+        print(f"confirmation_proposals: {proposals_path}")
+        print(f"proposal_count: {len(proposals)}")
+        return 0 if proposals else 2
+
+    if args.command == "stress-search-report":
+        studies = [load_stress_search_study(path) for path in args.studies]
+        paths = write_stress_search_report(
+            compare_stress_search_studies(studies), args.out
+        )
+        for label, path in paths.items():
+            print(f"{label}: {path}")
+        return 0
 
     if args.command == "validate-scenario":
         package = ScenarioPackage.load(args.scenario)
@@ -1042,6 +1178,12 @@ def _validate_target(target: str) -> None:
             return
         if data.get("format") == BENCHMARK_VALIDITY_REPORT_FORMAT:
             load_benchmark_validity_report(path)
+            return
+        if data.get("format") == STRESS_SEARCH_SPEC_FORMAT:
+            load_stress_search_spec(path)
+            return
+        if data.get("format") == STRESS_SEARCH_STUDY_FORMAT:
+            load_stress_search_study(path)
             return
         if "tasks" in data:
             Suite.load(path)
