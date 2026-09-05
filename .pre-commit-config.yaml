@@ -55,6 +55,13 @@ repos:
         pass_filenames: false
         files: ^(README\.md|pyproject\.toml|claims/.*\.json|docs/.*\.md|scripts/validate_claim_evidence\.py|nyssa_bench/claims/.*\.py)$
 
+      - id: validate-phase1-credibility
+        name: validate the Phase 1 credibility gate
+        entry: python scripts/validate_credibility.py
+        language: system
+        pass_filenames: false
+        files: ^(README\.md|claims/.*\.json|docs/.*\.md|scripts/validate_credibility\.py|nyssa_bench/credibility/.*\.py)$
+
       - id: validate-release-version
         name: validate package release version
         entry: python scripts/validate_release_version.py

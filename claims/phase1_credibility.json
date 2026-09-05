@@ -1,0 +1,13 @@
+{
+  "format": "nyssa-phase1-credibility-spec-v1",
+  "schema_version": 1,
+  "program_id": "nyssabench-phase1",
+  "program_version": "1.0.0",
+  "claim_matrix_path": "claims/claim_evidence.json",
+  "claim_matrix_sha256": "b0cc9b3f0bceeaec98445d130c8e90e440bb908b7b6e3cfb626b2563fb005c13",
+  "evidence": [],
+  "metadata": {
+    "status": "measurement_core_implemented_reference_and_predictive_evidence_pending",
+    "scope": "nyssabench_only"
+  }
+}

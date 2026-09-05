@@ -146,6 +146,28 @@
       ]
     },
     {
+      "claim_id": "metric_vector_reporting",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench reports separate success, robustness, failure, recovery, safety, compute, and sim-real measurements without collapsing them into a universal reliability score.",
+      "authorized_public_assertion": true,
+      "issue_ids": [22],
+      "source_paths": [
+        "nyssa_bench/metrics/vector.py",
+        "nyssa_bench/reports/html_report.py"
+      ],
+      "test_paths": [
+        "tests/test_metric_vector.py"
+      ],
+      "artifact_requirements": [
+        "nyssa-metric-vector-v1 in metrics.json"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "Metric availability and claim eligibility remain explicit per measurement; unavailable values are not imputed."
+      ]
+    },
+    {
       "claim_id": "external_failure_monitor_evaluation",
       "status": "implemented",
       "evidence_tier": "source_verified",
@@ -331,6 +353,30 @@
       ]
     },
     {
+      "claim_id": "phase1_credibility_gate",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench enforces a staged, content-addressed Phase 1 credibility gate while keeping missing reference and hardware evidence visible.",
+      "authorized_public_assertion": true,
+      "issue_ids": [30],
+      "source_paths": [
+        "nyssa_bench/credibility",
+        "claims/phase1_credibility.json"
+      ],
+      "test_paths": [
+        "tests/test_credibility_gate.py"
+      ],
+      "artifact_requirements": [
+        "phase1_credibility.json",
+        "phase1_credibility.html",
+        "content-addressed credibility evidence records"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "Implementing the gate does not mean its reference-benchmark or predictive-validity stages have passed."
+      ]
+    },
+    {
       "claim_id": "sim_real_predictive_validity",
       "status": "planned",
       "evidence_tier": "planned",
@@ -389,6 +435,7 @@
       "temporal_failure_evidence",
       "counterfactual_recovery_measurement",
       "benchmark_validity_audits",
+      "metric_vector_reporting",
       "nyssa_evaluation_protocol",
       "validated_learned_policy_coverage",
       "compact_reference_benchmark",
