@@ -1,8 +1,55 @@
-FROM python:3.11-slim
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
-WORKDIR /app
-COPY . .
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
-RUN python -m pip install --upgrade pip && python -m pip install -e ".[mujoco,video]"
+ARG PYTHON_VERSION
+ARG NYSSA_VERSION
+ARG NYSSA_COMMIT
+ARG NYSSA_BUILD_DATE
+ARG TARGETPLATFORM
+ARG MUJOCO_VERSION=3.12.0
+ARG GYMNASIUM_VERSION=1.3.0
 
-CMD ["nyssa", "run", "--suite", "mujoco_control_v0", "--engine", "mujoco", "--policy", "random", "--episodes", "1", "--out", "runs/mujoco_smoke"]
+LABEL org.opencontainers.image.title="NyssaBench MuJoCo" \
+      org.opencontainers.image.description="Headless MuJoCo evaluation runtime for NyssaBench" \
+      org.opencontainers.image.source="https://github.com/hudson-infinity/nyssa-bench" \
+      org.opencontainers.image.version="${NYSSA_VERSION}" \
+      org.opencontainers.image.revision="${NYSSA_COMMIT}" \
+      org.opencontainers.image.created="${NYSSA_BUILD_DATE}" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      io.hudson-labs.nyssa.python="${PYTHON_VERSION}" \
+      io.hudson-labs.nyssa.mujoco="${MUJOCO_VERSION}" \
+      io.hudson-labs.nyssa.gymnasium="${GYMNASIUM_VERSION}"
+
+ENV NYSSA_CONTAINER_PROFILE=mujoco \
+    NYSSA_CONTAINER_VERSION=${NYSSA_VERSION} \
+    NYSSA_CONTAINER_COMMIT=${NYSSA_COMMIT} \
+    NYSSA_CONTAINER_BUILD_DATE=${NYSSA_BUILD_DATE} \
+    NYSSA_CONTAINER_PLATFORM=${TARGETPLATFORM} \
+    NYSSA_CONTAINER_PYTHON=${PYTHON_VERSION} \
+    NYSSA_CONTAINER_MUJOCO=${MUJOCO_VERSION} \
+    NYSSA_CONTAINER_GYMNASIUM=${GYMNASIUM_VERSION} \
+    MUJOCO_GL=osmesa \
+    PYOPENGL_PLATFORM=osmesa \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       ffmpeg libegl1 libgl1 libglib2.0-0 libosmesa6 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY dist/*.whl /tmp/nyssa-dist/
+RUN wheel="$(find /tmp/nyssa-dist -maxdepth 1 -name '*.whl' -print -quit)" \
+    && test -n "${wheel}" \
+    && python -m pip install --no-cache-dir \
+       "mujoco==${MUJOCO_VERSION}" "gymnasium==${GYMNASIUM_VERSION}" \
+    && python -m pip install --no-cache-dir "${wheel}[mujoco]" \
+    && python -m pip check \
+    && rm -rf /tmp/nyssa-dist \
+    && useradd --create-home --uid 10001 nyssa \
+    && install -d -o nyssa -g nyssa /workspace
+
+USER nyssa
+WORKDIR /workspace
+
+CMD ["python", "-m", "nyssa_bench.container_smoke", "--profile", "mujoco", "--out", "/tmp/nyssa-smoke"]

@@ -14,8 +14,10 @@ REQUIRED = [
     ".gitattributes",
     ".pre-commit-config.yaml",
     ".github/workflows/ci.yml",
+    ".github/actionlint.yaml",
     ".github/workflows/release.yml",
     ".github/workflows/installed-simulators.yml",
+    ".github/workflows/container-ci.yml",
     "docs/getting_started.md",
     "docs/benchmark_protocol.md",
     "docs/claim_evidence.md",
@@ -38,6 +40,9 @@ REQUIRED = [
     "scripts/validate_credibility.py",
     "scripts/validate_release_version.py",
     "scripts/validate_distributions.py",
+    "nyssa_bench/container_smoke.py",
+    "nyssa_bench/release_bundle.py",
+    "tests/test_release_bundle.py",
 ]
 
 

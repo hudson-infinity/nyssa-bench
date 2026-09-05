@@ -5,4 +5,7 @@ __pycache__
 *.pyc
 runs
 reports
+benchmark_results
+.venv*
+build
 PLAN.md
