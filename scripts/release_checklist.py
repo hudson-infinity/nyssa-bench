@@ -16,6 +16,9 @@ REQUIRED = [
     ".github/workflows/ci.yml",
     "docs/getting_started.md",
     "docs/benchmark_protocol.md",
+    "docs/claim_evidence.md",
+    "claims/claim_evidence.json",
+    "scripts/validate_claim_evidence.py",
 ]
 
 

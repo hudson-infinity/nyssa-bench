@@ -20,6 +20,7 @@ Start here:
 - [Foundational contributions](foundational_contributions.md)
 - [Frontier questions](frontier_questions.md)
 - [Result tiers](result_tiers.md)
+- [Claim evidence and public positioning](claim_evidence.md)
 - [Validation protocol](validation_protocol.md)
 - [Benchmark audit checklist](benchmark_audit_checklist.md)
 - [Benchmark validity](benchmark_validity.md)

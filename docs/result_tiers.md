@@ -4,6 +4,10 @@ NyssaBench separates "a run completed" from "a result should be cited." The
 tier should be written into reports and scorecards so readers know what kind of
 claim the artifacts support.
 
+The table defines protocol tiers, not evidence that NyssaBench has already
+produced a result at every tier. The current public wording and promotion gate
+live in the [claim evidence matrix](claim_evidence.md).
+
 | Tier | Name | Meaning | Public claim |
 | --- | --- | --- | --- |
 | 0 | Scaffold | Dummy, unit, placeholder, or adapter-contract run. | No |

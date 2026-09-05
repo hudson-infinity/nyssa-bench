@@ -1,0 +1,326 @@
+{
+  "format": "nyssa-claim-evidence-matrix-v1",
+  "schema_version": 1,
+  "current_public_claim_id": "current_public_positioning",
+  "public_surfaces": [
+    "README.md",
+    "docs/index.md",
+    "docs/claim_evidence.md",
+    "docs/foundational_contributions.md",
+    "docs/research_agenda.md",
+    "docs/result_tiers.md",
+    "docs/roadmap.md",
+    "docs/related_work.md",
+    "pyproject.toml"
+  ],
+  "required_assertions": [
+    {
+      "path": "README.md",
+      "claim_id": "current_public_positioning",
+      "text": "NyssaBench is an open-source failure-aware evaluation and audit framework for embodied AI policies, built toward foundational infrastructure for evaluating frontier robot systems."
+    }
+  ],
+  "forbidden_assertions": [
+    "NyssaBench is open-source foundational infrastructure",
+    "NyssaBench is foundational infrastructure for failure-aware evaluation"
+  ],
+  "headline_result_packs": [],
+  "claims": [
+    {
+      "claim_id": "current_public_positioning",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench is an open-source failure-aware evaluation and audit framework for embodied AI policies, built toward foundational infrastructure for evaluating frontier robot systems.",
+      "authorized_public_assertion": true,
+      "issue_ids": [23, 25],
+      "source_paths": [
+        "nyssa_bench/runner.py",
+        "nyssa_bench/metrics/run_claims.py",
+        "nyssa_bench/validity"
+      ],
+      "test_paths": [
+        "tests/test_core_flow.py",
+        "tests/test_benchmark_validity.py"
+      ],
+      "artifact_requirements": [
+        "metrics.json",
+        "dataset_manifest.json",
+        "public_claim_validation"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "This positioning describes the implemented framework, not frontier-policy performance or sim-real predictive validity."
+      ]
+    },
+    {
+      "claim_id": "executable_stressor_measurement",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench executes typed stressors and records requested, applied, unsupported, and backend-confirmed condition evidence.",
+      "authorized_public_assertion": true,
+      "issue_ids": [13],
+      "source_paths": [
+        "nyssa_bench/stressors"
+      ],
+      "test_paths": [
+        "tests/test_stressors.py"
+      ],
+      "artifact_requirements": [
+        "stressor_manifest.json",
+        "stressor execution summary"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "Support is stressor, engine, task, and observation-mode specific; a declared stressor is not evidence that a backend applied it."
+      ]
+    },
+    {
+      "claim_id": "temporal_failure_evidence",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench records temporally ordered FailureEvents with evidence visibility, provenance, causal hypotheses, and recovery eligibility.",
+      "authorized_public_assertion": true,
+      "issue_ids": [14, 34],
+      "source_paths": [
+        "nyssa_bench/failures/protocol.py",
+        "nyssa_bench/failures/ledger.py",
+        "nyssa_bench/failures/detectors"
+      ],
+      "test_paths": [
+        "tests/test_failure_events.py",
+        "tests/test_failure_detectors.py",
+        "tests/test_failure_detector_integration.py"
+      ],
+      "artifact_requirements": [
+        "failure_ledger.json",
+        "failure_detector_manifest.json"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "A FailureEvent causal-parent field is a hypothesis unless separate intervention evidence supports causality."
+      ]
+    },
+    {
+      "claim_id": "counterfactual_recovery_measurement",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench can compare matched continuation and recovery branches when the simulator, policy, stressors, and random streams expose defensible restoration contracts.",
+      "authorized_public_assertion": true,
+      "issue_ids": [15],
+      "source_paths": [
+        "nyssa_bench/recovery",
+        "nyssa_bench/runner.py"
+      ],
+      "test_paths": [
+        "tests/test_counterfactual_recovery.py"
+      ],
+      "artifact_requirements": [
+        "counterfactual_recovery.json"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "Strong causal language is unavailable for qualified or unsupported state restoration."
+      ]
+    },
+    {
+      "claim_id": "benchmark_validity_audits",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench separates reproducible run validity from executable benchmark-validity audits.",
+      "authorized_public_assertion": true,
+      "issue_ids": [18],
+      "source_paths": [
+        "nyssa_bench/validity",
+        "nyssa_bench/metrics/run_claims.py"
+      ],
+      "test_paths": [
+        "tests/test_benchmark_validity.py"
+      ],
+      "artifact_requirements": [
+        "benchmark_validity.json",
+        "public_claim_validation"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "A validator passing on synthetic fixtures does not establish that a reference benchmark has passed the audits."
+      ]
+    },
+    {
+      "claim_id": "external_failure_monitor_evaluation",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench evaluates external runtime failure monitors under versioned deployable or privileged contracts.",
+      "authorized_public_assertion": true,
+      "issue_ids": [28],
+      "source_paths": [
+        "nyssa_bench/monitors"
+      ],
+      "test_paths": [
+        "tests/test_failure_monitors.py"
+      ],
+      "artifact_requirements": [
+        "failure_monitor_predictions.json"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "The built-in action-magnitude monitor is an integration control, not an interpretability method or learned baseline."
+      ]
+    },
+    {
+      "claim_id": "checkpoint_regression_gates",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "NyssaBench produces prespecified pass, fail, inconclusive, or invalid checkpoint regression decisions over pinned paired evidence.",
+      "authorized_public_assertion": true,
+      "issue_ids": [56],
+      "source_paths": [
+        "nyssa_bench/regression"
+      ],
+      "test_paths": [
+        "tests/test_policy_regression.py"
+      ],
+      "artifact_requirements": [
+        "regression_report.json",
+        "regression_report.html"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "A policy release decision is not a public benchmark rank or deployment-safety certification."
+      ]
+    },
+    {
+      "claim_id": "validated_learned_policy_coverage",
+      "status": "integration_only",
+      "evidence_tier": "integration_only",
+      "wording": "NyssaBench has validated reference tracks for materially different learned and frontier policy families.",
+      "authorized_public_assertion": false,
+      "issue_ids": [16],
+      "source_paths": [
+        "nyssa_bench/policies"
+      ],
+      "test_paths": [
+        "tests/test_cli.py"
+      ],
+      "artifact_requirements": [
+        "checkpoint policy contracts",
+        "paired clean and shifted result packs",
+        "replay evidence"
+      ],
+      "promotion_requirements": [
+        "Complete issue #16 with at least two learned policy families on the same held-out benchmark subset.",
+        "Pass leakage, action-contract, paired-seed, and replay evidence checks."
+      ],
+      "limitations": [
+        "Current random, scripted, BC, RoboMimic, LeRobot, VLA, and diffusion entries include controls or adapter paths that are not validated frontier tracks."
+      ]
+    },
+    {
+      "claim_id": "compact_reference_benchmark",
+      "status": "planned",
+      "evidence_tier": "planned",
+      "wording": "NyssaBench provides a compact, diverse reference benchmark with protected split lineage and solvability evidence.",
+      "authorized_public_assertion": false,
+      "issue_ids": [17],
+      "source_paths": [],
+      "test_paths": [],
+      "artifact_requirements": [
+        "protected split manifest",
+        "task solvability result packs",
+        "power analysis"
+      ],
+      "promotion_requirements": [
+        "Complete issue #17 and pass shortcut, contamination, split-lineage, and solvability audits."
+      ],
+      "limitations": [
+        "Existing suites and task counts do not satisfy the compact reference benchmark claim."
+      ]
+    },
+    {
+      "claim_id": "simulator_backed_continuous_integration",
+      "status": "planned",
+      "evidence_tier": "planned",
+      "wording": "NyssaBench continuously validates MuJoCo and GPU-backed ManiSkill execution in CI.",
+      "authorized_public_assertion": false,
+      "issue_ids": [19],
+      "source_paths": [
+        ".github/workflows/ci.yml"
+      ],
+      "test_paths": [],
+      "artifact_requirements": [
+        "scheduled MuJoCo integration logs",
+        "GPU ManiSkill integration logs",
+        "retained simulator result packs"
+      ],
+      "promotion_requirements": [
+        "Complete issue #19 with scheduled MuJoCo and capable-runner ManiSkill jobs.",
+        "Measure flakiness before making simulator jobs required gates."
+      ],
+      "limitations": [
+        "Current pull-request CI proves Python behavior and mocked contracts, not full GPU simulator execution."
+      ]
+    },
+    {
+      "claim_id": "sim_real_predictive_validity",
+      "status": "planned",
+      "evidence_tier": "planned",
+      "wording": "NyssaBench failure profiles and counterfactual recoverability predict real robot behavior beyond clean simulation success.",
+      "authorized_public_assertion": false,
+      "issue_ids": [20, 38],
+      "source_paths": [
+        "nyssa_bench/research/sim_real_correlation.py",
+        "nyssa_bench/real_evidence"
+      ],
+      "test_paths": [],
+      "artifact_requirements": [
+        "preregistered hardware study",
+        "versioned paired sim-real analysis",
+        "held-out incremental predictive-value result"
+      ],
+      "promotion_requirements": [
+        "Complete the hardware calibration track in #20.",
+        "Complete the paired SimRealStudy implementation in #38.",
+        "Report a well-powered positive or negative held-out result."
+      ],
+      "limitations": [
+        "No current result pack supports a sim-real predictive claim."
+      ]
+    },
+    {
+      "claim_id": "foundational_frontier_infrastructure",
+      "status": "planned",
+      "evidence_tier": "planned",
+      "wording": "NyssaBench is foundational infrastructure for failure-aware evaluation of frontier embodied AI policies.",
+      "authorized_public_assertion": false,
+      "issue_ids": [23, 24, 30],
+      "source_paths": [],
+      "test_paths": [],
+      "artifact_requirements": [
+        "Phase 1 credibility report",
+        "validated reference result packs",
+        "predictive sim-real study"
+      ],
+      "promotion_requirements": [
+        "Pass the machine-readable Phase 1 credibility gate in #30.",
+        "Complete every claim named by promotion_gate.required_claim_ids.",
+        "Promote this wording in a separate reviewed change after evidence is pinned."
+      ],
+      "limitations": [
+        "This is milestone wording and is not authorized as the current project claim."
+      ]
+    }
+  ],
+  "promotion_gate": {
+    "claim_id": "foundational_frontier_infrastructure",
+    "milestone_wording": "NyssaBench is foundational infrastructure for failure-aware evaluation of frontier embodied AI policies.",
+    "required_claim_ids": [
+      "executable_stressor_measurement",
+      "temporal_failure_evidence",
+      "counterfactual_recovery_measurement",
+      "benchmark_validity_audits",
+      "validated_learned_policy_coverage",
+      "compact_reference_benchmark",
+      "simulator_backed_continuous_integration",
+      "sim_real_predictive_validity"
+    ]
+  }
+}
