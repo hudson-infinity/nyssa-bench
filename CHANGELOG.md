@@ -6,6 +6,8 @@
   extras, package metadata, version checks, and OIDC trusted-publishing workflow.
 - Validate wheel and source-distribution contents, packaged resource identity,
   external working-directory execution, and installed simulator workflows.
+- Add real installed-wheel MuJoCo state/stressor/result checks, an explicit GPU
+  ManiSkill path, retained failure diagnostics, and simulator flakiness policy.
 - Add pinned pre-commit and pre-push hooks for structural checks, Ruff, config
   validation, release files, and the full test suite.
 - Bound numeric observation flattening to the requested feature size and avoid

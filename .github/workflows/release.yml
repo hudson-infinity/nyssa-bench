@@ -17,10 +17,10 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Require a tag reachable from main
@@ -37,17 +37,17 @@ jobs:
         run: python -m twine check --strict dist/*
       - name: Validate distribution contents
         run: python scripts/validate_distributions.py dist/* --out distribution-validation.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: distribution-validation
           path: distribution-validation.json
           if-no-files-found: error
           retention-days: 30
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "dist/*"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-distributions
           path: dist/
@@ -63,11 +63,11 @@ jobs:
       matrix:
         python-version: ["3.10", "3.13"]
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-distributions
           path: dist
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install only the built wheel
@@ -81,7 +81,7 @@ jobs:
           nyssa list-stressors
           python -c "import nyssa_bench; print(nyssa_bench.__version__)"
           python -m nyssa_bench.packaging_smoke --out "${RUNNER_TEMP}/nyssa-installed-smoke"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-installed-smoke-python-${{ matrix.python-version }}
           path: ${{ runner.temp }}/nyssa-installed-smoke/
@@ -98,7 +98,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-distributions
           path: dist
@@ -117,7 +117,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-distributions
           path: dist

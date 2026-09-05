@@ -67,6 +67,9 @@ ManiSkill import plus replay-producing execution. If no matching GPU runner is
 registered, that optional job cannot execute; it is not silently replaced with
 a CPU or mocked claim.
 
+See [Simulator-backed continuous integration](simulator_ci.md) for the executed
+checks, diagnostic contract, and flakiness promotion rule.
+
 ## Resource layout
 
 Source checkouts keep configuration in `configs/` and fixtures in
