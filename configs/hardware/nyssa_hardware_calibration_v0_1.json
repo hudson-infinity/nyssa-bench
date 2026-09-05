@@ -1,0 +1,916 @@
+{
+  "analysis": {
+    "baseline_features": [
+      "intercept",
+      "clean_sim_success"
+    ],
+    "bootstrap_samples": 5000,
+    "bootstrap_seed": 20260905,
+    "cluster_fields": [
+      "policy_id",
+      "task_id",
+      "condition_id",
+      "trial_id"
+    ],
+    "enhanced_features": [
+      "intercept",
+      "clean_sim_success",
+      "shift_severity",
+      "failure_category",
+      "failure_onset_time",
+      "sim_recovery_gain"
+    ],
+    "heldout_shift_ids": [
+      "hardware-action-delay-s05"
+    ],
+    "negative_result_policy": "Report the prespecified confidence interval and power analysis even when failure features do not improve held-out prediction.",
+    "primary_metrics": [
+      "policy_rank",
+      "failure_distribution",
+      "shift_response",
+      "time_to_failure",
+      "recovery_effect",
+      "incremental_predictive_value"
+    ],
+    "sensitivity_analyses": [
+      "leave_one_task_out",
+      "leave_one_policy_out",
+      "exclude_operator_interventions",
+      "alternate_failure_taxonomy_coarsening",
+      "censoring_worst_case_bounds"
+    ]
+  },
+  "claim": {
+    "benchmark_validity_artifact_id": "hardware-validity-report",
+    "contract_version": "0.1.0",
+    "evidence_artifact_ids": [
+      "real-evidence-packages",
+      "sim-real-study-report",
+      "hardware-validity-report"
+    ],
+    "format": "nyssa-nep-claim-contract-v0.1",
+    "real_evidence_artifact_id": "real-evidence-packages",
+    "requested_tier": "sim_real_predictive",
+    "run_validity_artifact_id": "simulation-run-validity"
+  },
+  "conditions": [
+    {
+      "condition_id": "maniskill_pick_cube-planner_oracle-hardware-clean",
+      "hardware_condition_id": "real-maniskill_pick_cube-hardware-clean",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "planner_oracle",
+      "recovery_design": "disabled",
+      "recovery_trial_count": 0,
+      "severity": 0.0,
+      "simulation_condition_id": "sim-maniskill_pick_cube-hardware-clean",
+      "stressor_condition_id": "hardware-clean",
+      "task_id": "maniskill_pick_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_pick_cube-planner_oracle-hardware-action-delay-s05",
+      "hardware_condition_id": "real-maniskill_pick_cube-hardware-action-delay-s05",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "planner_oracle",
+      "recovery_design": "matched_trials",
+      "recovery_trial_count": 20,
+      "severity": 0.5,
+      "simulation_condition_id": "sim-maniskill_pick_cube-hardware-action-delay-s05",
+      "stressor_condition_id": "hardware-action-delay-s05",
+      "task_id": "maniskill_pick_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_pick_cube-robomimic_bc-hardware-clean",
+      "hardware_condition_id": "real-maniskill_pick_cube-hardware-clean",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "robomimic_bc",
+      "recovery_design": "disabled",
+      "recovery_trial_count": 0,
+      "severity": 0.0,
+      "simulation_condition_id": "sim-maniskill_pick_cube-hardware-clean",
+      "stressor_condition_id": "hardware-clean",
+      "task_id": "maniskill_pick_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_pick_cube-robomimic_bc-hardware-action-delay-s05",
+      "hardware_condition_id": "real-maniskill_pick_cube-hardware-action-delay-s05",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "robomimic_bc",
+      "recovery_design": "matched_trials",
+      "recovery_trial_count": 20,
+      "severity": 0.5,
+      "simulation_condition_id": "sim-maniskill_pick_cube-hardware-action-delay-s05",
+      "stressor_condition_id": "hardware-action-delay-s05",
+      "task_id": "maniskill_pick_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_pick_cube-diffusion_action_chunk-hardware-clean",
+      "hardware_condition_id": "real-maniskill_pick_cube-hardware-clean",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "diffusion_action_chunk",
+      "recovery_design": "disabled",
+      "recovery_trial_count": 0,
+      "severity": 0.0,
+      "simulation_condition_id": "sim-maniskill_pick_cube-hardware-clean",
+      "stressor_condition_id": "hardware-clean",
+      "task_id": "maniskill_pick_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_pick_cube-diffusion_action_chunk-hardware-action-delay-s05",
+      "hardware_condition_id": "real-maniskill_pick_cube-hardware-action-delay-s05",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "diffusion_action_chunk",
+      "recovery_design": "matched_trials",
+      "recovery_trial_count": 20,
+      "severity": 0.5,
+      "simulation_condition_id": "sim-maniskill_pick_cube-hardware-action-delay-s05",
+      "stressor_condition_id": "hardware-action-delay-s05",
+      "task_id": "maniskill_pick_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_push_cube-planner_oracle-hardware-clean",
+      "hardware_condition_id": "real-maniskill_push_cube-hardware-clean",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "planner_oracle",
+      "recovery_design": "disabled",
+      "recovery_trial_count": 0,
+      "severity": 0.0,
+      "simulation_condition_id": "sim-maniskill_push_cube-hardware-clean",
+      "stressor_condition_id": "hardware-clean",
+      "task_id": "maniskill_push_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_push_cube-planner_oracle-hardware-action-delay-s05",
+      "hardware_condition_id": "real-maniskill_push_cube-hardware-action-delay-s05",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "planner_oracle",
+      "recovery_design": "matched_trials",
+      "recovery_trial_count": 20,
+      "severity": 0.5,
+      "simulation_condition_id": "sim-maniskill_push_cube-hardware-action-delay-s05",
+      "stressor_condition_id": "hardware-action-delay-s05",
+      "task_id": "maniskill_push_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_push_cube-robomimic_bc-hardware-clean",
+      "hardware_condition_id": "real-maniskill_push_cube-hardware-clean",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "robomimic_bc",
+      "recovery_design": "disabled",
+      "recovery_trial_count": 0,
+      "severity": 0.0,
+      "simulation_condition_id": "sim-maniskill_push_cube-hardware-clean",
+      "stressor_condition_id": "hardware-clean",
+      "task_id": "maniskill_push_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_push_cube-robomimic_bc-hardware-action-delay-s05",
+      "hardware_condition_id": "real-maniskill_push_cube-hardware-action-delay-s05",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "robomimic_bc",
+      "recovery_design": "matched_trials",
+      "recovery_trial_count": 20,
+      "severity": 0.5,
+      "simulation_condition_id": "sim-maniskill_push_cube-hardware-action-delay-s05",
+      "stressor_condition_id": "hardware-action-delay-s05",
+      "task_id": "maniskill_push_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_push_cube-diffusion_action_chunk-hardware-clean",
+      "hardware_condition_id": "real-maniskill_push_cube-hardware-clean",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "diffusion_action_chunk",
+      "recovery_design": "disabled",
+      "recovery_trial_count": 0,
+      "severity": 0.0,
+      "simulation_condition_id": "sim-maniskill_push_cube-hardware-clean",
+      "stressor_condition_id": "hardware-clean",
+      "task_id": "maniskill_push_cube",
+      "trial_count": 20
+    },
+    {
+      "condition_id": "maniskill_push_cube-diffusion_action_chunk-hardware-action-delay-s05",
+      "hardware_condition_id": "real-maniskill_push_cube-hardware-action-delay-s05",
+      "matched_axes": [
+        "task goal",
+        "policy checkpoint",
+        "controller rate",
+        "action delay",
+        "initial pose stratum"
+      ],
+      "mismatches": [
+        {
+          "category": "dynamics",
+          "description": "Residual contact and actuator dynamics mismatch after calibration.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "residual-dynamics",
+          "uncertainty": null,
+          "unit": null
+        },
+        {
+          "category": "appearance",
+          "description": "Rendering cannot exactly reproduce hardware illumination and optics.",
+          "expected_direction": "unknown",
+          "magnitude": null,
+          "mismatch_id": "visual-rendering",
+          "uncertainty": null,
+          "unit": null
+        }
+      ],
+      "policy_id": "diffusion_action_chunk",
+      "recovery_design": "matched_trials",
+      "recovery_trial_count": 20,
+      "severity": 0.5,
+      "simulation_condition_id": "sim-maniskill_push_cube-hardware-action-delay-s05",
+      "stressor_condition_id": "hardware-action-delay-s05",
+      "task_id": "maniskill_push_cube",
+      "trial_count": 20
+    }
+  ],
+  "evidence": {
+    "benchmark_validity_report": null,
+    "preregistration_receipt": null,
+    "real_evidence_packages": [],
+    "sim_real_study_report": null,
+    "sim_real_study_spec": null
+  },
+  "exclusions": [
+    {
+      "criterion": "Robot or sensor self-test fails before policy execution.",
+      "decision_time": "before_outcome",
+      "rule_id": "pretrial-hardware-fault",
+      "treatment": "exclude"
+    },
+    {
+      "criterion": "A prespecified safety stop occurs after policy execution begins.",
+      "decision_time": "after_outcome_blinded",
+      "rule_id": "protective-stop",
+      "treatment": "retain_with_flag"
+    },
+    {
+      "criterion": "Required evidence stream is unavailable beyond its tolerance.",
+      "decision_time": "after_outcome_blinded",
+      "rule_id": "stream-loss",
+      "treatment": "censor"
+    }
+  ],
+  "failure_evidence": {
+    "causal_semantics": "hypothesis_only",
+    "contract_version": "0.1.0",
+    "detector_contract_artifact_id": "hardware-detector-contracts",
+    "event_format": "nyssa-failure-event-v1",
+    "evidence_visibility": [
+      "policy_observable",
+      "privileged",
+      "external"
+    ],
+    "format": "nyssa-nep-failure-evidence-contract-v0.1",
+    "ledger_artifact_id": "real-failure-ledgers",
+    "temporal_precision": [
+      "exact_step",
+      "step_interval"
+    ]
+  },
+  "first_trial_not_before": "2027-01-01T00:00:00Z",
+  "format": "nyssa-hardware-calibration-study-v1",
+  "governance": {
+    "artifact_access_rules": [
+      "raw evidence restricted to authorized study personnel",
+      "sanitized manifests and aggregate reports may be public",
+      "every redaction preserves content hashes and reason codes"
+    ],
+    "consent_basis": "institutional hardware study authorization",
+    "license_id": "pending-study-data-license",
+    "operator_ids_pseudonymous": true,
+    "privacy_classification": "restricted",
+    "redactions": [
+      "operator identity",
+      "site security details"
+    ],
+    "redistribution": "metadata_only",
+    "retention_policy": "retain raw evidence through study audit and publication",
+    "retention_until": "2032-01-01"
+  },
+  "intervention": {
+    "contract_version": "0.1.0",
+    "cost_metrics": [
+      "intervention_count",
+      "intervention_latency_seconds"
+    ],
+    "counterfactual_branch_artifact_id": null,
+    "enabled": true,
+    "format": "nyssa-nep-intervention-contract-v0.1",
+    "intervention_types": [
+      "emergency_stop",
+      "matched_recovery_trial"
+    ],
+    "restoration_requirement": "none",
+    "trigger_sources": [
+      "operator",
+      "safety_system",
+      "policy_monitor"
+    ]
+  },
+  "metadata": {
+    "dependency_boundary": "Reference benchmark and policy tracks must be released before freezing.",
+    "robot": "pending-panda-compatible-hardware",
+    "sites": [
+      "pending-site"
+    ]
+  },
+  "policies": [
+    {
+      "action_dimension": 7,
+      "action_lower_bounds": [
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0
+      ],
+      "action_representation": "pd_ee_delta_pose",
+      "action_upper_bounds": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "checkpoint_id": "pending-planner_oracle-checkpoint",
+      "checkpoint_sha256": "1371f3ca12f7fbfe8ac7b0368ea2d708b9598597739f3e26410f0e1f57fca330",
+      "contract_version": "0.1.0",
+      "deterministic_seeding": true,
+      "execution_horizon": 1,
+      "format": "nyssa-nep-policy-contract-v0.1",
+      "observation_modalities": [
+        "state_dict"
+      ],
+      "policy_family": "planner_oracle",
+      "policy_id": "planner_oracle",
+      "policy_version": "0.1.0",
+      "prediction_horizon": 1,
+      "preprocessing_sha256": "04cbc3b44195c5ff1c3c2fd240b4db6a515db88a6a266e325de6bd2ee8dd9de0",
+      "state_semantics": "resettable",
+      "training_data": []
+    },
+    {
+      "action_dimension": 7,
+      "action_lower_bounds": [
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0
+      ],
+      "action_representation": "pd_ee_delta_pose",
+      "action_upper_bounds": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "checkpoint_id": "pending-robomimic_bc-checkpoint",
+      "checkpoint_sha256": "d46438a6b2e8156d7907f2da907ea7960e0814f49407ea3b08cce2f9fc3a7683",
+      "contract_version": "0.1.0",
+      "deterministic_seeding": true,
+      "execution_horizon": 1,
+      "format": "nyssa-nep-policy-contract-v0.1",
+      "observation_modalities": [
+        "state_dict"
+      ],
+      "policy_family": "robomimic_bc",
+      "policy_id": "robomimic_bc",
+      "policy_version": "0.1.0",
+      "prediction_horizon": 1,
+      "preprocessing_sha256": "b9335e493b53038b333a6a4ed2b85a131717ef8d64901f40ccb7e90ca1efa9de",
+      "state_semantics": "resettable",
+      "training_data": [
+        {
+          "dataset_id": "pending-robomimic_bc-training",
+          "dataset_version": "0.1.0",
+          "license_id": "pending-training-data-license-audit",
+          "sha256": "53a6ba2a856edf8c1915f48baf1f3c951368783bc9814e2fd930b22fe85db4c4",
+          "split_ids": [
+            "nyssa-reference-v0.1-train"
+          ]
+        }
+      ]
+    },
+    {
+      "action_dimension": 7,
+      "action_lower_bounds": [
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0
+      ],
+      "action_representation": "pd_ee_delta_pose",
+      "action_upper_bounds": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "checkpoint_id": "pending-diffusion_action_chunk-checkpoint",
+      "checkpoint_sha256": "08ea094e1382596f44d8b673055acfc7fd533b36fa9796cbba32f5fca6a89bda",
+      "contract_version": "0.1.0",
+      "deterministic_seeding": true,
+      "execution_horizon": 4,
+      "format": "nyssa-nep-policy-contract-v0.1",
+      "observation_modalities": [
+        "state_dict"
+      ],
+      "policy_family": "diffusion_policy",
+      "policy_id": "diffusion_action_chunk",
+      "policy_version": "0.1.0",
+      "prediction_horizon": 16,
+      "preprocessing_sha256": "14a25dbf48d3e8328658983792c46113927349e1558ecc125303ecfd572cee49",
+      "state_semantics": "resettable",
+      "training_data": [
+        {
+          "dataset_id": "pending-diffusion_action_chunk-training",
+          "dataset_version": "0.1.0",
+          "license_id": "pending-training-data-license-audit",
+          "sha256": "ea08e02b4e7bd75a5260e5d724d35b1bec7fa7e6b767cc6ee420ae68b3bd292e",
+          "split_ids": [
+            "nyssa-reference-v0.1-train"
+          ]
+        }
+      ]
+    }
+  ],
+  "policy_track_registry": {
+    "path": "configs/policy_tracks/nyssa_policy_tracks_v0_1.json",
+    "sha256": "4a1117e751fee083a8c7bf15eb670455efb7f6329d32a10e29340ee102d677b1"
+  },
+  "protocol_authored_at": "2026-09-05T22:45:00Z",
+  "reference_benchmark": {
+    "path": "configs/reference/nyssa_reference_v0_1.json",
+    "sha256": "1ecea8b1c7eedc7514ed03ab5f7d7d74b39cd0b7b075f46000a7735ccad3cd01"
+  },
+  "safety": {
+    "damage_measurements": [
+      "peak_contact_force",
+      "protective_stop_count",
+      "fixture_displacement",
+      "visible_damage_annotation"
+    ],
+    "emergency_stop_test": "Test and timestamp the hardware stop before each session.",
+    "incident_reporting": "Retain all failures, protective stops, near misses, and damage events with trial identity and evidence access status.",
+    "operator_intervention_policy": "Intervene only under stop conditions; retain the trial as failed or censored according to the frozen exclusion rule.",
+    "operator_training": [
+      "robot-specific emergency stop",
+      "workspace reset and lockout",
+      "incident and near-miss logging"
+    ],
+    "pretrial_checks": [
+      "emergency stop functional",
+      "workspace clear",
+      "robot and sensor self-tests pass",
+      "calibration records current"
+    ],
+    "risk_assessment_id": "nyssa-hardware-risk-v0.1",
+    "stop_conditions": [
+      "human enters controlled workspace",
+      "unexpected high-force contact",
+      "robot or fixture damage risk",
+      "loss of required control or sensor stream"
+    ],
+    "workspace_controls": [
+      "physical exclusion zone",
+      "speed and force limits",
+      "single designated operator"
+    ]
+  },
+  "schema_version": 1,
+  "status": "draft",
+  "stressors": [
+    {
+      "composition_semantics": "ordered",
+      "condition_id": "hardware-clean",
+      "contract_version": "0.1.0",
+      "format": "nyssa-nep-stressor-contract-v0.1",
+      "stressors": []
+    },
+    {
+      "composition_semantics": "ordered",
+      "condition_id": "hardware-action-delay-s05",
+      "contract_version": "0.1.0",
+      "format": "nyssa-nep-stressor-contract-v0.1",
+      "stressors": [
+        {
+          "application_points": [
+            "before_step"
+          ],
+          "backend_confirmed": false,
+          "backend_evidence_artifact_id": null,
+          "category": "action",
+          "observable_by_policy": false,
+          "parameters": {
+            "delay_steps": 2
+          },
+          "privileged": false,
+          "seed": 0,
+          "severity": 0.5,
+          "stressor_id": "action_delay",
+          "stressor_version": "1.0.0"
+        }
+      ]
+    }
+  ],
+  "study_id": "nyssa_hardware_calibration_v0_1",
+  "study_version": "0.1.0",
+  "tasks": [
+    {
+      "action_representation": "pd_ee_delta_pose",
+      "assets": [
+        {
+          "asset_id": "maniskill-environment:PickCube-v1",
+          "asset_version": "3.0.1",
+          "license_id": "pending-upstream-asset-license-audit",
+          "sha256": "dcb122c77b9a4e0cdff79b50f8b320d72554965b1e8a1d150945d0f31efb9ee7",
+          "split": "hidden_test"
+        }
+      ],
+      "contract_version": "0.1.0",
+      "engine_ids": [
+        "maniskill"
+      ],
+      "format": "nyssa-nep-task-contract-v0.1",
+      "horizon_steps": 80,
+      "observation_modalities": [
+        "state_dict"
+      ],
+      "robot_id": "panda",
+      "scene_id": "maniskill_pick_cube",
+      "split_lineage": {
+        "lineage_sha256": "7fd801cb959fb7a4adb7ea5b4ccce35451847fbe3777b2048b4151188136cd01",
+        "parent_split_ids": [],
+        "partition": "hidden_test",
+        "split_id": "nyssa-reference-v0.1-hidden_test",
+        "training_overlap_allowed": false
+      },
+      "success_predicate": {
+        "engine_env_id": "PickCube-v1",
+        "info_keys": [
+          "success",
+          "is_success",
+          "success_once"
+        ]
+      },
+      "task_id": "maniskill_pick_cube",
+      "task_version": "0.1.0"
+    },
+    {
+      "action_representation": "pd_ee_delta_pose",
+      "assets": [
+        {
+          "asset_id": "maniskill-environment:PushCube-v1",
+          "asset_version": "3.0.1",
+          "license_id": "pending-upstream-asset-license-audit",
+          "sha256": "4635d88455f2b2a5517ae4c962718f35b2ac8895a9a70e3560451fd7a446ef16",
+          "split": "hidden_test"
+        }
+      ],
+      "contract_version": "0.1.0",
+      "engine_ids": [
+        "maniskill"
+      ],
+      "format": "nyssa-nep-task-contract-v0.1",
+      "horizon_steps": 80,
+      "observation_modalities": [
+        "state_dict"
+      ],
+      "robot_id": "panda",
+      "scene_id": "maniskill_push_cube",
+      "split_lineage": {
+        "lineage_sha256": "cbe8cc315b31205383a790a445cdd7d55d86010cf135f98b3c6b729cf3c03af1",
+        "parent_split_ids": [],
+        "partition": "hidden_test",
+        "split_id": "nyssa-reference-v0.1-hidden_test",
+        "training_overlap_allowed": false
+      },
+      "success_predicate": {
+        "engine_env_id": "PushCube-v1",
+        "info_keys": [
+          "success",
+          "is_success",
+          "success_once"
+        ]
+      },
+      "task_id": "maniskill_push_cube",
+      "task_version": "0.1.0"
+    }
+  ]
+}

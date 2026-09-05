@@ -159,7 +159,7 @@ def _contract(
         checkpoint_sha256=_digest(f"pending-checkpoint:{policy_id}"),
         preprocessing_sha256=_digest(f"pending-preprocessing:{policy_id}"),
         observation_modalities=modalities,
-        action_representation="normalized_pd_ee_delta_pose",
+        action_representation="pd_ee_delta_pose",
         action_dimension=7,
         action_lower_bounds=(-1.0,) * 7,
         action_upper_bounds=(1.0,) * 7,

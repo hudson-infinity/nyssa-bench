@@ -68,6 +68,7 @@ RELEASE_TREES = (
     "conformance/nep",
     "configs/reference",
     "configs/policy_tracks",
+    "configs/hardware",
     "configs/suites",
     "configs/stressors",
 )

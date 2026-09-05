@@ -280,6 +280,7 @@ def _validate_hardware(
     record: CredibilityEvidence, payloads: Sequence[Mapping[str, Any]]
 ) -> dict[str, Any]:
     validation = _one_format(payloads, "nyssa-real-evidence-validation-v1")
+    study = _one_format(payloads, "nyssa-hardware-calibration-report-v1")
     if not (
         validation.get("valid") is True
         and validation.get("evidence_ready") is True
@@ -291,11 +292,14 @@ def _validate_hardware(
         and isinstance(validation.get("package_identity"), str)
         and validation.get("package_identity")
         and record.metadata.get("prespecified") is True
+        and study.get("status") == "claim_ready"
+        and study.get("claim_ready") is True
     ):
         raise ValueError("hardware evidence is not claim-ready and prespecified")
     return {
         "package_identity": validation.get("package_identity"),
         "prespecified": True,
+        "hardware_study_id": study.get("study_id"),
     }
 
 

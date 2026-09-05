@@ -49,6 +49,9 @@ its protected commitments and oracle/learned-policy evidence are collected.
 The [policy-track registry](docs/policy_tracks.md) similarly keeps planner,
 RoboMimic, diffusion, and VLA adapters at `integration_only` until their actual
 checkpoints and paired result packs pass the shared track audit.
+The draft [hardware calibration protocol](docs/hardware_calibration.md) freezes
+the matched sim-real design, safety, governance, exclusions, and analyses before
+any real trial can support predictive wording.
 
 ```bash
 uv run nyssa credibility-gate claims/phase1_credibility.json \
