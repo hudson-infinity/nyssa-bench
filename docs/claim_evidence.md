@@ -68,10 +68,12 @@ claims to reach result-backed evidence:
 7. simulator-backed continuous integration;
 8. sim-real predictive validity.
 
-The first four have source and test implementations, but that is not enough for
-promotion. They still need applicable validated result packs. The latter four
-remain integration-only or planned. Issue #30 will combine these entries into
-the staged Phase 1 credibility gate.
+The measurement capabilities have source and test implementations, but that is
+not enough for promotion. They still need applicable validated result packs.
+The learned-policy, reference-benchmark, simulator-CI, and predictive claims
+remain integration-only or planned. The
+[Phase 1 credibility gate](phase1_credibility_gate.md) combines these entries
+without treating source verification as result validation.
 
 Changing the stronger milestone to an authorized claim requires a separate
 reviewed change that attaches immutable evidence and makes the matrix validator

@@ -25,6 +25,7 @@ REQUIRED = [
     "docs/nyssa_evaluation_protocol.md",
     "docs/external_policy_quickstart.md",
     "docs/sim_real_study.md",
+    "docs/phase1_credibility_gate.md",
     "examples/policies/state_policy.py",
     "examples/policies/state_policy_contract.json",
     "schemas/nep/0.1.0/nep-manifest.schema.json",
@@ -32,7 +33,9 @@ REQUIRED = [
     "conformance/nep/0.1.0/valid/maniskill-pipeline.json",
     "scripts/generate_nep_artifacts.py",
     "claims/claim_evidence.json",
+    "claims/phase1_credibility.json",
     "scripts/validate_claim_evidence.py",
+    "scripts/validate_credibility.py",
     "scripts/validate_release_version.py",
     "scripts/validate_distributions.py",
 ]

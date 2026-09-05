@@ -37,6 +37,16 @@ External policy authors can generate a packaged example and run strict preflight
 through the [policy conformance quickstart](docs/external_policy_quickstart.md).
 Validated real-evidence packages can be analyzed through the prespecified
 [paired sim-real study](docs/sim_real_study.md) module.
+The staged [Phase 1 credibility gate](docs/phase1_credibility_gate.md) keeps
+source-complete measurement infrastructure separate from reference-benchmark
+and predictive sim-real evidence. The committed state passes Gate A; Gates B
+and C remain missing rather than being inferred from documentation.
+
+```bash
+uv run nyssa credibility-gate claims/phase1_credibility.json \
+  --repo-root . \
+  --out build/credibility
+```
 
 ```python
 from nyssa_bench import PolicyRunner, Suite

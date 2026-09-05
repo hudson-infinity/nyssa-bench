@@ -17,6 +17,11 @@ from nyssa_bench.core.registry import (
 )
 from nyssa_bench.core.suite import Suite, list_suites
 from nyssa_bench.core.task import TaskSpec, list_tasks
+from nyssa_bench.credibility import (
+    evaluate_credibility,
+    load_credibility_spec,
+    write_credibility_report,
+)
 from nyssa_bench.baselines.simple_bc import (
     train_knn_bc,
     train_linear_bc,
@@ -226,6 +231,11 @@ def main(argv: list[str] | None = None) -> int:
     sim_real_parser = subparsers.add_parser("sim-real-study")
     sim_real_parser.add_argument("spec")
     sim_real_parser.add_argument("--out", required=True)
+
+    credibility_parser = subparsers.add_parser("credibility-gate")
+    credibility_parser.add_argument("spec")
+    credibility_parser.add_argument("--out", required=True)
+    credibility_parser.add_argument("--repo-root", default=".")
 
     benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
     benchmark_audit_parser.add_argument("spec")
@@ -661,6 +671,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"sim_real_html: {paths['html']}")
         print(f"status: {report['status']}")
         return {"complete": 0, "inconclusive": 2, "invalid": 3}[report["status"]]
+
+    if args.command == "credibility-gate":
+        spec_path = Path(args.spec)
+        report = evaluate_credibility(
+            load_credibility_spec(spec_path),
+            spec_root=args.repo_root,
+            source_root=args.repo_root,
+        )
+        paths = write_credibility_report(report, args.out)
+        print(f"credibility_report: {paths['json']}")
+        print(f"credibility_html: {paths['html']}")
+        print(f"highest_completed_gate: {report['highest_completed_gate']}")
+        return 0 if report["phase1_complete"] else 2
 
     if args.command == "audit-benchmark":
         spec = load_benchmark_validity_spec(args.spec)

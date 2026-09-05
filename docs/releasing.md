@@ -29,11 +29,19 @@ The release workflow rejects a tag unless it exactly equals `v<version>`.
 Validate locally before creating a tag:
 
 ```bash
+uv run python scripts/validate_claim_evidence.py
+uv run python scripts/validate_credibility.py
 uv run python scripts/validate_release_version.py --tag v0.1.0rc1
 uv build
 uvx twine check --strict dist/*
 uv run python scripts/validate_distributions.py dist/*
 ```
+
+The credibility validator requires the committed Measurement Core to remain
+valid and prints the status of all three gates. A package release does not
+require unavailable reference or hardware evidence to be relabeled as passed;
+the full `nyssa credibility-gate` command exits with `2` until Phase 1 is
+scientifically complete.
 
 Update `nyssa_bench/version.py` and `CHANGELOG.md` in a reviewed pull request.
 Do not change version metadata on the tag itself.
