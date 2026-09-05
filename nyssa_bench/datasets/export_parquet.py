@@ -9,7 +9,9 @@ def export_parquet(episodes: list[EpisodeResult], path: str | Path) -> Path:
     try:
         import pandas as pd
     except ImportError as exc:
-        raise RuntimeError("Parquet export requires: pip install -e '.[dataset]'") from exc
+        raise RuntimeError(
+            'Parquet export requires: python -m pip install "nyssa-bench[dataset]"'
+        ) from exc
 
     rows = []
     for episode in episodes:

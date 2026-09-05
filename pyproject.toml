@@ -4,24 +4,42 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nyssa-bench"
-version = "0.1.0"
-description = "Open-source evaluation infrastructure for embodied AI policies under real-world variation."
+dynamic = ["version"]
+description = "Failure-aware evaluation and audit framework for embodied AI policies."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
-authors = [{ name = "Nyssa Labs" }]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Hudson Labs" }]
+maintainers = [{ name = "Hudson Labs" }]
 keywords = ["robotics", "benchmark", "embodied-ai", "evaluation", "simulation"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
   "numpy>=1.26",
   "pydantic>=2.6",
   "pyyaml>=6.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/hudson-infinity/nyssa-bench"
+Documentation = "https://github.com/hudson-infinity/nyssa-bench/tree/main/docs"
+Repository = "https://github.com/hudson-infinity/nyssa-bench"
+Issues = "https://github.com/hudson-infinity/nyssa-bench/issues"
+Changelog = "https://github.com/hudson-infinity/nyssa-bench/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
-cli = [
-  "rich>=13.7",
-  "typer>=0.12",
-]
+cli = []
 dataset = [
   "h5py>=3.10",
   "pandas>=2.1",
@@ -49,9 +67,16 @@ dev = [
 maniskill = [
   "numpy>=1.26,<2.0",
   "gymnasium>=0.29",
+  "imageio>=2.34",
+  "imageio-ffmpeg>=0.5",
   "mani-skill>=3.0",
 ]
-mujoco = ["mujoco>=3.0", "gymnasium>=0.29"]
+mujoco = [
+  "gymnasium>=0.29",
+  "imageio>=2.34",
+  "imageio-ffmpeg>=0.5",
+  "mujoco>=3.0",
+]
 lerobot = [
   "lerobot>=0.1.0",
 ]
@@ -96,14 +121,12 @@ all = [
   "pillow>=10.0",
   "plotly>=5.20",
   "pyarrow>=14.0",
-  "rich>=13.7",
   "robomimic>=0.3.0",
   "safetensors>=0.4",
   "timm>=0.9",
   "torch>=2.2",
   "torchvision>=0.17",
   "transformers>=4.40",
-  "typer>=0.12",
 ]
 full = [
   "accelerate>=0.30",
@@ -123,14 +146,12 @@ full = [
   "pillow>=10.0",
   "plotly>=5.20",
   "pyarrow>=14.0",
-  "rich>=13.7",
   "robomimic>=0.3.0",
   "safetensors>=0.4",
   "timm>=0.9",
   "torch>=2.2",
   "torchvision>=0.17",
   "transformers>=4.40",
-  "typer>=0.12",
 ]
 
 [project.scripts]
@@ -141,6 +162,9 @@ packages = ["nyssa_bench"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.version]
+path = "nyssa_bench/version.py"
 
 [tool.hatch.build.targets.wheel.force-include]
 "configs" = "configs"

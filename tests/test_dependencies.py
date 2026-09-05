@@ -53,3 +53,9 @@ def test_all_extra_covers_every_stable_runtime_extra():
     }
 
     assert required.issubset(extras["all"])
+
+
+def test_cli_compatibility_extra_does_not_duplicate_base_runtime():
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+
+    assert pyproject["project"]["optional-dependencies"]["cli"] == []

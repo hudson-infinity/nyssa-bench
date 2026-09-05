@@ -19,7 +19,9 @@ def load_robomimic_checkpoint(path: str | Path | None = None) -> Any:
     try:
         from robomimic.utils.file_utils import policy_from_checkpoint
     except ImportError as exc:
-        raise RuntimeError("RoboMimic integration requires: uv sync --extra robomimic") from exc
+        raise RuntimeError(
+            'RoboMimic integration requires: python -m pip install "nyssa-bench[robomimic]"'
+        ) from exc
     policy, checkpoint_data = policy_from_checkpoint(ckpt_path=str(checkpoint))
     feature_dim = _flat_feature_dim_from_checkpoint(checkpoint_data)
     if feature_dim is not None:
@@ -35,7 +37,9 @@ def train_robomimic(config: str | Path, *, name: str | None = None, debug: bool 
     try:
         import robomimic  # noqa: F401
     except ImportError as exc:
-        raise RuntimeError("RoboMimic training requires: uv sync --extra robomimic") from exc
+        raise RuntimeError(
+            'RoboMimic training requires: python -m pip install "nyssa-bench[robomimic]"'
+        ) from exc
 
     config_path = Path(config)
     command = [sys.executable, "-m", "robomimic.scripts.train", "--config", str(config_path)]

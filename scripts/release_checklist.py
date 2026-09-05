@@ -14,11 +14,14 @@ REQUIRED = [
     ".gitattributes",
     ".pre-commit-config.yaml",
     ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
     "docs/getting_started.md",
     "docs/benchmark_protocol.md",
     "docs/claim_evidence.md",
+    "docs/releasing.md",
     "claims/claim_evidence.json",
     "scripts/validate_claim_evidence.py",
+    "scripts/validate_release_version.py",
 ]
 
 

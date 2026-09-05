@@ -26,7 +26,8 @@ class ManiSkillEngine(NyssaEngine):
             import mani_skill  # noqa: F401
         except ImportError as exc:
             raise RuntimeError(
-                "Install NyssaBench with the ManiSkill extra: pip install -e '.[maniskill]'"
+                "Install the ManiSkill workflow with: "
+                'python -m pip install "nyssa-bench[maniskill]"'
             ) from exc
 
         env_id = _resolve_env_id(task_spec, "maniskill")

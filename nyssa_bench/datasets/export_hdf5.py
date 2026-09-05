@@ -9,7 +9,9 @@ def export_hdf5(episodes: list[EpisodeResult], path: str | Path) -> Path:
     try:
         import h5py
     except ImportError as exc:
-        raise RuntimeError("HDF5 export requires: pip install -e '.[dataset]'") from exc
+        raise RuntimeError(
+            'HDF5 export requires: python -m pip install "nyssa-bench[dataset]"'
+        ) from exc
 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

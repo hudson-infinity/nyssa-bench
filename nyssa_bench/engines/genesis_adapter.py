@@ -33,7 +33,10 @@ class GenesisEngine(NyssaEngine):
         try:
             import genesis as gs  # noqa: F401
         except ImportError as exc:
-            raise RuntimeError("Genesis validation requires: pip install -e '.[experimental]'") from exc
+            raise RuntimeError(
+                "Genesis validation requires: "
+                'python -m pip install "nyssa-bench[experimental]"'
+            ) from exc
 
         raise RuntimeError(
             "Genesis is installed, but this task does not define success.engine_factory.genesis. "
