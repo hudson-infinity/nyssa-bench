@@ -2,6 +2,32 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from nyssa_bench.stress_search import (
+    BoundaryStressSampler,
+    LatinHypercubeStressSampler,
+    RandomStressSampler,
+    StressObservation,
+    StressSearchSpace,
+    StressSearchStudy,
+    StressSearchStudySpec,
+    compare_stress_search_studies,
+    make_stress_sampler,
+)
+
+__all__ = [
+    "BoundaryStressSampler",
+    "LatinHypercubeStressSampler",
+    "RandomStressSampler",
+    "StressCandidate",
+    "StressObservation",
+    "StressSearchSpace",
+    "StressSearchStudy",
+    "StressSearchStudySpec",
+    "compare_stress_search_studies",
+    "make_stress_sampler",
+    "rank_stress_candidates",
+]
+
 
 @dataclass(frozen=True)
 class StressCandidate:

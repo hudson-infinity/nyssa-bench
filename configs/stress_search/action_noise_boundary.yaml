@@ -1,0 +1,51 @@
+format: nyssa-stress-search-study-spec-v1
+schema_version: 1
+study_id: mujoco_reacher_action_noise_boundary_v1
+sampler_id: boundary_adaptive
+study_seed: 0
+discovery_budget: 40
+batch_size: 1
+confirmation_budget: 20
+confirmation_repeats: 10
+boundary_success_rate_range: [0.1, 0.9]
+outcome_success_threshold: 0.5
+sampler_config:
+  warmup: 6
+  jitter_scale: 0.1
+  target_boundary_width: 0.05
+  min_valid_observations: 10
+claim_mode: exploratory
+benchmark_validity: null
+provenance:
+  producer_id: nyssa-reference-config
+  study_purpose: demonstrate stress-search integration before public claims
+stopping_criteria:
+  - discovery_budget
+  - feasible_unique_points
+  - design_exhaustion
+  - optional_boundary_tolerance
+search_space:
+  format: nyssa-stress-search-space-v1
+  schema_version: 1
+  space_id: mujoco_reacher_action_noise_v1
+  engine_name: mujoco
+  task_id: mujoco_reacher
+  observation_mode: state
+  action_mode: null
+  variables:
+    - variable_id: severity
+      stressor_id: action_gaussian_noise
+      field: severity
+      kind: continuous
+      lower: 0.0
+      upper: 1.0
+      choices: []
+    - variable_id: max_std
+      stressor_id: action_gaussian_noise
+      field: parameters.max_std
+      kind: continuous
+      lower: 0.05
+      upper: 0.5
+      choices: []
+  constraints: []
+  fixed_parameters: {}

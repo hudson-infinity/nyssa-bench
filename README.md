@@ -238,6 +238,12 @@ bootstrap uncertainty. See [the Stressor Protocol](docs/stressor_protocol.md)
 for the complete schema, support matrix, severity-sweep commands, composition
 rules, and ManiSkill GPU friction limitation.
 
+Budgeted failure-boundary studies support deterministic random,
+Latin-hypercube, and adaptive samplers with resumable state and held-out
+confirmation. Start with `nyssa stress-search-init` and see
+[Stress search](docs/stress_search.md) for the complete workflow and evidence
+requirements.
+
 Streaming failure detectors localize collision, grasp/contact-loss, and
 no-progress events during an episode. Their versioned contracts, capability
 checks, lifecycle, and result-pack artifacts are documented in
