@@ -22,9 +22,13 @@ treat stale local result files as source artifacts.
 Tag and publish:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag -s v0.1.0rc1 -m "NyssaBench 0.1.0rc1"
+git push origin v0.1.0rc1
 ```
+
+Qualify the TestPyPI candidate before creating the stable signed tag. Follow
+[Python package releases](releasing.md); do not bypass the protected `pypi`
+environment.
 
 Announcement draft:
 
@@ -35,5 +39,5 @@ It lets robotics teams run reproducible manipulation benchmarks, stress-test pol
 
 The v0.1 release includes ManiSkill and MuJoCo adapter paths, task YAML specs, policy adapter entry points, LeRobot-style export, reports, and release checks.
 
-Repo: https://github.com/nyssa-labs/nyssa-bench
+Repo: https://github.com/hudson-infinity/nyssa-bench
 ```

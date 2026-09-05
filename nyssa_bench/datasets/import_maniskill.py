@@ -31,7 +31,10 @@ def import_maniskill_demos(input_dir: str | Path, out_dir: str | Path) -> dict[s
     try:
         import h5py
     except ImportError as exc:  # pragma: no cover - exercised in minimal envs
-        raise RuntimeError("Install the dataset extra before importing ManiSkill demos: uv sync --extra dataset") from exc
+        raise RuntimeError(
+            "ManiSkill demo import requires: "
+            'python -m pip install "nyssa-bench[dataset]"'
+        ) from exc
 
     input_dir = Path(input_dir)
     out_dir = Path(out_dir)

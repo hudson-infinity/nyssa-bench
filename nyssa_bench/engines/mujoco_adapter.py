@@ -32,7 +32,8 @@ class MuJoCoEngine(NyssaEngine):
             import mujoco  # noqa: F401
         except ImportError as exc:
             raise RuntimeError(
-                "Install NyssaBench with the MuJoCo extra: pip install -e '.[mujoco]'"
+                "Install the MuJoCo workflow with: "
+                'python -m pip install "nyssa-bench[mujoco]"'
             ) from exc
 
         env_id = _resolve_env_id(task_spec, "mujoco")

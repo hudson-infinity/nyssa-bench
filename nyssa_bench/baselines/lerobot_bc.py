@@ -15,7 +15,9 @@ def load_lerobot_policy(path: str | Path | None = None) -> Any:
     try:
         from lerobot.common.policies.factory import make_policy
     except ImportError as exc:
-        raise RuntimeError("LeRobot integration requires: uv sync --extra lerobot") from exc
+        raise RuntimeError(
+            'LeRobot integration requires: python -m pip install "nyssa-bench[lerobot]"'
+        ) from exc
     return make_policy(policy_path=str(policy_path))
 
 

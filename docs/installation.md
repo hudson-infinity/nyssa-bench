@@ -1,5 +1,42 @@
 # Installation
 
+## Choose an installation path
+
+Most users should install the released package:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install nyssa-bench
+nyssa --help
+nyssa --version
+```
+
+This installs the Python API and CLI together. The base distribution excludes
+simulators, GPU/model stacks, plotting libraries, video codecs, and dataset
+libraries.
+
+Install one workflow extra when the core package is not enough:
+
+```bash
+python -m pip install "nyssa-bench[mujoco]"
+python -m pip install "nyssa-bench[maniskill]"
+python -m pip install "nyssa-bench[dataset]"
+python -m pip install "nyssa-bench[lerobot]"
+python -m pip install "nyssa-bench[robomimic]"
+python -m pip install "nyssa-bench[vla]"
+python -m pip install "nyssa-bench[diffusion]"
+```
+
+The MuJoCo and ManiSkill extras include video encoding because their supported
+run path captures replay evidence by default. Host graphics drivers and Vulkan,
+EGL, or X11 libraries remain system dependencies and cannot be supplied by a
+Python wheel.
+
+Clone the repository and use the `uv sync` commands below only for contributor
+development or unreleased source testing.
+
 ## Python Versions
 
 `pyproject.toml` declares Python 3.10 or newer. The contributor validation
@@ -165,7 +202,7 @@ python -m pip install -e ".[all,dev]"
 
 | Extra | Purpose |
 | --- | --- |
-| `cli` | Rich/Typer dependencies for future polished terminal UI. |
+| `cli` | Empty compatibility alias; the argparse CLI is included in the base package. |
 | `dataset` | HDF5 and Parquet export. |
 | `reports` | Template and plotting dependencies. |
 | `video` | MP4/frame export dependencies. |

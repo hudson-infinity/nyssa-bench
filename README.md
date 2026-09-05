@@ -46,7 +46,28 @@ report.save("runs/random_mujoco/report.html")
 
 ## Install
 
-Use Python 3.10 for ManiSkill/Linux runs. Some ManiSkill planning dependencies
+Install the core library and the `nyssa` command from PyPI:
+
+```bash
+python -m pip install nyssa-bench
+nyssa --help
+nyssa --version
+```
+
+The default package contains the API, CLI, bundled benchmark configuration, and
+lightweight validation dependencies. It does not install a simulator, GPU
+framework, plotting stack, dataset stack, or learned-policy framework.
+
+Install one complete simulator workflow when needed:
+
+```bash
+python -m pip install "nyssa-bench[mujoco]"
+python -m pip install "nyssa-bench[maniskill]"
+```
+
+Both simulator extras include replay encoding dependencies because supported
+evaluation runs capture video by default. Use Python 3.10 for ManiSkill/Linux
+runs. Some ManiSkill planning dependencies
 publish wheels for CPython 3.10 but not newer Python ABIs, so Python 3.12 can
 fail during dependency resolution.
 The ManiSkill install path pins NumPy below 2.0 because ManiSkill
@@ -60,7 +81,8 @@ source .venv/bin/activate
 python --version
 ```
 
-Install the canonical stable benchmark environment:
+For a contributor source checkout, install the canonical development and stable
+benchmark environment:
 
 ```bash
 uv sync --extra all --extra dev
@@ -95,8 +117,9 @@ uv pip install "numpy==1.26.4"
 uv pip install --force-reinstall --no-build-isolation --no-cache-dir "toppra==0.6.3"
 ```
 
-Plain `python -m pip install -e ".[all,dev]"` still works if you are not using
-`uv`.
+Plain `python -m pip install -e ".[all,dev]"` is the equivalent contributor
+install if you are not using `uv`. End users should use the non-editable PyPI
+commands above.
 
 Simulator video capture also requires system rendering libraries. On
 Ubuntu/Debian GPU machines, install and verify them before running public

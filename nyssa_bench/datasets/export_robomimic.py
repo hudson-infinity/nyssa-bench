@@ -30,7 +30,9 @@ def export_robomimic_hdf5(
     try:
         import h5py
     except ImportError as exc:
-        raise RuntimeError("RoboMimic export requires: uv sync --extra dataset") from exc
+        raise RuntimeError(
+            'RoboMimic export requires: python -m pip install "nyssa-bench[dataset]"'
+        ) from exc
 
     validate_robomimic_observations(episodes, feature_dim=feature_dim)
     action_contract = validate_robomimic_actions(episodes)

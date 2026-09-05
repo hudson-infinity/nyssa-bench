@@ -8,6 +8,7 @@ Start here:
 - [Project scope](project_scope.md)
 - [Architecture decisions](architecture_decisions/README.md)
 - [Installation](installation.md)
+- [Python package releases](releasing.md)
 - [Task spec](task_spec.md)
 - [Engine adapters](engine_adapters.md)
 - [Policy adapters](policy_adapters.md)

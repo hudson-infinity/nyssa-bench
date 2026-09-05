@@ -42,7 +42,8 @@ class RoboCasaEngine(NyssaEngine):
         except ImportError as exc:
             raise RuntimeError(
                 "RoboCasa validation requires upstream RoboCasa/robosuite setup. "
-                "Install with 'pip install -e .[robocasa]' and run the RoboCasa asset setup commands."
+                "Install RoboCasa from its upstream source, configure its macros and "
+                "assets, then retry. See docs/installation.md#extras."
             ) from exc
 
         self.env = suite.make(

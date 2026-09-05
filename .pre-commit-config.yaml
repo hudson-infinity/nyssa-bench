@@ -55,6 +55,13 @@ repos:
         pass_filenames: false
         files: ^(README\.md|pyproject\.toml|claims/.*\.json|docs/.*\.md|scripts/validate_claim_evidence\.py|nyssa_bench/claims/.*\.py)$
 
+      - id: validate-release-version
+        name: validate package release version
+        entry: python scripts/validate_release_version.py
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|nyssa_bench/version\.py|scripts/validate_release_version\.py|\.github/workflows/release\.yml)$
+
       - id: pytest
         name: run full pytest suite
         entry: pytest -q

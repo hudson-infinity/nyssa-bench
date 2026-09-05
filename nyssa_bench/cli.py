@@ -7,6 +7,8 @@ from typing import Any
 
 import yaml
 
+from nyssa_bench.version import __version__
+
 from nyssa_bench.core.registry import (
     ENGINE_REGISTRY,
     ENGINE_SUPPORT_TIER,
@@ -167,6 +169,11 @@ def _add_failure_monitor_arguments(parser: argparse.ArgumentParser) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="nyssa")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list-suites")
