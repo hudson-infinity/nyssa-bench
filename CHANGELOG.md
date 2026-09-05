@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Publish wheel-only core, MuJoCo, and ManiSkill image workflows with immutable
+  tags, installed-command smoke tests, SBOM/provenance, and release bundles.
 - Establish the single-distribution PyPI contract, complete simulator replay
   extras, package metadata, version checks, and OIDC trusted-publishing workflow.
 - Validate wheel and source-distribution contents, packaged resource identity,

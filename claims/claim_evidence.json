@@ -377,6 +377,38 @@
       ]
     },
     {
+      "claim_id": "versioned_release_artifacts",
+      "status": "integration_only",
+      "evidence_tier": "integration_only",
+      "wording": "NyssaBench publishes versioned container images and compatibility bundles for simulator-heavy evaluation.",
+      "authorized_public_assertion": false,
+      "issue_ids": [59, 60, 61],
+      "source_paths": [
+        ".github/workflows/release.yml",
+        "docker",
+        "nyssa_bench/release_bundle.py"
+      ],
+      "test_paths": [
+        "tests/test_release_bundle.py",
+        ".github/workflows/container-ci.yml"
+      ],
+      "artifact_requirements": [
+        "three GHCR image digests",
+        "container SBOM and provenance attestations",
+        "compatibility-manifest.json",
+        "release-bundle-manifest.json",
+        "SHA256SUMS"
+      ],
+      "promotion_requirements": [
+        "Publish a signed release tag and retain all three immutable image records.",
+        "Complete a GPU-backed ManiSkill image smoke before describing that runtime as validated simulator evidence."
+      ],
+      "limitations": [
+        "Repository automation is implemented, but no image or release bundle has been published yet.",
+        "The ManiSkill metadata smoke is not a substitute for GPU simulator execution."
+      ]
+    },
+    {
       "claim_id": "sim_real_predictive_validity",
       "status": "planned",
       "evidence_tier": "planned",

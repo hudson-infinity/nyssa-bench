@@ -103,7 +103,8 @@ def test_release_workflow_uses_oidc_and_protected_indices() -> None:
     assert "environment:\n      name: testpypi" in workflow
     assert "environment:\n      name: pypi" in workflow
     assert "repository-url: https://test.pypi.org/legacy/" in workflow
-    assert "password:" not in workflow
+    assert "password: ${{ secrets.GITHUB_TOKEN }}" in workflow
+    assert "password: ${{ secrets.PYPI_API_TOKEN }}" not in workflow
     assert "PYPI_API_TOKEN" not in workflow
     assert 'python-version: ["3.10", "3.13"]' in workflow
     assert "working-directory: ${{ runner.temp }}" in workflow

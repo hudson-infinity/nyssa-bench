@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build signed distributions
@@ -87,10 +91,226 @@ jobs:
           path: ${{ runner.temp }}/nyssa-installed-smoke/
           if-no-files-found: error
 
+  container:
+    name: Container (${{ matrix.profile }})
+    needs: [build, installed-smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: core
+            file: docker/Dockerfile
+            image: ghcr.io/hudson-infinity/nyssa-bench-core
+            platforms: linux/amd64,linux/arm64
+            python: python
+          - profile: mujoco
+            file: docker/Dockerfile.mujoco
+            image: ghcr.io/hudson-infinity/nyssa-bench-mujoco
+            platforms: linux/amd64,linux/arm64
+            python: python
+          - profile: maniskill
+            file: docker/Dockerfile.maniskill
+            image: ghcr.io/hudson-infinity/nyssa-bench-maniskill
+            platforms: linux/amd64
+            python: python3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-distributions
+          path: dist
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install the release wheel for metadata generation
+        run: python -m pip install dist/*.whl
+      - name: Resolve immutable release identity
+        id: identity
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD_DATE=$(git show -s --format=%cI "${GITHUB_SHA}")
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "short_sha=${GITHUB_SHA::12}" >> "${GITHUB_OUTPUT}"
+          echo "build_date=${BUILD_DATE}" >> "${GITHUB_OUTPUT}"
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Build amd64 image for smoke testing
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: local/nyssa-bench-${{ matrix.profile }}:${{ github.sha }}
+          build-args: |
+            NYSSA_VERSION=${{ steps.identity.outputs.version }}
+            NYSSA_COMMIT=${{ github.sha }}
+            NYSSA_BUILD_DATE=${{ steps.identity.outputs.build_date }}
+          cache-from: type=gha,scope=${{ matrix.profile }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.profile }}
+      - name: Smoke installed command outside the source checkout
+        shell: bash
+        run: |
+          EXTRA=()
+          if [[ "${{ matrix.profile }}" == "maniskill" ]]; then
+            EXTRA+=(--metadata-only)
+          fi
+          docker run --rm --workdir /tmp \
+            "local/nyssa-bench-${{ matrix.profile }}:${GITHUB_SHA}" \
+            "${{ matrix.python }}" -m nyssa_bench.container_smoke \
+            --profile "${{ matrix.profile }}" \
+            --out /tmp/nyssa-container-smoke \
+            "${EXTRA[@]}"
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refuse to overwrite a released semantic-version tag
+        shell: bash
+        run: |
+          VERSION_TAG="${{ matrix.image }}:${{ steps.identity.outputs.version }}"
+          if docker buildx imagetools inspect "${VERSION_TAG}" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing image tag ${VERSION_TAG}" >&2
+            exit 1
+          fi
+      - name: Define image tags and OCI labels
+        id: metadata
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ matrix.image }}
+          tags: |
+            type=raw,value=${{ steps.identity.outputs.version }}
+            type=raw,value=${{ steps.identity.outputs.version }}-${{ steps.identity.outputs.short_sha }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.identity.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.identity.outputs.build_date }}
+      - name: Publish multi-platform image with SBOM and provenance
+        id: publish
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: ${{ matrix.platforms }}
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          annotations: ${{ steps.metadata.outputs.annotations }}
+          build-args: |
+            NYSSA_VERSION=${{ steps.identity.outputs.version }}
+            NYSSA_COMMIT=${{ github.sha }}
+            NYSSA_BUILD_DATE=${{ steps.identity.outputs.build_date }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.profile }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.profile }}
+      - name: Write immutable container record
+        run: |
+          python -m nyssa_bench.release_bundle record \
+            --profile "${{ matrix.profile }}" \
+            --image "${{ matrix.image }}" \
+            --digest "${{ steps.publish.outputs.digest }}" \
+            --tag "${{ matrix.image }}:${{ steps.identity.outputs.version }}" \
+            --tag "${{ matrix.image }}:${{ steps.identity.outputs.version }}-${{ steps.identity.outputs.short_sha }}" \
+            --version "${{ steps.identity.outputs.version }}" \
+            --commit "${GITHUB_SHA}" \
+            --build-date "${{ steps.identity.outputs.build_date }}" \
+            --out "container-records/${{ matrix.profile }}.json"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: container-record-${{ matrix.profile }}
+          path: container-records/${{ matrix.profile }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  release-bundle:
+    name: GitHub release bundle
+    needs: [build, container]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-distributions
+          path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: container-record-*
+          path: container-records
+          merge-multiple: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install the exact release wheel
+        run: python -m pip install dist/*.whl
+      - name: Assemble deterministic release bundle
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD_DATE=$(python -c "import json; print(json.load(open('container-records/core.json'))['build_date'])")
+          WHEEL=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          SDIST=$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)
+          python -m nyssa_bench.release_bundle bundle \
+            --repo-root . \
+            --out release-artifacts \
+            --version "${VERSION}" \
+            --commit "${GITHUB_SHA}" \
+            --build-date "${BUILD_DATE}" \
+            --container-record container-records/core.json \
+            --container-record container-records/mujoco.json \
+            --container-record container-records/maniskill.json \
+            --distribution "${WHEEL}" \
+            --distribution "${SDIST}"
+      - name: Attest release bundle provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            release-artifacts/*.zip
+            release-artifacts/*.json
+            release-artifacts/SHA256SUMS
+      - name: Create immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          FLAGS=()
+          if [[ "${GITHUB_REF_NAME}" == *rc* ]]; then
+            FLAGS+=(--prerelease)
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --title "NyssaBench ${GITHUB_REF_NAME#v}" \
+            --notes-file release-artifacts/RELEASE_NOTES.md \
+            "${FLAGS[@]}" \
+            dist/* \
+            release-artifacts/*.zip \
+            release-artifacts/*.json \
+            release-artifacts/SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: github-release-bundle
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
   publish-testpypi:
     name: Publish release candidate to TestPyPI
     if: contains(github.ref_name, 'rc')
-    needs: installed-smoke
+    needs: [installed-smoke, container, release-bundle]
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -109,7 +329,7 @@ jobs:
   publish-pypi:
     name: Publish stable release to PyPI
     if: ${{ !contains(github.ref_name, 'rc') }}
-    needs: installed-smoke
+    needs: [installed-smoke, container, release-bundle]
     runs-on: ubuntu-latest
     environment:
       name: pypi

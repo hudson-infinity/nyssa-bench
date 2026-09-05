@@ -1,0 +1,97 @@
+name: Container CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/container-ci.yml"
+      - ".github/workflows/release.yml"
+      - "docker/**"
+      - "nyssa_bench/container_smoke.py"
+      - "nyssa_bench/release_bundle.py"
+      - "tests/test_release_bundle.py"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      - run: python scripts/validate_distributions.py dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: container-ci-wheel
+          path: dist/*.whl
+          if-no-files-found: error
+
+  smoke:
+    name: Smoke ${{ matrix.profile }} image
+    needs: package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: core
+            file: docker/Dockerfile
+            python: python
+          - profile: mujoco
+            file: docker/Dockerfile.mujoco
+            python: python
+          - profile: maniskill
+            file: docker/Dockerfile.maniskill
+            python: python3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: container-ci-wheel
+          path: dist
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Resolve test image identity
+        id: identity
+        shell: bash
+        run: |
+          VERSION=$(python -c "exec(open('nyssa_bench/version.py').read()); print(__version__)")
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "${GITHUB_OUTPUT}"
+      - uses: docker/setup-buildx-action@v4
+      - name: Build installed-wheel image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: local/nyssa-bench-${{ matrix.profile }}:${{ github.sha }}
+          build-args: |
+            NYSSA_VERSION=${{ steps.identity.outputs.version }}
+            NYSSA_COMMIT=${{ github.sha }}
+            NYSSA_BUILD_DATE=${{ steps.identity.outputs.build_date }}
+          cache-from: type=gha,scope=pr-${{ matrix.profile }}
+          cache-to: type=gha,mode=max,scope=pr-${{ matrix.profile }}
+      - name: Run installed command outside the checkout
+        shell: bash
+        run: |
+          EXTRA=()
+          if [[ "${{ matrix.profile }}" == "maniskill" ]]; then
+            EXTRA+=(--metadata-only)
+          fi
+          docker run --rm --workdir /tmp \
+            "local/nyssa-bench-${{ matrix.profile }}:${GITHUB_SHA}" \
+            "${{ matrix.python }}" -m nyssa_bench.container_smoke \
+            --profile "${{ matrix.profile }}" \
+            --out /tmp/nyssa-container-smoke \
+            "${EXTRA[@]}"

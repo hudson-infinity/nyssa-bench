@@ -53,6 +53,11 @@ backend or workflow is not eligible for a public benchmark claim.
 `planned` means the repository may contain a roadmap, placeholder, or small
 utility, but the named capability is not available as a validated workflow.
 
+Release automation is also evidence-scoped. Container and bundle workflows
+remain `integration_only` until a signed tag produces retained image digests,
+attestations, and release artifacts. A metadata-only ManiSkill image smoke does
+not establish GPU simulator validity.
+
 ## Promotion gate
 
 The stronger foundational/frontier headline is stored as milestone wording in

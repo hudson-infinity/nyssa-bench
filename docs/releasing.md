@@ -97,6 +97,25 @@ attestation, distribution metadata, and recorded TestPyPI candidate.
 Published files are immutable. Fix a bad release with a new version; never
 replace an existing wheel or source distribution.
 
+## Containers and GitHub release artifacts
+
+The same tag builds and smoke-tests the core, MuJoCo, and ManiSkill Dockerfiles
+from the exact wheel produced by the package job. It publishes version and
+version-plus-commit tags to GHCR with SBOM and provenance attestations. Core and
+MuJoCo publish `linux/amd64` and `linux/arm64`; ManiSkill publishes
+`linux/amd64` under the CUDA/Vulkan assumptions in [Docker](docker.md).
+
+The release-bundle job gathers the three immutable image digests, validates
+their version and commit identity, and creates the compatibility manifest,
+Phase 1 credibility report, deterministic ZIP, release notes, and checksums.
+PyPI publication waits for the container and bundle jobs. A failed container or
+bundle therefore blocks the package publication path rather than leaving an
+apparently complete release with missing runtime artifacts.
+
+The generated release notes use the claim matrix's current wording and
+capability counts. The bundle includes only content-addressed headline evidence
+that passes the applicable Phase 1 credibility checks.
+
 ## Distribution profiles
 
 - Base: Python API, argparse CLI, contracts, bundled configurations, NumPy,

@@ -29,6 +29,8 @@ by the claim evidence gate.
 
 Release artifacts are built and tested as installed wheels outside the source
 checkout. See [installed artifact validation](docs/installed_artifact_validation.md).
+Tagged releases also build wheel-only core, MuJoCo, and ManiSkill images plus a
+content-addressed compatibility bundle; see [Docker and release bundles](docs/docker.md).
 Real simulator checks run separately under the
 [simulator-backed CI protocol](docs/simulator_ci.md).
 The six interoperable evaluation contracts are versioned under

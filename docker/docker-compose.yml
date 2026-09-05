@@ -3,7 +3,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        NYSSA_VERSION: ${NYSSA_VERSION:-0.1.0}
+        NYSSA_COMMIT: ${NYSSA_COMMIT:-0000000000000000000000000000000000000000}
+        NYSSA_BUILD_DATE: ${NYSSA_BUILD_DATE:-1970-01-01T00:00:00Z}
     volumes:
-      - ../runs:/app/runs
-      - ../reports:/app/reports
+      - ../runs:/workspace/runs
+      - ../reports:/workspace/reports
     command: nyssa run --suite tabletop_manipulation_v0 --engine dummy --policy scripted --episodes 5 --out runs/docker_demo
