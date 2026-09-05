@@ -73,6 +73,13 @@ from nyssa_bench.scenarios import (
 )
 from nyssa_bench.metrics.run_claims import PUBLIC_CLAIM_ENGINES
 from nyssa_bench.metrics.vector import migrate_metric_summary
+from nyssa_bench.learning_export import (
+    LEARNING_EXPORT_MANIFEST_FORMAT,
+    ExportSplit,
+    LearningExportConfig,
+    export_learning_evidence,
+    load_learning_evidence,
+)
 from nyssa_bench.baselines.robomimic_bc import (
     train_robomimic,
     write_robomimic_bc_config,
@@ -256,6 +263,43 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_parser.add_argument("--out")
     export_parser.add_argument("--feature-dim", type=int, default=256)
+
+    learning_export_parser = subparsers.add_parser("export-learning-evidence")
+    learning_export_parser.add_argument("runs", nargs="+")
+    learning_export_parser.add_argument("--out", required=True)
+    learning_export_parser.add_argument("--benchmark-id", required=True)
+    learning_export_parser.add_argument("--split-id", required=True)
+    learning_export_parser.add_argument(
+        "--split-partition",
+        required=True,
+        choices=["train", "validation", "public_test", "hidden_test"],
+    )
+    learning_export_parser.add_argument("--split-sha256", required=True)
+    learning_export_parser.add_argument(
+        "--policy-family",
+        action="append",
+        required=True,
+        help="POLICY_ID=FAMILY; use *=FAMILY as an explicit fallback",
+    )
+    learning_export_parser.add_argument(
+        "--license", action="append", dest="licenses", required=True
+    )
+    learning_export_parser.add_argument(
+        "--privacy-level",
+        choices=["public", "restricted", "private"],
+        default="public",
+    )
+    learning_export_parser.add_argument(
+        "--privacy-restriction", action="append", default=[]
+    )
+    learning_export_parser.add_argument("--failures-only", action="store_true")
+    learning_export_parser.add_argument("--boundary-study", action="append", default=[])
+    learning_export_parser.add_argument(
+        "--max-inline-observation-bytes", type=int, default=1_000_000
+    )
+    learning_export_parser.add_argument(
+        "--verify-external-artifacts", action="store_true"
+    )
 
     compare_parser = subparsers.add_parser("compare")
     compare_parser.add_argument("runs", nargs="+")
@@ -711,6 +755,32 @@ def main(argv: list[str] | None = None) -> int:
         print(f"report: {out}")
         return 0
 
+    if args.command == "export-learning-evidence":
+        config = LearningExportConfig(
+            benchmark_id=args.benchmark_id,
+            split=ExportSplit(
+                args.split_id,
+                args.split_partition,
+                args.split_sha256,
+            ),
+            policy_families=_parse_policy_families(args.policy_family),
+            licenses=tuple(args.licenses),
+            privacy_level=args.privacy_level,
+            privacy_restrictions=tuple(args.privacy_restriction),
+            include_successes=not args.failures_only,
+            boundary_studies=tuple(Path(path) for path in args.boundary_study),
+            max_inline_observation_bytes=args.max_inline_observation_bytes,
+        )
+        package = export_learning_evidence(args.runs, args.out, config=config)
+        if args.verify_external_artifacts:
+            package = load_learning_evidence(
+                package.root, verify_external_artifacts=True
+            )
+        print(f"manifest: {package.root / 'manifest.json'}")
+        print(f"episodes: {package.manifest.episode_count}")
+        print(f"evaluation_reuse_policy: {package.manifest.evaluation_reuse_policy}")
+        return 0
+
     if args.command == "export":
         run_dir = Path(args.run)
         episodes = _load_episodes(run_dir)
@@ -1157,6 +1227,15 @@ def _validate_target(target: str) -> None:
                 package = RealEvidencePackage.load(path)
                 RealEvidenceValidator().validate(package).raise_for_errors()
                 return
+            manifest_path = path / "manifest.json"
+            if manifest_path.is_file():
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if (
+                    isinstance(manifest, dict)
+                    and manifest.get("format") == LEARNING_EXPORT_MANIFEST_FORMAT
+                ):
+                    load_learning_evidence(path)
+                    return
             raise ValueError(f"Directory contains no recognized manifest: {path}")
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if data.get("format") == SCENARIO_PACKAGE_FORMAT:
@@ -1185,6 +1264,9 @@ def _validate_target(target: str) -> None:
         if data.get("format") == STRESS_SEARCH_STUDY_FORMAT:
             load_stress_search_study(path)
             return
+        if data.get("format") == LEARNING_EXPORT_MANIFEST_FORMAT:
+            load_learning_evidence(path.parent)
+            return
         if "tasks" in data:
             Suite.load(path)
             return
@@ -1195,6 +1277,22 @@ def _validate_target(target: str) -> None:
         Suite.load(target)
     except FileNotFoundError:
         TaskSpec.load(target)
+
+
+def _parse_policy_families(values: list[str]) -> dict[str, str]:
+    result = {}
+    for value in values:
+        policy_id, separator, family = value.partition("=")
+        policy_id = policy_id.strip()
+        family = family.strip()
+        if not separator or not policy_id or not family:
+            raise ValueError(
+                f"Invalid --policy-family value {value!r}; expected POLICY_ID=FAMILY"
+            )
+        if policy_id in result:
+            raise ValueError(f"Duplicate policy-family mapping for {policy_id!r}")
+        result[policy_id] = family
+    return result
 
 
 def _parse_severity_overrides(values: list[str]) -> dict[str, float]:
