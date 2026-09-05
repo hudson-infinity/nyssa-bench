@@ -43,6 +43,7 @@ Start here:
 - [Learning evidence export](learning_evidence_export.md)
 - [Reproducibility](reproducibility.md)
 - [Benchmark protocol](benchmark_protocol.md)
+- [Nyssa Evaluation Protocol 0.1](nyssa_evaluation_protocol.md)
 - [Scorecards](scorecards.md)
 - [Leaderboard spec](leaderboard_spec.md)
 - [Plugins](plugins.md)

@@ -1,0 +1,70 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "nyssa-nep-claim-contract-v0.1",
+      "default": "nyssa-nep-claim-contract-v0.1",
+      "title": "Format",
+      "type": "string"
+    },
+    "contract_version": {
+      "default": "0.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "requested_tier": {
+      "enum": [
+        "pipeline",
+        "clean_simulation",
+        "ood_robustness",
+        "recovery_effectiveness",
+        "cross_simulator",
+        "sim_real_predictive"
+      ],
+      "title": "Requested Tier",
+      "type": "string"
+    },
+    "evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Artifact Ids",
+      "type": "array"
+    },
+    "run_validity_artifact_id": {
+      "title": "Run Validity Artifact Id",
+      "type": "string"
+    },
+    "benchmark_validity_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Benchmark Validity Artifact Id"
+    },
+    "real_evidence_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Real Evidence Artifact Id"
+    }
+  },
+  "required": [
+    "requested_tier",
+    "evidence_artifact_ids",
+    "run_validity_artifact_id"
+  ],
+  "title": "ClaimContract",
+  "type": "object"
+}

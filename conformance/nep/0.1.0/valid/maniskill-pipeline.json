@@ -1,0 +1,147 @@
+{
+  "format": "nyssa-evaluation-protocol-v0.1",
+  "nep_version": "0.1.0",
+  "evaluation_id": "nep-reference-maniskill",
+  "task": {
+    "format": "nyssa-nep-task-contract-v0.1",
+    "contract_version": "0.1.0",
+    "task_id": "maniskill_pick_cube",
+    "task_version": "1.0.0",
+    "engine_ids": [
+      "maniskill"
+    ],
+    "robot_id": "reference_robot",
+    "scene_id": "reference_scene",
+    "horizon_steps": 200,
+    "observation_modalities": [
+      "state"
+    ],
+    "action_representation": "environment_action",
+    "success_predicate": {
+      "info_key": "success"
+    },
+    "assets": [
+      {
+        "asset_id": "maniskill_pick_cube-definition",
+        "asset_version": "1.0.0",
+        "sha256": "9f5b42d67ba5b55ab4ecea76ead4cab44adfd8f6299ad1b14f96739c03448fc9",
+        "license_id": "upstream-simulator-license",
+        "split": "public_test"
+      }
+    ],
+    "split_lineage": {
+      "split_id": "maniskill_pick_cube-public-test",
+      "partition": "public_test",
+      "lineage_sha256": "1f627995a1a99d7c42a7f72fed6e7bf894a4850e4836f0cf4c09856864775671",
+      "parent_split_ids": [],
+      "training_overlap_allowed": false
+    }
+  },
+  "stressor": {
+    "format": "nyssa-nep-stressor-contract-v0.1",
+    "contract_version": "0.1.0",
+    "condition_id": "clean",
+    "composition_semantics": "ordered",
+    "stressors": []
+  },
+  "policy": {
+    "format": "nyssa-nep-policy-contract-v0.1",
+    "contract_version": "0.1.0",
+    "policy_id": "random_pipeline_control",
+    "policy_version": "1.0.0",
+    "policy_family": "integration_control",
+    "checkpoint_id": "builtin-random-policy-v1",
+    "checkpoint_sha256": "258b3e0af7ca3a945ef5a263f3b5fb2e577195b4062a4f7e56d233dc8f9a030b",
+    "preprocessing_sha256": "7bc358a40bd0e6664d80b3cc54f86baf638bf3676180c14e1abbd32b88e4db57",
+    "observation_modalities": [
+      "state"
+    ],
+    "action_representation": "environment_action",
+    "action_dimension": 7,
+    "action_lower_bounds": [
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0
+    ],
+    "action_upper_bounds": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "prediction_horizon": 1,
+    "execution_horizon": 1,
+    "state_semantics": "stateless",
+    "deterministic_seeding": true,
+    "training_data": []
+  },
+  "failure_evidence": {
+    "format": "nyssa-nep-failure-evidence-contract-v0.1",
+    "contract_version": "0.1.0",
+    "event_format": "nyssa-failure-event-v1",
+    "ledger_artifact_id": "failure-ledger",
+    "detector_contract_artifact_id": "detector-contracts",
+    "temporal_precision": [
+      "exact_step",
+      "terminal_only"
+    ],
+    "evidence_visibility": [
+      "policy_observable",
+      "privileged"
+    ],
+    "causal_semantics": "hypothesis_only"
+  },
+  "intervention": {
+    "format": "nyssa-nep-intervention-contract-v0.1",
+    "contract_version": "0.1.0",
+    "enabled": false,
+    "trigger_sources": [],
+    "intervention_types": [],
+    "cost_metrics": [],
+    "counterfactual_branch_artifact_id": null,
+    "restoration_requirement": "none"
+  },
+  "claim": {
+    "format": "nyssa-nep-claim-contract-v0.1",
+    "contract_version": "0.1.0",
+    "requested_tier": "pipeline",
+    "evidence_artifact_ids": [
+      "failure-ledger",
+      "run-validity"
+    ],
+    "run_validity_artifact_id": "run-validity",
+    "benchmark_validity_artifact_id": null,
+    "real_evidence_artifact_id": null
+  },
+  "artifacts": [
+    {
+      "artifact_id": "failure-ledger",
+      "media_type": "application/json",
+      "sha256": "c18dcb53f08d765b48d244c0980d6780da5b1bdcbfeb2027a98ccd793d257a59",
+      "uri": "nyssa-reference://maniskill/failure-ledger.json",
+      "required": true
+    },
+    {
+      "artifact_id": "detector-contracts",
+      "media_type": "application/json",
+      "sha256": "49ce3998cc0c6aec5b06e72e3dfb2be5673966152b96dcc11868cd6f9bcda1e2",
+      "uri": "nyssa-reference://maniskill/detector-contracts.json",
+      "required": true
+    },
+    {
+      "artifact_id": "run-validity",
+      "media_type": "application/json",
+      "sha256": "03b8a230abc16963019eb7d615d24aa08a182b033173283bd3b21cc3b67163ef",
+      "uri": "nyssa-reference://maniskill/run-validity.json",
+      "required": true
+    }
+  ],
+  "content_sha256": "0edb794f2610454f1b7e1e06fd5107982cfcce6ab86a1d8a076dfdda02295872"
+}

@@ -1,0 +1,764 @@
+{
+  "$defs": {
+    "ArtifactContract": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "media_type": {
+          "title": "Media Type",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "media_type",
+        "sha256",
+        "uri"
+      ],
+      "title": "ArtifactContract",
+      "type": "object"
+    },
+    "AssetContract": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "asset_version": {
+          "title": "Asset Version",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "license_id": {
+          "title": "License Id",
+          "type": "string"
+        },
+        "split": {
+          "enum": [
+            "train",
+            "validation",
+            "public_test",
+            "hidden_test"
+          ],
+          "title": "Split",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "asset_version",
+        "sha256",
+        "license_id",
+        "split"
+      ],
+      "title": "AssetContract",
+      "type": "object"
+    },
+    "ClaimContract": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "nyssa-nep-claim-contract-v0.1",
+          "default": "nyssa-nep-claim-contract-v0.1",
+          "title": "Format",
+          "type": "string"
+        },
+        "contract_version": {
+          "default": "0.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "requested_tier": {
+          "enum": [
+            "pipeline",
+            "clean_simulation",
+            "ood_robustness",
+            "recovery_effectiveness",
+            "cross_simulator",
+            "sim_real_predictive"
+          ],
+          "title": "Requested Tier",
+          "type": "string"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "run_validity_artifact_id": {
+          "title": "Run Validity Artifact Id",
+          "type": "string"
+        },
+        "benchmark_validity_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Benchmark Validity Artifact Id"
+        },
+        "real_evidence_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Real Evidence Artifact Id"
+        }
+      },
+      "required": [
+        "requested_tier",
+        "evidence_artifact_ids",
+        "run_validity_artifact_id"
+      ],
+      "title": "ClaimContract",
+      "type": "object"
+    },
+    "FailureEvidenceContract": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "nyssa-nep-failure-evidence-contract-v0.1",
+          "default": "nyssa-nep-failure-evidence-contract-v0.1",
+          "title": "Format",
+          "type": "string"
+        },
+        "contract_version": {
+          "default": "0.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "event_format": {
+          "const": "nyssa-failure-event-v1",
+          "default": "nyssa-failure-event-v1",
+          "title": "Event Format",
+          "type": "string"
+        },
+        "ledger_artifact_id": {
+          "title": "Ledger Artifact Id",
+          "type": "string"
+        },
+        "detector_contract_artifact_id": {
+          "title": "Detector Contract Artifact Id",
+          "type": "string"
+        },
+        "temporal_precision": {
+          "items": {
+            "enum": [
+              "exact_step",
+              "step_interval",
+              "terminal_only",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "title": "Temporal Precision",
+          "type": "array"
+        },
+        "evidence_visibility": {
+          "items": {
+            "enum": [
+              "policy_observable",
+              "privileged",
+              "external"
+            ],
+            "type": "string"
+          },
+          "title": "Evidence Visibility",
+          "type": "array"
+        },
+        "causal_semantics": {
+          "enum": [
+            "hypothesis_only",
+            "intervention_supported"
+          ],
+          "title": "Causal Semantics",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ledger_artifact_id",
+        "detector_contract_artifact_id",
+        "temporal_precision",
+        "evidence_visibility",
+        "causal_semantics"
+      ],
+      "title": "FailureEvidenceContract",
+      "type": "object"
+    },
+    "InterventionContract": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "nyssa-nep-intervention-contract-v0.1",
+          "default": "nyssa-nep-intervention-contract-v0.1",
+          "title": "Format",
+          "type": "string"
+        },
+        "contract_version": {
+          "default": "0.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "trigger_sources": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Trigger Sources",
+          "type": "array"
+        },
+        "intervention_types": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Intervention Types",
+          "type": "array"
+        },
+        "cost_metrics": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Cost Metrics",
+          "type": "array"
+        },
+        "counterfactual_branch_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Counterfactual Branch Artifact Id"
+        },
+        "restoration_requirement": {
+          "default": "none",
+          "enum": [
+            "none",
+            "qualified",
+            "exact"
+          ],
+          "title": "Restoration Requirement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "InterventionContract",
+      "type": "object"
+    },
+    "PolicyContract": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "nyssa-nep-policy-contract-v0.1",
+          "default": "nyssa-nep-policy-contract-v0.1",
+          "title": "Format",
+          "type": "string"
+        },
+        "contract_version": {
+          "default": "0.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "policy_id": {
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "policy_version": {
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "policy_family": {
+          "title": "Policy Family",
+          "type": "string"
+        },
+        "checkpoint_id": {
+          "title": "Checkpoint Id",
+          "type": "string"
+        },
+        "checkpoint_sha256": {
+          "title": "Checkpoint Sha256",
+          "type": "string"
+        },
+        "preprocessing_sha256": {
+          "title": "Preprocessing Sha256",
+          "type": "string"
+        },
+        "observation_modalities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Observation Modalities",
+          "type": "array"
+        },
+        "action_representation": {
+          "title": "Action Representation",
+          "type": "string"
+        },
+        "action_dimension": {
+          "exclusiveMinimum": 0,
+          "title": "Action Dimension",
+          "type": "integer"
+        },
+        "action_lower_bounds": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Action Lower Bounds",
+          "type": "array"
+        },
+        "action_upper_bounds": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Action Upper Bounds",
+          "type": "array"
+        },
+        "prediction_horizon": {
+          "exclusiveMinimum": 0,
+          "title": "Prediction Horizon",
+          "type": "integer"
+        },
+        "execution_horizon": {
+          "exclusiveMinimum": 0,
+          "title": "Execution Horizon",
+          "type": "integer"
+        },
+        "state_semantics": {
+          "enum": [
+            "stateless",
+            "resettable",
+            "restorable"
+          ],
+          "title": "State Semantics",
+          "type": "string"
+        },
+        "deterministic_seeding": {
+          "title": "Deterministic Seeding",
+          "type": "boolean"
+        },
+        "training_data": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TrainingDataContract"
+          },
+          "title": "Training Data",
+          "type": "array"
+        }
+      },
+      "required": [
+        "policy_id",
+        "policy_version",
+        "policy_family",
+        "checkpoint_id",
+        "checkpoint_sha256",
+        "preprocessing_sha256",
+        "observation_modalities",
+        "action_representation",
+        "action_dimension",
+        "action_lower_bounds",
+        "action_upper_bounds",
+        "prediction_horizon",
+        "execution_horizon",
+        "state_semantics",
+        "deterministic_seeding"
+      ],
+      "title": "PolicyContract",
+      "type": "object"
+    },
+    "SplitLineageContract": {
+      "additionalProperties": false,
+      "properties": {
+        "split_id": {
+          "title": "Split Id",
+          "type": "string"
+        },
+        "partition": {
+          "enum": [
+            "train",
+            "validation",
+            "public_test",
+            "hidden_test"
+          ],
+          "title": "Partition",
+          "type": "string"
+        },
+        "lineage_sha256": {
+          "title": "Lineage Sha256",
+          "type": "string"
+        },
+        "parent_split_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Parent Split Ids",
+          "type": "array"
+        },
+        "training_overlap_allowed": {
+          "default": false,
+          "title": "Training Overlap Allowed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "split_id",
+        "partition",
+        "lineage_sha256"
+      ],
+      "title": "SplitLineageContract",
+      "type": "object"
+    },
+    "StressorContract": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "nyssa-nep-stressor-contract-v0.1",
+          "default": "nyssa-nep-stressor-contract-v0.1",
+          "title": "Format",
+          "type": "string"
+        },
+        "contract_version": {
+          "default": "0.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "condition_id": {
+          "title": "Condition Id",
+          "type": "string"
+        },
+        "composition_semantics": {
+          "enum": [
+            "ordered",
+            "commutative"
+          ],
+          "title": "Composition Semantics",
+          "type": "string"
+        },
+        "stressors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StressorEntryContract"
+          },
+          "title": "Stressors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "condition_id",
+        "composition_semantics"
+      ],
+      "title": "StressorContract",
+      "type": "object"
+    },
+    "StressorEntryContract": {
+      "additionalProperties": false,
+      "properties": {
+        "stressor_id": {
+          "title": "Stressor Id",
+          "type": "string"
+        },
+        "stressor_version": {
+          "title": "Stressor Version",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "visual",
+            "dynamics",
+            "sensor",
+            "system",
+            "action",
+            "language"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "severity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Severity",
+          "type": "number"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "application_points": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Application Points",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "observable_by_policy": {
+          "title": "Observable By Policy",
+          "type": "boolean"
+        },
+        "privileged": {
+          "title": "Privileged",
+          "type": "boolean"
+        },
+        "backend_confirmed": {
+          "title": "Backend Confirmed",
+          "type": "boolean"
+        },
+        "backend_evidence_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Backend Evidence Artifact Id"
+        }
+      },
+      "required": [
+        "stressor_id",
+        "stressor_version",
+        "category",
+        "severity",
+        "seed",
+        "application_points",
+        "parameters",
+        "observable_by_policy",
+        "privileged",
+        "backend_confirmed"
+      ],
+      "title": "StressorEntryContract",
+      "type": "object"
+    },
+    "TaskContract": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "nyssa-nep-task-contract-v0.1",
+          "default": "nyssa-nep-task-contract-v0.1",
+          "title": "Format",
+          "type": "string"
+        },
+        "contract_version": {
+          "default": "0.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "title": "Task Version",
+          "type": "string"
+        },
+        "engine_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Engine Ids",
+          "type": "array"
+        },
+        "robot_id": {
+          "title": "Robot Id",
+          "type": "string"
+        },
+        "scene_id": {
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "horizon_steps": {
+          "exclusiveMinimum": 0,
+          "title": "Horizon Steps",
+          "type": "integer"
+        },
+        "observation_modalities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Observation Modalities",
+          "type": "array"
+        },
+        "action_representation": {
+          "title": "Action Representation",
+          "type": "string"
+        },
+        "success_predicate": {
+          "additionalProperties": true,
+          "title": "Success Predicate",
+          "type": "object"
+        },
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/AssetContract"
+          },
+          "title": "Assets",
+          "type": "array"
+        },
+        "split_lineage": {
+          "$ref": "#/$defs/SplitLineageContract"
+        }
+      },
+      "required": [
+        "task_id",
+        "task_version",
+        "engine_ids",
+        "robot_id",
+        "scene_id",
+        "horizon_steps",
+        "observation_modalities",
+        "action_representation",
+        "success_predicate",
+        "assets",
+        "split_lineage"
+      ],
+      "title": "TaskContract",
+      "type": "object"
+    },
+    "TrainingDataContract": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_id": {
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "dataset_version": {
+          "title": "Dataset Version",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "split_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Split Ids",
+          "type": "array"
+        },
+        "license_id": {
+          "title": "License Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "dataset_version",
+        "sha256",
+        "split_ids",
+        "license_id"
+      ],
+      "title": "TrainingDataContract",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "nyssa-evaluation-protocol-v0.1",
+      "default": "nyssa-evaluation-protocol-v0.1",
+      "title": "Format",
+      "type": "string"
+    },
+    "nep_version": {
+      "default": "0.1.0",
+      "title": "Nep Version",
+      "type": "string"
+    },
+    "evaluation_id": {
+      "title": "Evaluation Id",
+      "type": "string"
+    },
+    "task": {
+      "$ref": "#/$defs/TaskContract"
+    },
+    "stressor": {
+      "$ref": "#/$defs/StressorContract"
+    },
+    "policy": {
+      "$ref": "#/$defs/PolicyContract"
+    },
+    "failure_evidence": {
+      "$ref": "#/$defs/FailureEvidenceContract"
+    },
+    "intervention": {
+      "$ref": "#/$defs/InterventionContract"
+    },
+    "claim": {
+      "$ref": "#/$defs/ClaimContract"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactContract"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "content_sha256": {
+      "title": "Content Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evaluation_id",
+    "task",
+    "stressor",
+    "policy",
+    "failure_evidence",
+    "intervention",
+    "claim",
+    "artifacts",
+    "content_sha256"
+  ],
+  "title": "NEPManifest",
+  "type": "object"
+}

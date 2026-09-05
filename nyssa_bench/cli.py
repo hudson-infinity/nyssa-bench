@@ -85,6 +85,13 @@ from nyssa_bench.monitors import (
     compare_monitor_records,
     load_monitor_manifest,
 )
+from nyssa_bench.nep import (
+    load_nep_data,
+    migrate_nep_data,
+    validate_nep_manifest,
+    write_nep_validation_report,
+    write_schemas,
+)
 from nyssa_bench.learning_export import (
     LEARNING_EXPORT_MANIFEST_FORMAT,
     ExportSplit,
@@ -181,6 +188,13 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("list-engines")
     subparsers.add_parser("list-policies")
     subparsers.add_parser("list-stressors")
+
+    nep_validate_parser = subparsers.add_parser("validate-nep")
+    nep_validate_parser.add_argument("manifest")
+    nep_validate_parser.add_argument("--out", required=True)
+
+    nep_schema_parser = subparsers.add_parser("write-nep-schemas")
+    nep_schema_parser.add_argument("--out", required=True)
 
     benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
     benchmark_audit_parser.add_argument("spec")
@@ -565,6 +579,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "list-stressors":
         for stressor in list_stressors():
             print(stressor)
+        return 0
+
+    if args.command == "validate-nep":
+        data, migration = migrate_nep_data(load_nep_data(args.manifest))
+        report, _ = validate_nep_manifest(data)
+        path = write_nep_validation_report(report, args.out)
+        print(f"nep_validation: {path}")
+        print(f"valid: {report.valid}")
+        print(f"claim_ready: {report.claim_ready}")
+        if migration is not None:
+            print(f"migration: {migration['source_format']} -> {migration['target_format']}")
+        return 0 if report.valid else 3
+
+    if args.command == "write-nep-schemas":
+        paths = write_schemas(args.out)
+        print(f"schemas: {len(paths)}")
         return 0
 
     if args.command == "audit-benchmark":

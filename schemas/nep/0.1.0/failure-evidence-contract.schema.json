@@ -1,0 +1,72 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "nyssa-nep-failure-evidence-contract-v0.1",
+      "default": "nyssa-nep-failure-evidence-contract-v0.1",
+      "title": "Format",
+      "type": "string"
+    },
+    "contract_version": {
+      "default": "0.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "event_format": {
+      "const": "nyssa-failure-event-v1",
+      "default": "nyssa-failure-event-v1",
+      "title": "Event Format",
+      "type": "string"
+    },
+    "ledger_artifact_id": {
+      "title": "Ledger Artifact Id",
+      "type": "string"
+    },
+    "detector_contract_artifact_id": {
+      "title": "Detector Contract Artifact Id",
+      "type": "string"
+    },
+    "temporal_precision": {
+      "items": {
+        "enum": [
+          "exact_step",
+          "step_interval",
+          "terminal_only",
+          "unknown"
+        ],
+        "type": "string"
+      },
+      "title": "Temporal Precision",
+      "type": "array"
+    },
+    "evidence_visibility": {
+      "items": {
+        "enum": [
+          "policy_observable",
+          "privileged",
+          "external"
+        ],
+        "type": "string"
+      },
+      "title": "Evidence Visibility",
+      "type": "array"
+    },
+    "causal_semantics": {
+      "enum": [
+        "hypothesis_only",
+        "intervention_supported"
+      ],
+      "title": "Causal Semantics",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ledger_artifact_id",
+    "detector_contract_artifact_id",
+    "temporal_precision",
+    "evidence_visibility",
+    "causal_semantics"
+  ],
+  "title": "FailureEvidenceContract",
+  "type": "object"
+}

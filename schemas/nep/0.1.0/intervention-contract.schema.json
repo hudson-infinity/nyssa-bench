@@ -1,0 +1,71 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "nyssa-nep-intervention-contract-v0.1",
+      "default": "nyssa-nep-intervention-contract-v0.1",
+      "title": "Format",
+      "type": "string"
+    },
+    "contract_version": {
+      "default": "0.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "trigger_sources": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Trigger Sources",
+      "type": "array"
+    },
+    "intervention_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Intervention Types",
+      "type": "array"
+    },
+    "cost_metrics": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Cost Metrics",
+      "type": "array"
+    },
+    "counterfactual_branch_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Counterfactual Branch Artifact Id"
+    },
+    "restoration_requirement": {
+      "default": "none",
+      "enum": [
+        "none",
+        "qualified",
+        "exact"
+      ],
+      "title": "Restoration Requirement",
+      "type": "string"
+    }
+  },
+  "required": [
+    "enabled"
+  ],
+  "title": "InterventionContract",
+  "type": "object"
+}

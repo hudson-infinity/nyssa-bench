@@ -35,6 +35,7 @@ REQUIRED_WHEEL_SUFFIXES = {
     "nyssa_bench/_resources/configs/suites/tabletop_manipulation_v0.yaml",
     "nyssa_bench/tasks/tabletop/pick_cube.yaml",
     "nyssa_bench/_resources/conformance/scenario/README.md",
+    "nyssa_bench/_resources/schemas/nep/0.1.0/nep-manifest.schema.json",
 }
 REQUIRED_SDIST_SUFFIXES = {
     "LICENSE",
@@ -151,7 +152,7 @@ def _require_suffixes(names: list[str], required: set[str], label: str) -> None:
 
 def _compare_resource_bytes(archive: zipfile.ZipFile) -> None:
     members = set(archive.namelist())
-    for source_root in (ROOT / "configs", ROOT / "conformance"):
+    for source_root in (ROOT / "configs", ROOT / "conformance", ROOT / "schemas"):
         for source in source_root.rglob("*"):
             if not source.is_file():
                 continue

@@ -189,6 +189,31 @@
       ]
     },
     {
+      "claim_id": "nyssa_evaluation_protocol",
+      "status": "implemented",
+      "evidence_tier": "source_verified",
+      "wording": "Nyssa Evaluation Protocol 0.1 defines six versioned, content-addressed evaluation contracts with executable cross-contract claim validation.",
+      "authorized_public_assertion": true,
+      "issue_ids": [21],
+      "source_paths": [
+        "nyssa_bench/nep",
+        "schemas/nep/0.1.0"
+      ],
+      "test_paths": [
+        "tests/test_nep.py"
+      ],
+      "artifact_requirements": [
+        "nep_manifest.json",
+        "nyssa-nep-validation-report-v0.1",
+        "conformance/nep/0.1.0"
+      ],
+      "promotion_requirements": [],
+      "limitations": [
+        "NEP 0.1 is not a published protocol release until the package/release workflow executes.",
+        "The committed ManiSkill fixture is schema conformance, not GPU execution evidence."
+      ]
+    },
+    {
       "claim_id": "validated_learned_policy_coverage",
       "status": "integration_only",
       "evidence_tier": "integration_only",
@@ -317,6 +342,7 @@
       "temporal_failure_evidence",
       "counterfactual_recovery_measurement",
       "benchmark_validity_audits",
+      "nyssa_evaluation_protocol",
       "validated_learned_policy_coverage",
       "compact_reference_benchmark",
       "simulator_backed_continuous_integration",

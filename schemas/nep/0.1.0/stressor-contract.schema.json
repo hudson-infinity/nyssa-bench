@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "StressorEntryContract": {
+      "additionalProperties": false,
+      "properties": {
+        "stressor_id": {
+          "title": "Stressor Id",
+          "type": "string"
+        },
+        "stressor_version": {
+          "title": "Stressor Version",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "visual",
+            "dynamics",
+            "sensor",
+            "system",
+            "action",
+            "language"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "severity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Severity",
+          "type": "number"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "application_points": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Application Points",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "observable_by_policy": {
+          "title": "Observable By Policy",
+          "type": "boolean"
+        },
+        "privileged": {
+          "title": "Privileged",
+          "type": "boolean"
+        },
+        "backend_confirmed": {
+          "title": "Backend Confirmed",
+          "type": "boolean"
+        },
+        "backend_evidence_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Backend Evidence Artifact Id"
+        }
+      },
+      "required": [
+        "stressor_id",
+        "stressor_version",
+        "category",
+        "severity",
+        "seed",
+        "application_points",
+        "parameters",
+        "observable_by_policy",
+        "privileged",
+        "backend_confirmed"
+      ],
+      "title": "StressorEntryContract",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "nyssa-nep-stressor-contract-v0.1",
+      "default": "nyssa-nep-stressor-contract-v0.1",
+      "title": "Format",
+      "type": "string"
+    },
+    "contract_version": {
+      "default": "0.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "condition_id": {
+      "title": "Condition Id",
+      "type": "string"
+    },
+    "composition_semantics": {
+      "enum": [
+        "ordered",
+        "commutative"
+      ],
+      "title": "Composition Semantics",
+      "type": "string"
+    },
+    "stressors": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StressorEntryContract"
+      },
+      "title": "Stressors",
+      "type": "array"
+    }
+  },
+  "required": [
+    "condition_id",
+    "composition_semantics"
+  ],
+  "title": "StressorContract",
+  "type": "object"
+}
