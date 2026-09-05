@@ -4,6 +4,10 @@ NyssaBench is foundational when it defines reusable standards and infrastructure
 that other embodied AI projects can build on, even when they use different
 simulators, policies, robots, or datasets.
 
+This page describes the intended contribution standard, not the current public
+evidence tier. The stronger project wording remains a gated milestone in the
+[claim evidence matrix](claim_evidence.md).
+
 ## Core Standards
 
 NyssaBench contributes:

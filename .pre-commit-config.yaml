@@ -48,6 +48,13 @@ repos:
         language: system
         pass_filenames: false
 
+      - id: validate-public-claims
+        name: validate public claims against evidence
+        entry: python scripts/validate_claim_evidence.py
+        language: system
+        pass_filenames: false
+        files: ^(README\.md|pyproject\.toml|claims/.*\.json|docs/.*\.md|scripts/validate_claim_evidence\.py|nyssa_bench/claims/.*\.py)$
+
       - id: pytest
         name: run full pytest suite
         entry: pytest -q

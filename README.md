@@ -1,13 +1,12 @@
 # NyssaBench
 
-**NyssaBench is open-source foundational infrastructure for failure-aware evaluation of frontier embodied AI policies.**
+**NyssaBench is an open-source failure-aware evaluation and audit framework for embodied AI policies, built toward foundational infrastructure for evaluating frontier robot systems.**
 
 Run reproducible robot-policy benchmarks, stress-test failures, audit benchmark
 claims, compare policies, and export simulation data for training.
 
-NyssaBench is not a simulator. It is the measurement layer for frontier embodied
-AI: a foundational benchmark and audit framework for evaluating how robot
-policies fail under real-world variation. It sits on top of robotics simulators
+NyssaBench is not a simulator. It is a benchmark and audit framework designed
+to measure how robot policies fail under real-world variation. It sits on top of robotics simulators
 such as ManiSkill and MuJoCo, with experimental adapter boundaries for RoboCasa
 and Genesis. Public scorecards must pass the run claim validator; experimental
 adapters and placeholder task mappings are not public benchmark claims.
@@ -19,6 +18,14 @@ evidence with NyssaBench through stable interfaces. See the
 [project scope](docs/project_scope.md) before proposing a new subsystem.
 Code-level reuse and ownership decisions are pinned in the
 [adjacent-framework architecture record](docs/architecture_decisions/0001-adjacent-evaluation-frameworks.md).
+Current and milestone claims are tracked in the machine-validated
+[claim evidence matrix](docs/claim_evidence.md).
+
+Capability labels are evidence terms: `implemented` means code and deterministic
+tests exist; `integration_only` means an adapter path has not passed a validated
+track; `experimental` is not eligible for public benchmark claims; and `planned`
+is roadmap scope. The repository currently has no headline result pack approved
+by the claim evidence gate.
 
 ```python
 from nyssa_bench import PolicyRunner, Suite

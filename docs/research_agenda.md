@@ -1,10 +1,10 @@
 # Research Agenda
 
-NyssaBench's north star:
+Research target, not a current evidence claim:
 
-> NyssaBench is foundational because it standardizes embodied AI evaluation. It
-> is frontier because it evaluates the hardest current robot-policy failures:
-> robustness, recoverability, VLA reliability, and predictive sim-real validity.
+> Build NyssaBench into reusable evaluation infrastructure for hard robot-policy
+> failures: robustness, recoverability, VLA reliability, and predictive sim-real
+> validity.
 
 NyssaBench provides the measurement system for this agenda. World generation,
 real-to-sim reconstruction, interpretability-method development, policy
@@ -18,7 +18,8 @@ Working title:
 > NyssaBench: Failure-Aware and Audit-Safe Evaluation for Frontier Embodied AI
 > Policies
 
-Subtitle:
+Provisional subtitle. This wording remains aspirational until the claim evidence
+gate passes:
 
 > A foundational benchmark framework for stress-testing, comparing, and
 > debugging robot policies under real-world variation.
