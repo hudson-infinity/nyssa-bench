@@ -35,6 +35,14 @@ jobs:
         run: python -m build
       - name: Validate distribution metadata
         run: python -m twine check --strict dist/*
+      - name: Validate distribution contents
+        run: python scripts/validate_distributions.py dist/* --out distribution-validation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distribution-validation
+          path: distribution-validation.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -69,7 +77,15 @@ jobs:
         run: |
           nyssa --help
           nyssa --version
+          nyssa list-suites
+          nyssa list-stressors
           python -c "import nyssa_bench; print(nyssa_bench.__version__)"
+          python -m nyssa_bench.packaging_smoke --out "${RUNNER_TEMP}/nyssa-installed-smoke"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-installed-smoke-python-${{ matrix.python-version }}
+          path: ${{ runner.temp }}/nyssa-installed-smoke/
+          if-no-files-found: error
 
   publish-testpypi:
     name: Publish release candidate to TestPyPI

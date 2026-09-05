@@ -27,6 +27,9 @@ track; `experimental` is not eligible for public benchmark claims; and `planned`
 is roadmap scope. The repository currently has no headline result pack approved
 by the claim evidence gate.
 
+Release artifacts are built and tested as installed wheels outside the source
+checkout. See [installed artifact validation](docs/installed_artifact_validation.md).
+
 ```python
 from nyssa_bench import PolicyRunner, Suite
 

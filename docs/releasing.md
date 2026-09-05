@@ -32,6 +32,7 @@ Validate locally before creating a tag:
 uv run python scripts/validate_release_version.py --tag v0.1.0rc1
 uv build
 uvx twine check --strict dist/*
+uv run python scripts/validate_distributions.py dist/*
 ```
 
 Update `nyssa_bench/version.py` and `CHANGELOG.md` in a reviewed pull request.
@@ -48,9 +49,10 @@ git push origin v0.1.0rc1
 ```
 
 The workflow builds a wheel and source distribution, runs strict metadata
-checks, attests build provenance, and installs the wheel outside the checkout on
-Python 3.10 and 3.13. Only then does the `testpypi` job request an OIDC token and
-publish to TestPyPI.
+and content checks, attests build provenance, and installs the wheel outside the
+checkout on Python 3.10 and 3.13. The installed jobs also load bundled resources
+and generate a smoke result pack and HTML report. Only then does the `testpypi`
+job request an OIDC token and publish to TestPyPI.
 
 Install the candidate from TestPyPI in a clean environment. PyPI remains the
 fallback index for dependencies:

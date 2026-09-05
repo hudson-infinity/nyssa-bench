@@ -9,6 +9,7 @@ Start here:
 - [Architecture decisions](architecture_decisions/README.md)
 - [Installation](installation.md)
 - [Python package releases](releasing.md)
+- [Installed artifact validation](installed_artifact_validation.md)
 - [Task spec](task_spec.md)
 - [Engine adapters](engine_adapters.md)
 - [Policy adapters](policy_adapters.md)

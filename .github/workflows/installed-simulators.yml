@@ -1,0 +1,112 @@
+name: Installed simulator smoke
+
+on:
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      run_maniskill_gpu:
+        description: Run the GPU ManiSkill installed-wheel smoke
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      - run: python scripts/validate_distributions.py dist/* --out distribution-validation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simulator-python-distributions
+          path: |
+            dist/
+            distribution-validation.json
+          if-no-files-found: error
+
+  mujoco:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: simulator-python-distributions
+          path: package-artifacts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install headless rendering libraries
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6
+      - name: Install the wheel with its MuJoCo extra
+        run: |
+          WHEEL=$(find package-artifacts/dist -name '*.whl' -print -quit)
+          python -m pip install "${WHEEL}[mujoco]"
+      - name: Run installed MuJoCo result-pack smoke
+        working-directory: ${{ runner.temp }}
+        env:
+          MUJOCO_GL: osmesa
+          PYOPENGL_PLATFORM: osmesa
+        run: |
+          nyssa run \
+            --suite mujoco_control_v0 \
+            --tasks mujoco_inverted_pendulum \
+            --engine mujoco \
+            --policy random \
+            --episodes 1 \
+            --seed 0 \
+            --out "${RUNNER_TEMP}/nyssa-mujoco-installed" \
+            --no-replay
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installed-mujoco-smoke
+          path: ${{ runner.temp }}/nyssa-mujoco-installed/
+          if-no-files-found: warn
+
+  maniskill-gpu:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_maniskill_gpu }}
+    needs: build
+    runs-on: [self-hosted, linux, x64, gpu]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: simulator-python-distributions
+          path: package-artifacts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install the wheel with its ManiSkill extra
+        run: |
+          WHEEL=$(find package-artifacts/dist -name '*.whl' -print -quit)
+          python -m pip install "${WHEEL}[maniskill]"
+      - name: Run installed GPU ManiSkill replay smoke
+        working-directory: ${{ runner.temp }}
+        env:
+          MUJOCO_GL: egl
+          PYOPENGL_PLATFORM: egl
+        run: |
+          python -c "import importlib.metadata, mani_skill; print(importlib.metadata.version('mani-skill'))"
+          nyssa run \
+            --suite maniskill_smoke_v0 \
+            --tasks maniskill_pick_cube \
+            --engine maniskill \
+            --policy random \
+            --episodes 1 \
+            --seed 0 \
+            --out "${RUNNER_TEMP}/nyssa-maniskill-installed" \
+            --capture-replay
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installed-maniskill-gpu-smoke
+          path: ${{ runner.temp }}/nyssa-maniskill-installed/
+          if-no-files-found: warn
