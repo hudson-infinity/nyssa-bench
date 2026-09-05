@@ -1,5 +1,9 @@
 # Related Work
 
+The code-level ownership and integration decisions behind this landscape are
+recorded in
+[ADR-0001: Reuse adjacent evaluation patterns through Nyssa contracts](architecture_decisions/0001-adjacent-evaluation-frameworks.md).
+
 NyssaBench is not intended to replace robot simulators, robot datasets, or task
 zoos. Its role is to sit above them as a failure-aware evaluation, validation,
 reporting, and comparison layer for embodied AI policies.

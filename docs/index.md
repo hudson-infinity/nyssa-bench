@@ -6,6 +6,7 @@ Start here:
 
 - [Getting started](getting_started.md)
 - [Project scope](project_scope.md)
+- [Architecture decisions](architecture_decisions/README.md)
 - [Installation](installation.md)
 - [Task spec](task_spec.md)
 - [Engine adapters](engine_adapters.md)

@@ -17,6 +17,8 @@ generated worlds, real-to-sim reconstruction, interpretability methods, policy
 training, or hosted products. Those systems can exchange versioned inputs and
 evidence with NyssaBench through stable interfaces. See the
 [project scope](docs/project_scope.md) before proposing a new subsystem.
+Code-level reuse and ownership decisions are pinned in the
+[adjacent-framework architecture record](docs/architecture_decisions/0001-adjacent-evaluation-frameworks.md).
 
 ```python
 from nyssa_bench import PolicyRunner, Suite
