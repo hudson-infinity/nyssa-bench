@@ -24,7 +24,7 @@ public wording. Every capability needs non-documentation source and test paths.
 
 Gate B requires Gate A plus:
 
-- a compact reference manifest with a protected hidden-test split;
+- a release-ready reference benchmark audit with a protected hidden-test split;
 - at least one oracle control;
 - valid result packs for two distinct learned policy families, identified by
   NEP policy contracts;

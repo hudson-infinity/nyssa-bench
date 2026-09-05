@@ -29,6 +29,7 @@ Start here:
 - [Validation protocol](validation_protocol.md)
 - [Benchmark audit checklist](benchmark_audit_checklist.md)
 - [Benchmark validity](benchmark_validity.md)
+- [Reference benchmark and protected splits](reference_benchmark.md)
 - [Stressor protocol](stressor_protocol.md)
 - [Stress search](stress_search.md)
 - [External scenario packages](external_scenarios.md)

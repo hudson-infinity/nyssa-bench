@@ -1,0 +1,1000 @@
+{
+  "benchmark_id": "nyssa_reference_manipulation_v0_1",
+  "benchmark_version": "0.1.0",
+  "experimental_design": {
+    "bootstrap_samples": 5000,
+    "minimum_episodes_per_condition": 100,
+    "minimum_oracle_success_rate": 0.8,
+    "paired_seeds": true,
+    "primary_metrics": [
+      "clean_success_rate",
+      "shifted_success_rate",
+      "failure_event_distribution",
+      "mean_time_to_failure_steps",
+      "counterfactual_recovery_gain"
+    ],
+    "rationale": "One hundred paired episodes per condition supports Wilson intervals no wider than 0.2 in the worst case; paired bootstrap intervals use five thousand resamples. Final power must be recomputed from pilot data.",
+    "required_controls": [
+      "oracle",
+      "zero_action",
+      "random"
+    ],
+    "required_learned_policy_families": 2,
+    "target_success_ci95_width": 0.2
+  },
+  "format": "nyssa-reference-benchmark-spec-v1",
+  "learned_policy_evidence": [],
+  "metadata": {
+    "candidate_boundary": "Environment mappings are source-backed candidates. Asset commitments, split contents, oracle evidence, and learned-policy evidence are pending.",
+    "upstream": "ManiSkill 3.0.1",
+    "upstream_task_documentation": "https://maniskill.readthedocs.io/en/latest/tasks/"
+  },
+  "schema_version": 1,
+  "splits": [
+    {
+      "contamination_status": "unknown",
+      "contents_published": false,
+      "dimensions": [
+        {
+          "content_sha256": "5a94800301b716685da275002d901932a6d009bbf7cd27b1cdf2d10b6b321e5a",
+          "dimension": "assets",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "8d44c9ed87459bd15d707ce1b38285f32c101baf747f053332774a540d40521c",
+          "dimension": "initial_states",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "f995a6c8acea53be18ddce19d9fc8ec867a01fc8769ecb2a530c334d65b3afcb",
+          "dimension": "poses",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "56325f3de49a7df4aa913cc5c3ffb9db811684d232c1abad2468353c705616ed",
+          "dimension": "task_variants",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "0aa00c8706c398234c9094171616842143585a9bd967639e3e69699d43d91f71",
+          "dimension": "demonstrations",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        }
+      ],
+      "evaluator_id": "hudson-reference-data-owner",
+      "parent_split_ids": [],
+      "partition": "train",
+      "producer_id": "hudson-reference-data-owner",
+      "protected": false,
+      "split_id": "nyssa-reference-v0.1-train"
+    },
+    {
+      "contamination_status": "unknown",
+      "contents_published": false,
+      "dimensions": [
+        {
+          "content_sha256": "5c91f72945955c8ececdf16f5ade0eddc461824737271a7ba91b155a4e1d4a7a",
+          "dimension": "assets",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "83276ff39d7c2820c828355c7682c50d271f8a9b202369bee68abfdd76c96769",
+          "dimension": "initial_states",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "0e100803bcbea5c76cd5539d80299ef0c30472e361f992041cb8ace08f7a4487",
+          "dimension": "poses",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "db97d8a338cb3b4148bb1cccea49ef995bcd7ae5a0423f929ae0299a1a5e356c",
+          "dimension": "task_variants",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "468a3ff5fbaf38bfdccced318861b9ce2dae9be3e1d10158c7691dc3d5b53be4",
+          "dimension": "demonstrations",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        }
+      ],
+      "evaluator_id": "hudson-reference-data-owner",
+      "parent_split_ids": [
+        "nyssa-reference-v0.1-train"
+      ],
+      "partition": "validation",
+      "producer_id": "hudson-reference-data-owner",
+      "protected": false,
+      "split_id": "nyssa-reference-v0.1-validation"
+    },
+    {
+      "contamination_status": "unknown",
+      "contents_published": false,
+      "dimensions": [
+        {
+          "content_sha256": "f31fdbad18c439c9382b538343c6842a81478952fa623f3bef2d9078717c7fb9",
+          "dimension": "assets",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "ba865c32858a59409dd937352ae57fe77681723961201e312e2c523da8720fb2",
+          "dimension": "initial_states",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "3549e6c1781d8c67af9590aba8605dbbc806d85361a3caa6133bae604403f2b8",
+          "dimension": "poses",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "82f667981a56c1c4c02533ad42439916ed16b1f8d61c2451e9d1efaefc852bc7",
+          "dimension": "task_variants",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "46936e743056223fefbe81e0162cb89d376a20e9a5eae2c37fb0b35b2621593c",
+          "dimension": "demonstrations",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        }
+      ],
+      "evaluator_id": "hudson-reference-data-owner",
+      "parent_split_ids": [
+        "nyssa-reference-v0.1-validation"
+      ],
+      "partition": "public_test",
+      "producer_id": "hudson-reference-data-owner",
+      "protected": false,
+      "split_id": "nyssa-reference-v0.1-public_test"
+    },
+    {
+      "contamination_status": "unknown",
+      "contents_published": false,
+      "dimensions": [
+        {
+          "content_sha256": "aab62fb438f7b4af219a45ccbf1cbb57c0ff77e0747f0727ab2583a8894d9f7a",
+          "dimension": "assets",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "9bdeffd2f2dd6d348128504b895aedba5be558855b4f0eda5784f8bcf9a202c8",
+          "dimension": "initial_states",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "e8a53b3cdd05f22942c2a0502be72186ca97896e6d708bd8bb413fa21749fef4",
+          "dimension": "poses",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "e0c4c8d6adaf72133d4ad0021e3a99f572e44dffcf8697a8ffc3122f1235383f",
+          "dimension": "task_variants",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        },
+        {
+          "content_sha256": "1c0b4965b0b82123581e78cfc21e87f7033d7a8fa6e3e1e5b39634f5ced16750",
+          "dimension": "demonstrations",
+          "item_count": 1,
+          "public_artifact": null,
+          "status": "pending"
+        }
+      ],
+      "evaluator_id": "independent-hidden-evaluator",
+      "parent_split_ids": [
+        "nyssa-reference-v0.1-public_test"
+      ],
+      "partition": "hidden_test",
+      "producer_id": "hudson-reference-data-owner",
+      "protected": true,
+      "split_id": "nyssa-reference-v0.1-hidden_test"
+    }
+  ],
+  "status": "candidate",
+  "tasks": [
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:PickCube-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "dcb122c77b9a4e0cdff79b50f8b320d72554965b1e8a1d150945d0f31efb9ee7",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 80,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_pick_cube",
+        "split_lineage": {
+          "lineage_sha256": "7fd801cb959fb7a4adb7ea5b4ccce35451847fbe3777b2048b4151188136cd01",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "PickCube-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_pick_cube",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "grasp_place"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/tabletop/maniskill_pick_cube.yaml",
+        "sha256": "9f3212800fd91802ab5f1c15cc406da49256cfbfa2afbde0e6eadb691005afaa"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:PlaceSphere-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "96f6c2c8e098c4c7a487a7b84ea884bc75d4726f04155bcbdce983bf4a50588b",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 80,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_place_sphere",
+        "split_lineage": {
+          "lineage_sha256": "d2529fffece4c48813baf25869935bc3ef03423187ec9f27b8626eea4989b53f",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "PlaceSphere-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_place_sphere",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "grasp_place"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_place_sphere.yaml",
+        "sha256": "2a2a8bc308a670d446f54f7f4667f1fa466bfeaf80aeda9fcb4119588617a0da"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:StackCube-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "8eba12b599de5f6fd1ac125ea3aac453a1ac092c3b776fd818560f2025136189",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 120,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_stack_cube",
+        "split_lineage": {
+          "lineage_sha256": "bc924db4dd467b7380b6216626d3752d5eb349b3dc9d3523d3bf742d680c2c1e",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "StackCube-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_stack_cube",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "stacking"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/tabletop/maniskill_stack_cube.yaml",
+        "sha256": "15a68b1642821ada085d1e366f68904f0fa6e015396597a0e27374fa2c67af7e"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:PushCube-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "4635d88455f2b2a5517ae4c962718f35b2ac8895a9a70e3560451fd7a446ef16",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 80,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_push_cube",
+        "split_lineage": {
+          "lineage_sha256": "cbe8cc315b31205383a790a445cdd7d55d86010cf135f98b3c6b729cf3c03af1",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "PushCube-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_push_cube",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "nonprehensile"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/tabletop/maniskill_push_cube.yaml",
+        "sha256": "9b143524ba443f611fb7cd3e996535313664878b76f609400f4f470cb1b887eb"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:PushT-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "8ec3a159f88da0ea51c9f6f4db8e211347efab1e7d054b001d6e8e6e0a9a091d",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 150,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_push_t",
+        "split_lineage": {
+          "lineage_sha256": "877617c6243be0620f8f81767df87bc9d241e5fd41c8f15a89ade2e787942002",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "PushT-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_push_t",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "nonprehensile"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_push_t.yaml",
+        "sha256": "477fe2a76012990c491767729dca98cdf5c586049b25775bfbace4ee0bb51081"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:PegInsertionSide-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "792dca010ae5fbd985c39464aee69e000137310fa5f3a07344e1042068e3d083",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 200,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_peg_insertion_side",
+        "split_lineage": {
+          "lineage_sha256": "3a693cca6cccd063cbb9b2125d9f1680d93ee69d273c41060f90d0d8c8f9a9d6",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "PegInsertionSide-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_peg_insertion_side",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "contact_insertion"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_peg_insertion_side.yaml",
+        "sha256": "06ec78fa308bae99ed7a5f20274c8a3c06026b93e488bac2bf38cd60b39e62fe"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:PlugCharger-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "6e137499c39c9f95021dcff70db713b2c9c462f7542628eca40a16f4bfa439d6",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 250,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_plug_charger",
+        "split_lineage": {
+          "lineage_sha256": "cb94721b08a157709a81fbc5cbc2c098ccbcb23d0dd6f4708c32ce9258b7cc50",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "PlugCharger-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_plug_charger",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "contact_insertion"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_plug_charger.yaml",
+        "sha256": "dcd57a28d18c26c18f4c9c1ab2f401554ffd9e46c31bbf85e4f700d9da0a684f"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:OpenCabinetDrawer-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "01417b9a9412bd94ab30178898881da570ea7dabc12b360905b4295c1449f91d",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 250,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_open_cabinet_drawer",
+        "split_lineage": {
+          "lineage_sha256": "7d39355c18c5528eb01efef12969b1eca204063af4ac8945a96f15b17213c16c",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "OpenCabinetDrawer-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_open_cabinet_drawer",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "articulated"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_open_cabinet_drawer.yaml",
+        "sha256": "83399aaa98afd184be21c42146dbe55cddbed4757db548f57d2eb5a40109dc3d"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:OpenCabinetDoor-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "03a0d01938cd852a6c2f294e8fa6edf9018c995c272c8a727830c670bea3c67c",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 250,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_open_cabinet_door",
+        "split_lineage": {
+          "lineage_sha256": "8ad540ce605679114c0c584a8ece2b114f1584379d3f58081262a2d918f23703",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "OpenCabinetDoor-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_open_cabinet_door",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "articulated"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_open_cabinet_door.yaml",
+        "sha256": "31bff720bb4b59fb7f99f9cfaf034187ba6cc0bd851dde715bff2d5e6da753c9"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:TurnFaucet-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "0f21bc0a96c5da0a388ff9ae5ff180747e6733391fff9d4f00cd913efb590146",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 250,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda_wristcam",
+        "scene_id": "maniskill_turn_faucet",
+        "split_lineage": {
+          "lineage_sha256": "b2b055724d7d32879be3aa12a2a5cf6588869e55e7738e014c0d3e46e2f07dc9",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "TurnFaucet-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_turn_faucet",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "articulated"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_turn_faucet.yaml",
+        "sha256": "5dd26cfc3eeb5a68e072170df3797de23b04e206394fdfe787d54edac8d4ef10"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:PickClutterYCB-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "7c98469eedbdc72fbb9d051b07c3751989cd596b6a86d23e5ca5861c1383ed05",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 150,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_pick_clutter_ycb",
+        "split_lineage": {
+          "lineage_sha256": "b28d8f3a1a421101a2ac99504f80f63ddf0c920eccb0ada0b0317c1f12ec247e",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "PickClutterYCB-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_pick_clutter_ycb",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "clutter_distractors"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_pick_clutter_ycb.yaml",
+        "sha256": "790009b58f77b76b27710f1ce143b26e30ea4b7f5da395a6a59bc51590453f19"
+      }
+    },
+    {
+      "asset_provenance_status": "pending",
+      "contract": {
+        "action_representation": "pd_ee_delta_pose",
+        "assets": [
+          {
+            "asset_id": "maniskill-environment:PullCubeTool-v1",
+            "asset_version": "3.0.1",
+            "license_id": "pending-upstream-asset-license-audit",
+            "sha256": "3a63dfd10611f6961fc418d2192db0c383d78aa040826c0d6ac55a8763b5f8fd",
+            "split": "hidden_test"
+          }
+        ],
+        "contract_version": "0.1.0",
+        "engine_ids": [
+          "maniskill"
+        ],
+        "format": "nyssa-nep-task-contract-v0.1",
+        "horizon_steps": 150,
+        "observation_modalities": [
+          "state_dict"
+        ],
+        "robot_id": "panda",
+        "scene_id": "maniskill_pull_cube_tool",
+        "split_lineage": {
+          "lineage_sha256": "9a3dd8dcde7bb36ea6c60d76139ff7d7230fe278d84ae63462c5403b005eab7d",
+          "parent_split_ids": [],
+          "partition": "hidden_test",
+          "split_id": "nyssa-reference-v0.1-hidden_test",
+          "training_overlap_allowed": false
+        },
+        "success_predicate": {
+          "engine_env_id": "PullCubeTool-v1",
+          "info_keys": [
+            "success",
+            "is_success",
+            "success_once"
+          ]
+        },
+        "task_id": "maniskill_pull_cube_tool",
+        "task_version": "0.1.0"
+      },
+      "failure_capabilities": [
+        "info.success",
+        "contact",
+        "grasp",
+        "progress",
+        "action_bounds"
+      ],
+      "mechanisms": [
+        "multi_stage"
+      ],
+      "solvability_evidence": null,
+      "success_predicate_status": "pending",
+      "supported_stressors": [
+        "action_delay",
+        "action_gaussian_noise",
+        "observation_gaussian_noise"
+      ],
+      "task_spec": {
+        "path": "nyssa_bench/tasks/reference/maniskill_pull_cube_tool.yaml",
+        "sha256": "12f27a42c312f55a9ccdf5bd9fc781b7f1d4000a5ff051bdf02e47461501b771"
+      }
+    }
+  ]
+}

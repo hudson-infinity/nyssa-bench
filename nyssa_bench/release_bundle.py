@@ -66,6 +66,7 @@ RELEASE_PATHS = (
 RELEASE_TREES = (
     "schemas/nep",
     "conformance/nep",
+    "configs/reference",
     "configs/suites",
     "configs/stressors",
 )

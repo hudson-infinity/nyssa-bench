@@ -382,15 +382,13 @@ def _validity_report(*audit_ids: str) -> dict[str, Any]:
 
 def _reference_manifest() -> dict[str, Any]:
     return {
-        "format": "nyssa-reference-benchmark-manifest-v1",
+        "format": "nyssa-reference-benchmark-report-v1",
         "benchmark_id": "reference_v1",
         "benchmark_version": "1.0.0",
-        "task_ids": ["pick", "push", "insert"],
-        "split_lineage": {
-            "split_manifest_sha256": "b" * 64,
-            "evaluation_partition": "hidden_test",
-            "protected": True,
-        },
+        "status": "release_ready",
+        "release_ready": True,
+        "task_count": 12,
+        "spec_sha256": "b" * 64,
         "oracle_control_policy_ids": ["planner_oracle"],
     }
 

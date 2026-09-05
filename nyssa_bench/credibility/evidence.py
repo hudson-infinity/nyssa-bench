@@ -12,7 +12,6 @@ from nyssa_bench.credibility.protocol import (
     CredibilitySpec,
     EvidenceCategory,
     EvidenceReference,
-    ReferenceBenchmarkManifest,
 )
 from nyssa_bench.metrics.vector import validate_metric_vector
 from nyssa_bench.nep import PolicyContract
@@ -115,20 +114,26 @@ def _validate_category(
             payloads, required_audits=CORE_BENCHMARK_AUDITS
         )
         if record.category == "reference_benchmark":
-            raw = _one_format(payloads, "nyssa-reference-benchmark-manifest-v1")
-            manifest = ReferenceBenchmarkManifest.model_validate(raw)
+            manifest = _one_format(payloads, "nyssa-reference-benchmark-report-v1")
             if (
-                manifest.benchmark_id != validity.benchmark_id
-                or manifest.benchmark_version != validity.benchmark_version
+                manifest.get("benchmark_id") != validity.benchmark_id
+                or manifest.get("benchmark_version") != validity.benchmark_version
+                or manifest.get("status") != "release_ready"
+                or manifest.get("release_ready") is not True
+                or not 12 <= int(manifest.get("task_count", 0) or 0) <= 20
+                or not isinstance(manifest.get("spec_sha256"), str)
+                or len(manifest["spec_sha256"]) != 64
             ):
                 raise ValueError(
-                    "reference manifest and BenchmarkValidity identities differ"
+                    "reference audit is not release-ready or differs from BenchmarkValidity"
                 )
             return {
-                "benchmark_id": manifest.benchmark_id,
-                "benchmark_version": manifest.benchmark_version,
-                "task_count": len(manifest.task_ids),
-                "oracle_control_policy_ids": list(manifest.oracle_control_policy_ids),
+                "benchmark_id": manifest["benchmark_id"],
+                "benchmark_version": manifest["benchmark_version"],
+                "task_count": manifest["task_count"],
+                "oracle_control_policy_ids": list(
+                    manifest.get("oracle_control_policy_ids", [])
+                ),
             }
         raw = _one_format(payloads, "nyssa-nep-policy-contract-v0.1")
         policy = PolicyContract.model_validate(raw)

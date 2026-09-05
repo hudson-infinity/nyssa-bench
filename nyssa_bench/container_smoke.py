@@ -67,6 +67,7 @@ def run_container_smoke(
             "status": "not_run",
             "kind": "simulator",
             "reason": "metadata-only smoke; capable GPU execution is required",
+            "registry": _maniskill_registry_evidence(),
         }
     else:
         runtime = {
@@ -168,6 +169,26 @@ def _validate_installed_versions(
     }
     if failures:
         raise RuntimeError(f"container package versions differ: {failures}")
+
+
+def _maniskill_registry_evidence() -> dict[str, Any]:
+    import gymnasium as gym
+    import mani_skill  # noqa: F401
+
+    from nyssa_bench.reference_benchmark.candidate import CANDIDATE_TASKS
+
+    expected = sorted({task.env_id for task in CANDIDATE_TASKS})
+    missing = [env_id for env_id in expected if env_id not in gym.registry]
+    if missing:
+        raise RuntimeError(
+            "ManiSkill reference environments are not registered: "
+            + ", ".join(missing)
+        )
+    return {
+        "status": "registered_not_executed",
+        "environment_ids": expected,
+        "environment_count": len(expected),
+    }
 
 
 def _validate_outside_checkout() -> None:

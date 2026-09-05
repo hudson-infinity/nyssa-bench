@@ -1,0 +1,18 @@
+task_id: maniskill_open_cabinet_door
+engine: maniskill
+robot: panda
+scene: maniskill_open_cabinet_door
+description: OpenCabinetDoor environment mapped through the ManiSkill Gymnasium registry.
+objects:
+  - name: cabinet
+    type: articulation
+success:
+  engine_env_ids: {maniskill: OpenCabinetDoor-v1}
+  success_info_keys: [success, is_success, success_once]
+  obs_mode: state_dict
+  control_mode: pd_ee_delta_pose
+  render_mode: rgb_array
+  max_steps: 250
+randomization: {seed: true}
+metrics: [success_rate, completion_time, collision_count]
+failure_labels: [bad_grasp, joint_limit, unstable_contact, timeout, unknown_failure]

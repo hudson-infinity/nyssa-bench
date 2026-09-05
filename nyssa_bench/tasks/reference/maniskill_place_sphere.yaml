@@ -1,0 +1,18 @@
+task_id: maniskill_place_sphere
+engine: maniskill
+robot: panda
+scene: maniskill_place_sphere
+description: PlaceSphere environment mapped through the ManiSkill Gymnasium registry.
+objects:
+  - name: sphere
+    type: sphere
+success:
+  engine_env_ids: {maniskill: PlaceSphere-v1}
+  success_info_keys: [success, is_success, success_once]
+  obs_mode: state_dict
+  control_mode: pd_ee_delta_pose
+  render_mode: rgb_array
+  max_steps: 80
+randomization: {seed: true}
+metrics: [success_rate, completion_time, grasp_success_rate]
+failure_labels: [bad_grasp, object_slip, missed_target, timeout, unknown_failure]

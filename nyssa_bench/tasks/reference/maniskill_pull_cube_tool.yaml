@@ -1,0 +1,20 @@
+task_id: maniskill_pull_cube_tool
+engine: maniskill
+robot: panda
+scene: maniskill_pull_cube_tool
+description: PullCubeTool environment mapped through the ManiSkill Gymnasium registry.
+objects:
+  - name: cube
+    type: cube
+  - name: tool
+    type: tool
+success:
+  engine_env_ids: {maniskill: PullCubeTool-v1}
+  success_info_keys: [success, is_success, success_once]
+  obs_mode: state_dict
+  control_mode: pd_ee_delta_pose
+  render_mode: rgb_array
+  max_steps: 150
+randomization: {seed: true}
+metrics: [success_rate, completion_time, collision_count, path_efficiency]
+failure_labels: [bad_grasp, wrong_object, unstable_contact, timeout, unknown_failure]

@@ -1,0 +1,20 @@
+task_id: maniskill_peg_insertion_side
+engine: maniskill
+robot: panda
+scene: maniskill_peg_insertion_side
+description: PegInsertionSide environment mapped through the ManiSkill Gymnasium registry.
+objects:
+  - name: peg
+    type: rigid_body
+  - name: hole
+    type: fixture
+success:
+  engine_env_ids: {maniskill: PegInsertionSide-v1}
+  success_info_keys: [success, is_success, success_once]
+  obs_mode: state_dict
+  control_mode: pd_ee_delta_pose
+  render_mode: rgb_array
+  max_steps: 200
+randomization: {seed: true}
+metrics: [success_rate, completion_time, collision_count]
+failure_labels: [bad_grasp, unstable_contact, missed_target, timeout, unknown_failure]

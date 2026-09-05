@@ -1,0 +1,15 @@
+suite_id: nyssa_reference_manipulation_v0_1
+description: Candidate 12-task ManiSkill reference suite; not validated benchmark evidence.
+tasks:
+  - maniskill_pick_cube
+  - maniskill_place_sphere
+  - maniskill_stack_cube
+  - maniskill_push_cube
+  - maniskill_push_t
+  - maniskill_peg_insertion_side
+  - maniskill_plug_charger
+  - maniskill_open_cabinet_drawer
+  - maniskill_open_cabinet_door
+  - maniskill_turn_faucet
+  - maniskill_pick_clutter_ycb
+  - maniskill_pull_cube_tool

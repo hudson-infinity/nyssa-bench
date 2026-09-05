@@ -1,0 +1,18 @@
+task_id: maniskill_push_t
+engine: maniskill
+robot: panda
+scene: maniskill_push_t
+description: PushT environment mapped through the ManiSkill Gymnasium registry.
+objects:
+  - name: t_block
+    type: rigid_body
+success:
+  engine_env_ids: {maniskill: PushT-v1}
+  success_info_keys: [success, is_success, success_once]
+  obs_mode: state_dict
+  control_mode: pd_ee_delta_pose
+  render_mode: rgb_array
+  max_steps: 150
+randomization: {seed: true}
+metrics: [success_rate, completion_time, path_efficiency]
+failure_labels: [missed_target, unstable_contact, timeout, unknown_failure]
