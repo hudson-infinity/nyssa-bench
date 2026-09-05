@@ -57,6 +57,7 @@ class CounterfactualBranchRunner:
         recovery_actions: Sequence[Any],
         trigger_reason: str | None,
         trigger_event_id: str | None,
+        trigger_kind: str = "recovery_decision",
     ) -> CounterfactualRecoveryRecord:
         branch_point_id = (
             f"{task_id}:episode-{episode_index}:step-{step_index}:"
@@ -81,7 +82,7 @@ class CounterfactualBranchRunner:
                     recovery_attempt_id=recovery_attempt_id,
                     requested_repeats=self.repeats,
                     requested_branches=self._requested_branches,
-                    trigger_kind="recovery_decision",
+                    trigger_kind=trigger_kind,
                     trigger_reason=trigger_reason,
                     trigger_event_id=trigger_event_id,
                     snapshot_sha256=None,
@@ -223,7 +224,7 @@ class CounterfactualBranchRunner:
                 recovery_attempt_id=recovery_attempt_id,
                 requested_repeats=self.repeats,
                 requested_branches=self._requested_branches,
-                trigger_kind="recovery_decision",
+                trigger_kind=trigger_kind,
                 trigger_reason=trigger_reason,
                 trigger_event_id=trigger_event_id,
                 snapshot_sha256=baseline.snapshot_sha256,

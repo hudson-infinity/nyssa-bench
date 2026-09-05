@@ -5,7 +5,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Mapping, Sequence, cast
 
 import yaml
 
@@ -46,6 +46,16 @@ from nyssa_bench.metrics.vector import (
     METRIC_VECTOR_FORMAT,
     RUN_METRICS_FORMAT,
     build_metric_vector,
+)
+from nyssa_bench.monitors import (
+    FailureMonitor,
+    FailureMonitorContract,
+    FailureMonitorManager,
+    MonitorPrediction,
+    MonitorPredictionRecord,
+    load_failure_monitors,
+    summarize_monitor_records,
+    write_monitor_manifest,
 )
 from nyssa_bench.policies.base import Policy, PolicyLike, load_policy_from_path
 from nyssa_bench.randomization import (
@@ -165,6 +175,8 @@ class PolicyRunner:
         lifecycle_hooks: tuple[LifecycleHook, ...] = (),
         metric_recorders: tuple[MetricRecorder, ...] = (),
         benchmark_validity: BenchmarkValidityReport | str | Path | None = None,
+        failure_monitors: Sequence[str | Path | FailureMonitor] = (),
+        enable_monitor_intervention: bool = False,
     ) -> None:
         if int(episodes) <= 0:
             raise ValueError("episodes must be a positive integer")
@@ -189,6 +201,19 @@ class PolicyRunner:
         if int(counterfactual_repeats) > 0 and not enable_recovery:
             raise ValueError(
                 "counterfactual branch evaluation requires enable_recovery=True"
+            )
+        if enable_monitor_intervention and not enable_recovery:
+            raise ValueError(
+                "monitor intervention requires enable_recovery=True"
+            )
+        if enable_monitor_intervention and not failure_monitors:
+            raise ValueError(
+                "monitor intervention requires at least one failure monitor"
+            )
+        if enable_monitor_intervention and len(failure_monitors) != 1:
+            raise ValueError(
+                "monitor intervention requires exactly one failure monitor; "
+                "compare multiple monitors in observational mode"
             )
         self.policy_ref = policy
         self.engine_name = engine
@@ -222,11 +247,19 @@ class PolicyRunner:
         self._lifecycle_dispatcher = LifecycleDispatcher(self.lifecycle_hooks)
         self._transition_lifecycle = TransitionLifecycle(self.lifecycle_hooks)
         self.benchmark_validity = _coerce_benchmark_validity(benchmark_validity)
+        self.failure_monitor_refs = tuple(failure_monitors)
+        self.enable_monitor_intervention = bool(enable_monitor_intervention)
+        self._monitor_contracts: dict[str, FailureMonitorContract] = {}
+        self._monitor_support: dict[str, Any] = {}
+        self._monitor_records: list[MonitorPredictionRecord] = []
 
     def evaluate(self, suite: Suite) -> Report:
         policy = self._load_policy()
         engine = make_engine(self.engine_name)
         expert_provider = make_expert_provider(self.expert_provider_ref)
+        monitor_manager = FailureMonitorManager(
+            load_failure_monitors(self.failure_monitor_refs)
+        )
         results: list[EpisodeResult] = []
         episode_runner = EpisodeRunner(
             self._execute_episode,
@@ -293,6 +326,7 @@ class PolicyRunner:
                                 stressor_factory=self._make_stressor_pipeline,
                                 detector_factory=self._make_detector_manager,
                                 branch_factory=self._make_branch_runner,
+                                monitor_manager=monitor_manager,
                                 metric_recorders=self.metric_recorders,
                             ),
                         )
@@ -316,6 +350,7 @@ class PolicyRunner:
                 (engine.__class__.__name__, engine.close),
                 (policy.__class__.__name__, getattr(policy, "close", None)),
                 (expert_provider.__class__.__name__, expert_provider.close),
+                ("failure_monitor_manager", monitor_manager.close),
             ):
                 if not callable(close):
                     continue
@@ -331,6 +366,15 @@ class PolicyRunner:
                 setattr(primary_error, "lifecycle_cleanup_errors", tuple(cleanup_errors))
 
         self.episode_results = results
+        self._monitor_contracts = dict(monitor_manager.contracts)
+        self._monitor_records = [
+            record
+            for episode in results
+            for record in episode.failure_monitor_records
+        ]
+        self._monitor_support = _summarize_monitor_support(
+            results, self._monitor_contracts
+        )
         summary = aggregate_episodes(results)
         counterfactual_recovery = summarize_counterfactual_recovery(results)
         counterfactual_recovery["requested"] = self.counterfactual_repeats > 0
@@ -376,8 +420,25 @@ class PolicyRunner:
         stressor_execution = summarize_stressor_execution(results)
         failure_event_summary = summarize_failure_ledgers(results)
         failure_detector_summary = summarize_failure_detectors(results)
+        failure_monitor_metrics = summarize_monitor_records(
+            self._monitor_records, self._monitor_contracts
+        )
         summary["failure_event_summary"] = failure_event_summary
         summary["failure_detector_summary"] = failure_detector_summary
+        summary["failure_monitor_metrics"] = failure_monitor_metrics
+        summary["failure_monitor_support"] = self._monitor_support
+        if len(self._monitor_contracts) == 1:
+            monitor_id, only_monitor = next(
+                iter(failure_monitor_metrics["monitors"].items())
+            )
+            calibration = only_monitor["calibration"]
+            summary["failure_prediction_calibration"] = {
+                "monitor_id": monitor_id,
+                "observability_tier": only_monitor["observability_tier"],
+                "ece": calibration["ece"],
+                "ci95": calibration["ece_ci95"],
+                "sample_size": only_monitor["observed_labels"],
+            }
         summary["stressor_execution"] = stressor_execution
         summary["stressor_support"] = _stressor_support_summary(
             stressor_execution,
@@ -423,6 +484,15 @@ class PolicyRunner:
             "stressor_execution": stressor_execution,
             "failure_event_summary": failure_event_summary,
             "failure_detector_summary": failure_detector_summary,
+            "failure_monitors": {
+                "intervention_enabled": self.enable_monitor_intervention,
+                "contracts": [
+                    self._monitor_contracts[key].to_dict()
+                    for key in sorted(self._monitor_contracts)
+                ],
+                "support": self._monitor_support,
+                "prediction_count": len(self._monitor_records),
+            },
             "metric_vector_format": METRIC_VECTOR_FORMAT,
             "scenario_context": self.scenario_context or None,
             "benchmark_validity": benchmark_validity_payload,
@@ -475,6 +545,7 @@ class PolicyRunner:
             request.episode_seed,
             stressor_pipeline=components.stressor_factory(request),
             detector_manager=components.detector_factory(request),
+            monitor_manager=components.monitor_manager,
             branch_runner=components.branch_factory(request)
             if components.branch_factory is not None
             else None,
@@ -492,6 +563,7 @@ class PolicyRunner:
         *,
         stressor_pipeline: StressorPipeline | None = None,
         detector_manager: FailureDetectorManager | None = None,
+        monitor_manager: FailureMonitorManager | None = None,
         branch_runner: CounterfactualBranchRunner | None = None,
         metric_recorders: tuple[MetricRecorder, ...] = (),
     ) -> EpisodeResult:
@@ -589,6 +661,14 @@ class PolicyRunner:
             stressor_context=active_stressors,
             reset_info=reset_info,
         )
+        monitor_manager = monitor_manager or FailureMonitorManager()
+        monitor_manager.reset(
+            task=task,
+            episode_index=episode_index,
+            seed=seed,
+            policy=policy,
+            engine=engine,
+        )
         stressor_event_emitter.emit_many(
             stressor_condition_drafts(active_stressors),
             default_step=0,
@@ -607,6 +687,7 @@ class PolicyRunner:
         expert_intervention_count = 0
         recovery_attempts: list[_RecoveryAttempt] = []
         counterfactual_records: list[Any] = []
+        monitor_intervention_links: dict[str, str] = {}
         active_recovery_attempt: _RecoveryAttempt | None = None
         verifier_rejection_count = 0
         action_assessment_count = 0
@@ -617,6 +698,7 @@ class PolicyRunner:
         recovery_cached_action_count = 0
         pending_actions: list[Any] = []
         pending_action_source: str | None = None
+        pending_policy_action_timestamp: int | None = None
         pending_recovery_attempt_id: int | None = None
         pending_recovery_action_index = 1
         step_limit = int(self.max_steps or getattr(engine, "max_steps", 1000))
@@ -632,6 +714,12 @@ class PolicyRunner:
             if pending_actions:
                 action = pending_actions.pop(0)
                 action_source = pending_action_source or "pending"
+                policy_action_timestamp = (
+                    pending_policy_action_timestamp
+                    if action_source == "policy"
+                    and pending_policy_action_timestamp is not None
+                    else step_index
+                )
                 if action_source == "policy":
                     policy_cached_action_count += 1
                 elif action_source == "recovery":
@@ -641,6 +729,7 @@ class PolicyRunner:
                     pending_recovery_action_index += 1
                 if not pending_actions:
                     pending_action_source = None
+                    pending_policy_action_timestamp = None
                     pending_recovery_attempt_id = None
                     pending_recovery_action_index = 1
                 chunk_size = 0
@@ -683,6 +772,10 @@ class PolicyRunner:
                 )
                 action_source = "policy"
                 pending_action_source = "policy" if pending_actions else None
+                policy_action_timestamp = step_index
+                pending_policy_action_timestamp = (
+                    step_index if pending_actions else None
+                )
                 if chunk_size > 1:
                     policy_action_chunk_count += 1
             before_action_events = detector_manager.observe_before_action(
@@ -699,6 +792,32 @@ class PolicyRunner:
                 failure_ledger,
                 before_action_events,
                 default_step=step_index,
+            )
+            monitor_predictions: tuple[MonitorPrediction, ...] = ()
+            if action_source == "policy":
+                monitor_predictions = monitor_manager.predict(
+                    step_index=step_index,
+                    observation=observation,
+                    proposed_action=proposed_action,
+                    policy=policy,
+                    engine=engine,
+                    policy_action_timestamp=policy_action_timestamp,
+                    failure_event_ids=tuple(
+                        event.event_id for event in failure_ledger.events
+                    ),
+                )
+            monitor_recommendations = tuple(
+                prediction
+                for prediction in monitor_predictions
+                if prediction.intervention_recommended
+            )
+            selected_monitor_recommendation = (
+                min(
+                    monitor_recommendations,
+                    key=lambda prediction: (-prediction.risk, prediction.monitor_id),
+                )
+                if monitor_recommendations
+                else None
             )
             expert_info: dict[str, Any] = {
                 "expert_provider": expert_provider_id,
@@ -728,9 +847,25 @@ class PolicyRunner:
                 "action_source": action_source,
                 "proposed_action": proposed_action,
                 "proposed_action_source": proposed_action_source,
+                "proposed_action_timestamp": policy_action_timestamp,
+                "proposed_action_age_steps": (
+                    step_index - policy_action_timestamp
+                ),
                 "rejected_action": None,
                 "oracle_action": action if action_source == "expert" else None,
                 "recovery_action": action if action_source == "recovery" else None,
+                "failure_monitor_prediction_ids": [
+                    prediction.prediction_id for prediction in monitor_predictions
+                ],
+                "failure_monitor_recommendation_ids": [
+                    prediction.prediction_id
+                    for prediction in monitor_recommendations
+                ],
+                "failure_monitor_intervention_enabled": (
+                    self.enable_monitor_intervention
+                ),
+                "failure_monitor_intervention_triggered": False,
+                "failure_monitor_intervention_prediction_id": None,
             }
             if (
                 self.enable_verifier or self.enable_recovery
@@ -791,7 +926,22 @@ class PolicyRunner:
                     ),
                     score_payload,
                 )
-            if self.enable_recovery and expert_info["action_rejected"]:
+            monitor_intervention_requested = bool(
+                self.enable_monitor_intervention
+                and selected_monitor_recommendation is not None
+            )
+            if (
+                self.enable_monitor_intervention
+                and selected_monitor_recommendation is not None
+            ):
+                expert_info["failure_monitor_intervention_triggered"] = True
+                expert_info["failure_monitor_intervention_prediction_id"] = (
+                    selected_monitor_recommendation.prediction_id
+                )
+            recovery_requested = bool(
+                expert_info["action_rejected"] or monitor_intervention_requested
+            )
+            if self.enable_recovery and recovery_requested:
                 if active_recovery_attempt is not None:
                     active_recovery_attempt.resolve(
                         "superseded",
@@ -813,6 +963,24 @@ class PolicyRunner:
                     copy.deepcopy(action),
                     *copy.deepcopy(pending_actions),
                 ]
+                if expert_info["action_rejected"] and monitor_intervention_requested:
+                    recovery_trigger_kind = "verifier_and_failure_monitor"
+                elif monitor_intervention_requested:
+                    recovery_trigger_kind = "failure_monitor_recommendation"
+                else:
+                    recovery_trigger_kind = "recovery_decision"
+                monitor_reason = (
+                    f"{selected_monitor_recommendation.monitor_id}:"
+                    f"risk={selected_monitor_recommendation.risk:.6f}"
+                    if selected_monitor_recommendation is not None
+                    else None
+                )
+                verifier_reason = (
+                    expert_info.get("action_assessment", {}).get("reason")
+                    if expert_info["action_rejected"]
+                    else None
+                )
+                recovery_reason = verifier_reason or monitor_reason
                 recovery_context = LifecycleContext(
                     task_id=task.task_id,
                     episode_index=episode_index,
@@ -829,7 +997,7 @@ class PolicyRunner:
                     recovery_context,
                     expert_provider.recover,
                     state=_safe_get_state(engine, observation=observation),
-                    failure=expert_info.get("action_assessment", {}).get("reason"),
+                    failure=recovery_reason,
                     task=task,
                     engine=engine,
                 )
@@ -854,12 +1022,15 @@ class PolicyRunner:
                             recovery_attempt_id=recovery_attempt_id,
                             continuation_actions=continuation_actions,
                             recovery_actions=recovery_plan,
-                            trigger_reason=expert_info.get("action_assessment", {}).get(
-                                "reason"
-                            ),
+                            trigger_reason=recovery_reason,
                             trigger_event_id=verifier_failure_event_id,
+                            trigger_kind=recovery_trigger_kind,
                         )
                         counterfactual_records.append(branch_record)
+                        for prediction in monitor_recommendations:
+                            monitor_intervention_links[prediction.prediction_id] = (
+                                branch_record.branch_point.branch_point_id
+                            )
                         expert_info["counterfactual_branch_point_id"] = (
                             branch_record.branch_point.branch_point_id
                         )
@@ -872,6 +1043,7 @@ class PolicyRunner:
                     action = recovery_plan[0]
                     pending_actions = recovery_plan[1:]
                     pending_action_source = "recovery" if pending_actions else None
+                    pending_policy_action_timestamp = None
                     pending_recovery_attempt_id = (
                         recovery_attempt_id if pending_actions else None
                     )
@@ -913,7 +1085,7 @@ class PolicyRunner:
                         attempt_id=recovery_attempt_id,
                         applied=recovery_attempt.applied,
                         plan_length=recovery_attempt.plan_length,
-                        reason=expert_info.get("action_assessment", {}).get("reason"),
+                        reason=recovery_reason,
                         verifier_event_id=verifier_failure_event_id,
                     )
                 )
@@ -934,6 +1106,7 @@ class PolicyRunner:
                     action = expert_action
                     pending_actions = []
                     pending_action_source = None
+                    pending_policy_action_timestamp = None
                     pending_recovery_attempt_id = None
                     pending_recovery_action_index = 1
                     expert_intervention_count += 1
@@ -1154,6 +1327,16 @@ class PolicyRunner:
                     terminal_event.event_id
                 )
         failure_ledger_record = failure_ledger.snapshot()
+        failure_monitor_records = list(
+            monitor_manager.finalize(
+                success=success,
+                truncated=last_truncated,
+                episode_steps=len(steps),
+                failure_ledger=failure_ledger_record,
+                intervention_links=monitor_intervention_links,
+            )
+        )
+        failure_monitor_context = monitor_manager.manifest()
         failure_detector_context = detector_manager.manifest(
             events=failure_ledger_record.events
         )
@@ -1280,6 +1463,8 @@ class PolicyRunner:
             stressor_context=stressor_pipeline.manifest(),
             failure_detector_context=failure_detector_context,
             failure_ledger=failure_ledger_record,
+            failure_monitor_context=failure_monitor_context,
+            failure_monitor_records=failure_monitor_records,
             counterfactual_recovery=counterfactual_records,
         )
         if self.out and self.capture_replay:
@@ -1357,7 +1542,15 @@ class PolicyRunner:
             "horizon_steps": self.counterfactual_horizon,
             "include_oracle": self.counterfactual_oracle,
             "max_branch_points_per_episode": self.counterfactual_max_branch_points,
-            "trigger": "applied_recovery_decision",
+            "trigger": "applied_recovery_request",
+            "trigger_sources": [
+                "verifier_rejection",
+                *(
+                    ["failure_monitor_recommendation"]
+                    if self.enable_monitor_intervention
+                    else []
+                ),
+            ],
             "required_state": [
                 "simulator",
                 "policy",
@@ -1426,6 +1619,7 @@ class PolicyRunner:
             "stressor_execution": self.run_metadata.get("stressor_execution"),
             "scenario_context": self.run_metadata.get("scenario_context"),
             "benchmark_validity": self.run_metadata.get("benchmark_validity"),
+            "failure_monitors": self.run_metadata.get("failure_monitors"),
         }
         with (self.out / "run.yaml").open("w", encoding="utf-8") as handle:
             yaml.safe_dump(self.run_metadata, handle, sort_keys=False)
@@ -1451,6 +1645,13 @@ class PolicyRunner:
         )
         write_failure_ledger_manifest(self.episode_results, self.out)
         write_failure_detector_manifest(self.episode_results, self.out)
+        if self._monitor_contracts:
+            write_monitor_manifest(
+                self._monitor_records,
+                self._monitor_contracts,
+                self._monitor_support,
+                self.out / "failure_monitor_predictions.json",
+            )
         if self.scenario_context:
             write_scenario_execution(self.scenario_context, self.out)
         write_failure_gallery(self.episode_results, self.out)
@@ -1482,6 +1683,8 @@ class PolicyRunner:
             artifact_names.append("scenario_execution.json")
         if self.benchmark_validity is not None:
             artifact_names.append("benchmark_validity.json")
+        if self._monitor_contracts:
+            artifact_names.append("failure_monitor_predictions.json")
         write_dataset_manifest(
             out_dir=self.out,
             suite=suite,
@@ -1524,6 +1727,43 @@ def _annotate_recovery_outcomes(
             info["recovery_plan_success"] = (
                 attempt.applied and attempt.outcome == "success"
             )
+
+
+def _summarize_monitor_support(
+    episodes: Sequence[EpisodeResult],
+    contracts: Mapping[str, FailureMonitorContract],
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {}
+    for monitor_id in sorted(contracts):
+        episode_support = []
+        for episode in episodes:
+            support = episode.failure_monitor_context.get("support", {}).get(
+                monitor_id,
+                {
+                    "status": "unsupported",
+                    "missing_inputs": [],
+                    "reason": "monitor support record is missing",
+                },
+            )
+            episode_support.append(
+                {
+                    "task_id": episode.task_id,
+                    "episode_index": episode.episode_index,
+                    "episode_seed": episode.seed,
+                    **support,
+                }
+            )
+        supported = sum(item["status"] == "supported" for item in episode_support)
+        unsupported = len(episode_support) - supported
+        summary[monitor_id] = {
+            "status": "supported" if unsupported == 0 else "partially_supported"
+            if supported
+            else "unsupported",
+            "supported_episodes": supported,
+            "unsupported_episodes": unsupported,
+            "episodes": episode_support,
+        }
+    return summary
 
 
 def _episode_seed(run_seed: int, episode_index: int) -> int:

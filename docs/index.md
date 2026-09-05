@@ -13,6 +13,7 @@ Start here:
 - [Metrics](metrics.md)
 - [Failure taxonomy](failure_taxonomy.md)
 - [Failure event protocol](failure_event_protocol.md)
+- [External failure monitors](failure_monitors.md)
 - [Related work](related_work.md)
 - [Research agenda](research_agenda.md)
 - [Foundational contributions](foundational_contributions.md)

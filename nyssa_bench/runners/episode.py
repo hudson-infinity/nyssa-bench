@@ -51,6 +51,7 @@ class EpisodeComponents:
     stressor_factory: Callable[[EpisodeRequest], Any]
     detector_factory: Callable[[EpisodeRequest], Any]
     branch_factory: Callable[[EpisodeRequest], Any] | None = None
+    monitor_manager: Any | None = None
     metric_recorders: tuple[MetricRecorder, ...] = ()
 
 
