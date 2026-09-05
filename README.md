@@ -46,6 +46,9 @@ and C remain missing rather than being inferred from documentation.
 The 12-task [reference benchmark candidate](docs/reference_benchmark.md) fixes
 the intended task, split, and power contracts, but remains non-claimable until
 its protected commitments and oracle/learned-policy evidence are collected.
+The [policy-track registry](docs/policy_tracks.md) similarly keeps planner,
+RoboMimic, diffusion, and VLA adapters at `integration_only` until their actual
+checkpoints and paired result packs pass the shared track audit.
 
 ```bash
 uv run nyssa credibility-gate claims/phase1_credibility.json \

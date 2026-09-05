@@ -137,6 +137,7 @@ def _validate_category(
             }
         raw = _one_format(payloads, "nyssa-nep-policy-contract-v0.1")
         policy = PolicyContract.model_validate(raw)
+        track_report = _one_format(payloads, "nyssa-policy-track-report-v1")
         if policy.policy_family.lower() in {
             "integration_control",
             "oracle",
@@ -152,6 +153,20 @@ def _validate_category(
             raise ValueError(
                 "learned policy, result, and BenchmarkValidity identities differ"
             )
+        matching_tracks = [
+            item
+            for item in track_report.get("tracks", [])
+            if isinstance(item, Mapping)
+            and item.get("policy_id") == policy.policy_id
+            and item.get("policy_family") == policy.policy_family
+            and item.get("validated") is True
+        ]
+        if not (
+            track_report.get("status") == "release_ready"
+            and track_report.get("release_ready") is True
+            and len(matching_tracks) == 1
+        ):
+            raise ValueError("learned policy is not a validated reference track")
         return {
             "policy_id": policy.policy_id,
             "policy_family": policy.policy_family,

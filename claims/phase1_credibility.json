@@ -4,7 +4,7 @@
   "program_id": "nyssabench-phase1",
   "program_version": "1.0.0",
   "claim_matrix_path": "claims/claim_evidence.json",
-  "claim_matrix_sha256": "efcec14e288a93deed5af7f9342929774f7531f7d0e814fcce0dec3ec86d2f54",
+  "claim_matrix_sha256": "3396bf5419bd8d7bf085c474e901182cce35f592363a99f216d760173702d1e8",
   "evidence": [],
   "metadata": {
     "status": "measurement_core_implemented_reference_and_predictive_evidence_pending",

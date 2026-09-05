@@ -140,7 +140,12 @@ def test_duplicate_policy_families_do_not_satisfy_gate_b(
             tmp_path,
             "policy-a",
             "learned_policy_track",
-            [_run_metrics(), _validity_report(), _policy_contract("a", "diffusion")],
+            [
+                _run_metrics(),
+                _validity_report(),
+                _policy_contract("a", "diffusion"),
+                _policy_track_report(),
+            ],
             {
                 "benchmark_id": "reference_v1",
                 "benchmark_version": "1.0.0",
@@ -151,7 +156,12 @@ def test_duplicate_policy_families_do_not_satisfy_gate_b(
             tmp_path,
             "policy-b",
             "learned_policy_track",
-            [_run_metrics(), _validity_report(), _policy_contract("b", "diffusion")],
+            [
+                _run_metrics(),
+                _validity_report(),
+                _policy_contract("b", "diffusion"),
+                _policy_track_report(),
+            ],
             {
                 "benchmark_id": "reference_v1",
                 "benchmark_version": "1.0.0",
@@ -177,7 +187,12 @@ def test_control_policy_is_failed_learned_policy_evidence(tmp_path: Path) -> Non
         tmp_path,
         "control",
         "learned_policy_track",
-        [_run_metrics(), _validity_report(), _policy_contract("control", "random")],
+        [
+            _run_metrics(),
+            _validity_report(),
+            _policy_contract("control", "random"),
+            _policy_track_report(),
+        ],
         {
             "benchmark_id": "reference_v1",
             "benchmark_version": "1.0.0",
@@ -221,7 +236,12 @@ def _complete_evidence(root: Path, interval: list[float]) -> list[EvidenceRefere
             root,
             "policy-a",
             "learned_policy_track",
-            [_run_metrics(), _validity_report(), _policy_contract("a", "diffusion")],
+            [
+                _run_metrics(),
+                _validity_report(),
+                _policy_contract("a", "diffusion"),
+                _policy_track_report(),
+            ],
             {
                 "benchmark_id": "reference_v1",
                 "benchmark_version": "1.0.0",
@@ -236,6 +256,7 @@ def _complete_evidence(root: Path, interval: list[float]) -> list[EvidenceRefere
                 _run_metrics(),
                 _validity_report(),
                 _policy_contract("b", "transformer_bc"),
+                _policy_track_report(),
             ],
             {
                 "benchmark_id": "reference_v1",
@@ -411,6 +432,36 @@ def _policy_contract(policy_id: str, family: str) -> dict[str, Any]:
         state_semantics="resettable",
         deterministic_seeding=True,
     ).model_dump(mode="json")
+
+
+def _policy_track_report() -> dict[str, Any]:
+    return {
+        "format": "nyssa-policy-track-report-v1",
+        "status": "release_ready",
+        "release_ready": True,
+        "tracks": [
+            {
+                "policy_id": "a",
+                "policy_family": "diffusion",
+                "validated": True,
+            },
+            {
+                "policy_id": "b",
+                "policy_family": "diffusion",
+                "validated": True,
+            },
+            {
+                "policy_id": "b",
+                "policy_family": "transformer_bc",
+                "validated": True,
+            },
+            {
+                "policy_id": "control",
+                "policy_family": "random",
+                "validated": False,
+            },
+        ],
+    }
 
 
 def _robustness_sweep() -> dict[str, Any]:
