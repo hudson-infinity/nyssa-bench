@@ -1,0 +1,20 @@
+{
+  "format": "nyssa-nep-policy-contract-v0.1",
+  "contract_version": "0.1.0",
+  "policy_id": "nyssa_example_image_chunk_policy",
+  "policy_version": "1.0.0",
+  "policy_family": "action_chunking",
+  "checkpoint_id": "image-chunk-policy-v1",
+  "checkpoint_sha256": "2534e8bd71f4b2585c0e6ce93661256129b1cf75504bddc9ffe997bd807debf3",
+  "preprocessing_sha256": "86a428cee4ce5cbf1122e6ba5ccd4d36e0790a8af3eba158566144a2e508d59e",
+  "observation_modalities": ["rgb"],
+  "action_representation": "environment_action",
+  "action_dimension": 7,
+  "action_lower_bounds": [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0],
+  "action_upper_bounds": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+  "prediction_horizon": 4,
+  "execution_horizon": 2,
+  "state_semantics": "resettable",
+  "deterministic_seeding": true,
+  "training_data": []
+}

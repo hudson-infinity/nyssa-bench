@@ -33,6 +33,8 @@ Real simulator checks run separately under the
 [simulator-backed CI protocol](docs/simulator_ci.md).
 The six interoperable evaluation contracts are versioned under
 [Nyssa Evaluation Protocol 0.1](docs/nyssa_evaluation_protocol.md).
+External policy authors can generate a packaged example and run strict preflight
+through the [policy conformance quickstart](docs/external_policy_quickstart.md).
 
 ```python
 from nyssa_bench import PolicyRunner, Suite

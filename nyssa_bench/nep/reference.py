@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
+
 from nyssa_bench.nep.protocol import (
     ArtifactContract,
     AssetContract,
@@ -125,6 +127,18 @@ def result_pack_pipeline_manifest(engine: str, run_dir: str | Path) -> NEPManife
     stressor_payload = json.loads(
         (run_dir / "stressor_manifest.json").read_text(encoding="utf-8")
     )
+    episode_payload = json.loads(
+        (run_dir / "episodes.json").read_text(encoding="utf-8")
+    )
+    action_space = episode_payload[0]["steps"][0]["observation"]["action_space"]
+    action_dimension = int(np.prod(action_space["shape"]))
+    policy = base.policy.model_copy(
+        update={
+            "action_dimension": action_dimension,
+            "action_lower_bounds": tuple(float(value) for value in action_space["low"]),
+            "action_upper_bounds": tuple(float(value) for value in action_space["high"]),
+        }
+    )
     configured = stressor_payload.get("configured") or {}
     configured_stressors = configured.get("stressors") or []
     episode_records = stressor_payload.get("episodes") or []
@@ -166,7 +180,7 @@ def result_pack_pipeline_manifest(engine: str, run_dir: str | Path) -> NEPManife
             composition_semantics="ordered",
             stressors=tuple(stressors),
         ),
-        policy=base.policy,
+        policy=policy,
         failure_evidence=base.failure_evidence,
         intervention=base.intervention,
         claim=base.claim,

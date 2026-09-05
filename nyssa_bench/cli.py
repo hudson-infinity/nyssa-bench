@@ -92,6 +92,12 @@ from nyssa_bench.nep import (
     write_nep_validation_report,
     write_schemas,
 )
+from nyssa_bench.policy_conformance import (
+    evaluate_policy_conformance,
+    load_policy_contract,
+    write_policy_conformance_report,
+    write_policy_example,
+)
 from nyssa_bench.learning_export import (
     LEARNING_EXPORT_MANIFEST_FORMAT,
     ExportSplit,
@@ -195,6 +201,22 @@ def main(argv: list[str] | None = None) -> int:
 
     nep_schema_parser = subparsers.add_parser("write-nep-schemas")
     nep_schema_parser.add_argument("--out", required=True)
+
+    policy_conformance_parser = subparsers.add_parser("conform-policy")
+    policy_conformance_parser.add_argument("--policy", required=True)
+    policy_conformance_parser.add_argument("--policy-contract", required=True)
+    policy_conformance_parser.add_argument("--suite", required=True)
+    policy_conformance_parser.add_argument("--task", required=True)
+    policy_conformance_parser.add_argument("--engine", required=True)
+    policy_conformance_parser.add_argument("--episodes", type=int, default=1)
+    policy_conformance_parser.add_argument("--capture-replay", action="store_true")
+    policy_conformance_parser.add_argument("--out", required=True)
+
+    policy_example_parser = subparsers.add_parser("write-policy-example")
+    policy_example_parser.add_argument(
+        "--kind", choices=["state", "image-chunk"], required=True
+    )
+    policy_example_parser.add_argument("--out", required=True)
 
     benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
     benchmark_audit_parser.add_argument("spec")
@@ -595,6 +617,29 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "write-nep-schemas":
         paths = write_schemas(args.out)
         print(f"schemas: {len(paths)}")
+        return 0
+
+    if args.command == "conform-policy":
+        suite = Suite.load(args.suite).filter_tasks([args.task])
+        report = evaluate_policy_conformance(
+            policy_path=args.policy,
+            contract=load_policy_contract(args.policy_contract),
+            suite=suite,
+            engine_name=args.engine,
+            out_dir=args.out,
+            episodes=args.episodes,
+            capture_replay=args.capture_replay,
+        )
+        paths = write_policy_conformance_report(report, args.out)
+        print(f"policy_conformance: {paths['json']}")
+        print(f"policy_conformance_html: {paths['html']}")
+        print(f"conformant: {report['conformant']}")
+        return 0 if report["conformant"] else 3
+
+    if args.command == "write-policy-example":
+        paths = write_policy_example(args.kind, args.out)
+        for key, path in paths.items():
+            print(f"{key}: {path}")
         return 0
 
     if args.command == "audit-benchmark":

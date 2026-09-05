@@ -1,0 +1,20 @@
+{
+  "format": "nyssa-nep-policy-contract-v0.1",
+  "contract_version": "0.1.0",
+  "policy_id": "nyssa_example_state_policy",
+  "policy_version": "1.0.0",
+  "policy_family": "deterministic_control",
+  "checkpoint_id": "state-policy-v1",
+  "checkpoint_sha256": "6d3fb71b4ce257ff4091143f798e9813e1bb6ca2d06d40cb5e7f7436d51425cb",
+  "preprocessing_sha256": "d503f48c959fd5c57db73e164eb2c308e96f30c49da77254bbb44717e46a6438",
+  "observation_modalities": ["state"],
+  "action_representation": "environment_action",
+  "action_dimension": 1,
+  "action_lower_bounds": [-3.0],
+  "action_upper_bounds": [3.0],
+  "prediction_horizon": 1,
+  "execution_horizon": 1,
+  "state_semantics": "resettable",
+  "deterministic_seeding": true,
+  "training_data": []
+}

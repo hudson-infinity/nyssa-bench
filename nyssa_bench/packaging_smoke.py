@@ -10,7 +10,11 @@ import numpy as np
 
 from nyssa_bench.core.suite import Suite, list_suites
 from nyssa_bench.engines.base import NyssaEngine
-from nyssa_bench.package_resources import config_root, resource_root
+from nyssa_bench.package_resources import (
+    config_root,
+    policy_example_root,
+    resource_root,
+)
 from nyssa_bench.plugins import get_plugin_registry
 from nyssa_bench.runner import PolicyRunner
 from nyssa_bench.stressors import list_stressors
@@ -72,6 +76,7 @@ def run_packaging_smoke(out_dir: str | Path) -> dict[str, Any]:
     config_dir = config_root("suites")
     conformance_dir = resource_root("conformance")
     schema_dir = resource_root("schemas")
+    example_dir = policy_example_root()
     suite = Suite.load("tabletop_manipulation_v0").filter_tasks(["pick_cube"])
     get_plugin_registry().engines["packaging_smoke"] = _PackagingSmokeEngine
     runner = PolicyRunner(
@@ -100,6 +105,7 @@ def run_packaging_smoke(out_dir: str | Path) -> dict[str, Any]:
         "config_root": config_dir.as_posix(),
         "conformance_root": conformance_dir.as_posix(),
         "schema_root": schema_dir.as_posix(),
+        "policy_example_root": example_dir.as_posix(),
         "suite_count": len(suites),
         "stressor_count": len(stressors),
         "suite_id": suite.suite_id,

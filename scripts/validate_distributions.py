@@ -36,6 +36,8 @@ REQUIRED_WHEEL_SUFFIXES = {
     "nyssa_bench/tasks/tabletop/pick_cube.yaml",
     "nyssa_bench/_resources/conformance/scenario/README.md",
     "nyssa_bench/_resources/schemas/nep/0.1.0/nep-manifest.schema.json",
+    "nyssa_bench/_resources/policy_examples/state_policy.py",
+    "nyssa_bench/_resources/policy_examples/state_policy_contract.json",
 }
 REQUIRED_SDIST_SUFFIXES = {
     "LICENSE",
@@ -132,7 +134,15 @@ def _validate_members(names: list[str], sizes: dict[str, int]) -> None:
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts:
             raise ValueError(f"distribution member escapes the archive: {name}")
-        if FORBIDDEN_PARTS.intersection(path.parts):
+        forbidden = FORBIDDEN_PARTS.intersection(path.parts)
+        allowed_example_checkpoint = (
+            "checkpoints" in forbidden
+            and (
+                "nyssa_bench/_resources/policy_examples/checkpoints/" in name
+                or "/examples/policies/checkpoints/" in name
+            )
+        )
+        if forbidden and not allowed_example_checkpoint:
             raise ValueError(f"distribution contains forbidden content: {name}")
         if name.lower().endswith(".zip"):
             raise ValueError(f"distribution contains a result archive: {name}")
@@ -162,6 +172,18 @@ def _compare_resource_bytes(archive: zipfile.ZipFile) -> None:
                 raise ValueError(f"wheel is missing bundled resource: {relative}")
             if archive.read(packaged) != source.read_bytes():
                 raise ValueError(f"wheel resource changed during packaging: {relative}")
+    example_root = ROOT / "examples" / "policies"
+    for source in example_root.rglob("*"):
+        if (
+            not source.is_file()
+            or "__pycache__" in source.parts
+            or source.suffix not in {".py", ".json", ".md"}
+        ):
+            continue
+        relative = source.relative_to(example_root).as_posix()
+        packaged = f"nyssa_bench/_resources/policy_examples/{relative}"
+        if packaged not in members or archive.read(packaged) != source.read_bytes():
+            raise ValueError(f"wheel policy example mismatch: {relative}")
 
 
 def _artifact_report(
