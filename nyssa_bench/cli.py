@@ -53,6 +53,12 @@ from nyssa_bench.recovery import (
     COUNTERFACTUAL_RECOVERY_MANIFEST_FORMAT,
     load_counterfactual_recovery_manifest,
 )
+from nyssa_bench.regression import (
+    RegressionStudyEvaluator,
+    fingerprint_run,
+    load_regression_study,
+    write_regression_report,
+)
 from nyssa_bench.runner import (
     DEFAULT_COUNTERFACTUAL_HORIZON,
     DEFAULT_COUNTERFACTUAL_MAX_BRANCH_POINTS,
@@ -172,6 +178,16 @@ def main(argv: list[str] | None = None) -> int:
     benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
     benchmark_audit_parser.add_argument("spec")
     benchmark_audit_parser.add_argument("--out", required=True)
+
+    regression_parser = subparsers.add_parser("regression-gate")
+    regression_parser.add_argument("spec")
+    regression_parser.add_argument("--out", required=True)
+
+    regression_fingerprint_parser = subparsers.add_parser(
+        "regression-fingerprint"
+    )
+    regression_fingerprint_parser.add_argument("run")
+    regression_fingerprint_parser.add_argument("--out", required=True)
 
     stress_init_parser = subparsers.add_parser("stress-search-init")
     stress_init_parser.add_argument("spec")
@@ -551,6 +567,29 @@ def main(argv: list[str] | None = None) -> int:
         print(f"benchmark_validity: {path}")
         print(f"status: {report.status}")
         return 0 if report.claim_ready else 2
+
+    if args.command == "regression-gate":
+        spec_path = Path(args.spec)
+        spec = load_regression_study(spec_path)
+        report = RegressionStudyEvaluator(
+            spec, spec_root=spec_path.parent
+        ).evaluate()
+        paths = write_regression_report(report, args.out)
+        print(f"regression_report: {paths['json']}")
+        print(f"regression_html: {paths['html']}")
+        print(f"decision: {report['decision']}")
+        return int(report["exit_code"])
+
+    if args.command == "regression-fingerprint":
+        fingerprint = fingerprint_run(args.run)
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            json.dumps(fingerprint, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        print(f"regression_fingerprint: {out}")
+        return 0
 
     if args.command == "stress-search-init":
         study = StressSearchStudy(load_stress_search_spec(args.spec))

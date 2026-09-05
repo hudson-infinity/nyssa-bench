@@ -244,6 +244,13 @@ confirmation. Start with `nyssa stress-search-init` and see
 [Stress search](docs/stress_search.md) for the complete workflow and evidence
 requirements.
 
+Checkpoint release decisions use a versioned, prespecified regression study
+over immutable baseline and candidate result packs. The gate checks exact
+episode pairing, evidence coverage, non-inferiority, blocking safety limits, and
+confirmed failure-boundary cases, then returns `pass`, `fail`, `inconclusive`,
+or `invalid` with stable CI exit codes. See
+[Policy regression gates](docs/policy_regression_gates.md).
+
 Streaming failure detectors localize collision, grasp/contact-loss, and
 no-progress events during an episode. Their versioned contracts, capability
 checks, lifecycle, and result-pack artifacts are documented in

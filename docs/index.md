@@ -27,6 +27,7 @@ Start here:
 - [External scenario packages](external_scenarios.md)
 - [Real and reconstructed evidence ingestion](real_evidence_ingestion.md)
 - [Pairwise evaluation protocol](pairwise_evaluation_protocol.md)
+- [Policy regression gates](policy_regression_gates.md)
 - [VLA robustness protocol](vla_robustness_protocol.md)
 - [Failure and recovery metrics](failure_and_recovery_metrics.md)
 - [Counterfactual recovery](counterfactual_recovery.md)
