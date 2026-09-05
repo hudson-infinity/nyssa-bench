@@ -292,8 +292,14 @@
       "wording": "NyssaBench provides a compact, diverse reference benchmark with protected split lineage and solvability evidence.",
       "authorized_public_assertion": false,
       "issue_ids": [17],
-      "source_paths": [],
-      "test_paths": [],
+      "source_paths": [
+        "nyssa_bench/reference_benchmark",
+        "configs/reference/nyssa_reference_v0_1.json",
+        "configs/suites/nyssa_reference_manipulation_v0_1.yaml"
+      ],
+      "test_paths": [
+        "tests/test_reference_benchmark.py"
+      ],
       "artifact_requirements": [
         "protected split manifest",
         "task solvability result packs",
@@ -303,7 +309,8 @@
         "Complete issue #17 and pass shortcut, contamination, split-lineage, and solvability audits."
       ],
       "limitations": [
-        "Existing suites and task counts do not satisfy the compact reference benchmark claim."
+        "The 12-task candidate has complete structural contracts but pending asset, split, oracle, learned-policy, and GPU execution evidence.",
+        "A registered upstream environment is not a validated or solvable reference task."
       ]
     },
     {

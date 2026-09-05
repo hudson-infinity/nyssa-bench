@@ -1,0 +1,20 @@
+task_id: maniskill_plug_charger
+engine: maniskill
+robot: panda
+scene: maniskill_plug_charger
+description: PlugCharger environment mapped through the ManiSkill Gymnasium registry.
+objects:
+  - name: charger
+    type: rigid_body
+  - name: receptacle
+    type: fixture
+success:
+  engine_env_ids: {maniskill: PlugCharger-v1}
+  success_info_keys: [success, is_success, success_once]
+  obs_mode: state_dict
+  control_mode: pd_ee_delta_pose
+  render_mode: rgb_array
+  max_steps: 250
+randomization: {seed: true}
+metrics: [success_rate, completion_time, collision_count]
+failure_labels: [bad_grasp, object_slip, unstable_contact, timeout, unknown_failure]

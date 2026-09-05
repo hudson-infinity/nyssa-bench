@@ -43,6 +43,9 @@ The staged [Phase 1 credibility gate](docs/phase1_credibility_gate.md) keeps
 source-complete measurement infrastructure separate from reference-benchmark
 and predictive sim-real evidence. The committed state passes Gate A; Gates B
 and C remain missing rather than being inferred from documentation.
+The 12-task [reference benchmark candidate](docs/reference_benchmark.md) fixes
+the intended task, split, and power contracts, but remains non-claimable until
+its protected commitments and oracle/learned-policy evidence are collected.
 
 ```bash
 uv run nyssa credibility-gate claims/phase1_credibility.json \

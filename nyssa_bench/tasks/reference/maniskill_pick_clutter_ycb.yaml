@@ -1,0 +1,18 @@
+task_id: maniskill_pick_clutter_ycb
+engine: maniskill
+robot: panda
+scene: maniskill_pick_clutter_ycb
+description: PickClutterYCB environment mapped through the ManiSkill Gymnasium registry.
+objects:
+  - name: ycb_objects
+    type: clutter
+success:
+  engine_env_ids: {maniskill: PickClutterYCB-v1}
+  success_info_keys: [success, is_success, success_once]
+  obs_mode: state_dict
+  control_mode: pd_ee_delta_pose
+  render_mode: rgb_array
+  max_steps: 150
+randomization: {seed: true}
+metrics: [success_rate, completion_time, grasp_success_rate, collision_count]
+failure_labels: [bad_grasp, wrong_object, object_slip, timeout, unknown_failure]

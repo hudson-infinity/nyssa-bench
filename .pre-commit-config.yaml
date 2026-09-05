@@ -62,6 +62,13 @@ repos:
         pass_filenames: false
         files: ^(README\.md|claims/.*\.json|docs/.*\.md|scripts/validate_credibility\.py|nyssa_bench/credibility/.*\.py)$
 
+      - id: validate-reference-candidate
+        name: validate the generated reference benchmark candidate
+        entry: python scripts/generate_reference_candidate.py --check
+        language: system
+        pass_filenames: false
+        files: ^(configs/reference/.*\.json|configs/suites/nyssa_reference_.*\.yaml|nyssa_bench/reference_benchmark/.*\.py|nyssa_bench/tasks/reference/.*\.yaml|nyssa_bench/tasks/tabletop/maniskill_(pick|push|stack)_cube\.yaml|scripts/generate_reference_candidate\.py)$
+
       - id: validate-release-version
         name: validate package release version
         entry: python scripts/validate_release_version.py

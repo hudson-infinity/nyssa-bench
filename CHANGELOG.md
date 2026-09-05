@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a strict 12-task reference benchmark candidate, protected five-dimension
+  split commitments, power design, and native oracle/learned evidence audit.
 - Publish wheel-only core, MuJoCo, and ManiSkill image workflows with immutable
   tags, installed-command smoke tests, SBOM/provenance, and release bundles.
 - Establish the single-distribution PyPI contract, complete simulator replay

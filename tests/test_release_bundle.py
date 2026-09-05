@@ -161,6 +161,11 @@ def test_maniskill_metadata_smoke_stays_partial(
         "run",
         lambda *args, **kwargs: SimpleNamespace(stdout="ok\n"),
     )
+    monkeypatch.setattr(
+        container_smoke,
+        "_maniskill_registry_evidence",
+        lambda: {"status": "registered_not_executed", "environment_count": 12},
+    )
 
     report = container_smoke.run_container_smoke(
         "maniskill", tmp_path / "out", metadata_only=True
@@ -168,6 +173,7 @@ def test_maniskill_metadata_smoke_stays_partial(
 
     assert report["status"] == "partial"
     assert report["runtime"]["status"] == "not_run"
+    assert report["runtime"]["registry"]["environment_count"] == 12
 
 
 def test_container_smoke_rejects_unlabelled_or_source_runtime(
