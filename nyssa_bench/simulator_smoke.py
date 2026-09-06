@@ -4,6 +4,8 @@ import argparse
 import json
 import os
 import platform
+import shutil
+import subprocess
 import traceback
 from pathlib import Path
 from typing import Any
@@ -25,6 +27,8 @@ TASKS = {
     "mujoco": ("mujoco_control_v0", "mujoco_inverted_pendulum"),
     "maniskill": ("maniskill_smoke_v0", "maniskill_pick_cube"),
 }
+
+_PROBE_OUTPUT_LIMIT = 8_192
 
 
 def run_simulator_smoke(
@@ -133,6 +137,7 @@ def run_simulator_smoke(
     replay_count = len(list((run_dir / "videos").glob("*.mp4")))
     if replay and replay_count != len(runner.episode_results):
         raise RuntimeError("ManiSkill smoke did not produce one replay per episode")
+    runtime = _runtime_capabilities()
     return {
         "format": "nyssa-simulator-ci-smoke-v1",
         "status": "passed",
@@ -141,11 +146,9 @@ def run_simulator_smoke(
         "nyssa_bench_version": __version__,
         "python_version": platform.python_version(),
         "platform": platform.platform(),
-        "rendering": {
-            "MUJOCO_GL": os.getenv("MUJOCO_GL"),
-            "PYOPENGL_PLATFORM": os.getenv("PYOPENGL_PLATFORM"),
-            "DISPLAY": os.getenv("DISPLAY"),
-        },
+        "rendering": runtime["rendering"],
+        "accelerator": runtime["accelerator"],
+        "host_capabilities": runtime["host_capabilities"],
         "package_versions": package_versions(),
         "state_restore_capability": capability,
         "restore_checks": restore_checks,
@@ -200,6 +203,101 @@ def _write_diagnostic(out_dir: Path, payload: dict[str, Any]) -> Path:
     return path
 
 
+def _runtime_capabilities() -> dict[str, Any]:
+    return {
+        "rendering": {
+            "MUJOCO_GL": os.getenv("MUJOCO_GL"),
+            "PYOPENGL_PLATFORM": os.getenv("PYOPENGL_PLATFORM"),
+            "DISPLAY": os.getenv("DISPLAY"),
+            "VK_ICD_FILENAMES": os.getenv("VK_ICD_FILENAMES"),
+        },
+        "accelerator": _torch_accelerator(),
+        "host_capabilities": {
+            "nvidia_smi": _run_host_probe(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=name,driver_version",
+                    "--format=csv,noheader",
+                ]
+            ),
+            "vulkaninfo": _run_host_probe(["vulkaninfo", "--summary"]),
+        },
+    }
+
+
+def _torch_accelerator() -> dict[str, Any]:
+    try:
+        import torch
+    except Exception as exc:
+        return {
+            "available": False,
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        }
+
+    result: dict[str, Any] = {
+        "available": True,
+        "torch_version": str(torch.__version__),
+        "compiled_cuda": torch.version.cuda,
+    }
+    try:
+        cuda_available = bool(torch.cuda.is_available())
+        result["cuda_available"] = cuda_available
+        if cuda_available:
+            result["devices"] = [
+                {
+                    "index": index,
+                    "name": torch.cuda.get_device_name(index),
+                    "capability": list(torch.cuda.get_device_capability(index)),
+                }
+                for index in range(torch.cuda.device_count())
+            ]
+    except Exception as exc:
+        result.update(
+            {
+                "cuda_available": False,
+                "cuda_error_type": type(exc).__name__,
+                "cuda_error": str(exc),
+            }
+        )
+    return result
+
+
+def _run_host_probe(command: list[str]) -> dict[str, Any]:
+    executable = shutil.which(command[0])
+    if executable is None:
+        return {"available": False, "command": command[0]}
+    try:
+        completed = subprocess.run(
+            [executable, *command[1:]],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {
+            "available": True,
+            "command": command[0],
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        }
+    return {
+        "available": True,
+        "command": command[0],
+        "returncode": completed.returncode,
+        "stdout": _bounded_probe_output(completed.stdout),
+        "stderr": _bounded_probe_output(completed.stderr),
+    }
+
+
+def _bounded_probe_output(value: str) -> str:
+    value = value.strip()
+    if len(value) <= _PROBE_OUTPUT_LIMIT:
+        return value
+    return value[:_PROBE_OUTPUT_LIMIT] + "\n...[truncated]"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run an installed NyssaBench simulator integration smoke."
@@ -218,6 +316,7 @@ def main(argv: list[str] | None = None) -> int:
             capture_replay=args.capture_replay or None,
         )
     except Exception as exc:
+        runtime = _runtime_capabilities()
         _write_diagnostic(
             out_dir,
             {
@@ -228,11 +327,9 @@ def main(argv: list[str] | None = None) -> int:
                 "error": str(exc),
                 "traceback": traceback.format_exc(),
                 "package_versions": package_versions(),
-                "rendering": {
-                    "MUJOCO_GL": os.getenv("MUJOCO_GL"),
-                    "PYOPENGL_PLATFORM": os.getenv("PYOPENGL_PLATFORM"),
-                    "DISPLAY": os.getenv("DISPLAY"),
-                },
+                "rendering": runtime["rendering"],
+                "accelerator": runtime["accelerator"],
+                "host_capabilities": runtime["host_capabilities"],
             },
         )
         raise

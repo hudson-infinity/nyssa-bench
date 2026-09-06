@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,12 @@ import pytest
 
 from nyssa_bench.engines.base import NyssaEngine
 from nyssa_bench.plugins import get_plugin_registry
-from nyssa_bench.simulator_smoke import TASKS, main, run_simulator_smoke
+from nyssa_bench.simulator_smoke import (
+    TASKS,
+    _run_host_probe,
+    main,
+    run_simulator_smoke,
+)
 from nyssa_bench.nep.reference import (
     REFERENCE_ACTION_DIMENSIONS,
     REFERENCE_TASKS,
@@ -99,6 +105,8 @@ def test_simulator_smoke_covers_restore_stressors_seeds_and_artifacts(
     assert len(report["episode_seeds"]) == len(set(report["episode_seeds"])) == 2
     assert report["stressor_id"] == "action_gaussian_noise"
     assert report["replay_count"] == 0
+    assert "accelerator" in report
+    assert set(report["host_capabilities"]) == {"nvidia_smi", "vulkaninfo"}
     for artifact in report["required_artifacts"]:
         assert (tmp_path / "result_pack" / artifact).is_file()
 
@@ -112,3 +120,34 @@ def test_simulator_smoke_failure_writes_diagnostics(tmp_path: Path) -> None:
     )
     assert diagnostic["status"] == "failed"
     assert diagnostic["error_type"] == "ValueError"
+    assert "accelerator" in diagnostic
+    assert set(diagnostic["host_capabilities"]) == {"nvidia_smi", "vulkaninfo"}
+
+
+def test_host_probe_reports_missing_executable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("nyssa_bench.simulator_smoke.shutil.which", lambda _: None)
+
+    assert _run_host_probe(["missing-probe"]) == {
+        "available": False,
+        "command": "missing-probe",
+    }
+
+
+def test_host_probe_bounds_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "nyssa_bench.simulator_smoke.shutil.which", lambda _: "/bin/probe"
+    )
+    monkeypatch.setattr(
+        "nyssa_bench.simulator_smoke.subprocess.run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0, stdout="x" * 9_000, stderr=""
+        ),
+    )
+
+    result = _run_host_probe(["probe", "--summary"])
+
+    assert result["returncode"] == 0
+    assert result["stdout"].endswith("...[truncated]")
+    assert len(result["stdout"]) < 9_000

@@ -30,9 +30,13 @@ python -m pip install "nyssa-bench[diffusion]"
 ```
 
 The MuJoCo and ManiSkill extras include video encoding because their supported
-run path captures replay evidence by default. Host graphics drivers and Vulkan,
-EGL, or X11 libraries remain system dependencies and cannot be supplied by a
-Python wheel.
+run path captures replay evidence by default. The ManiSkill profile pins
+ManiSkill 3.0.1 and PyTorch 2.6.0, matching the tested CUDA 12.4 container; VLA
+and diffusion use the corresponding torchvision 0.21.0 release. Host graphics
+drivers and Vulkan, EGL, or X11 libraries remain system dependencies and cannot
+be supplied by a Python wheel. ManiSkill supports CPU simulation under WSL but
+does not support GPU simulation or rendering there, so replay-backed evaluation
+requires native Linux with a Vulkan-capable device.
 
 Clone the repository and use the `uv sync` commands below only for contributor
 development or unreleased source testing.

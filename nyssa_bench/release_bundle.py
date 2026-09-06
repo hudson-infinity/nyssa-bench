@@ -41,7 +41,7 @@ PROFILES: dict[str, dict[str, Any]] = {
         "platforms": ["linux/amd64"],
         "extra": "maniskill",
         "runtime": "Linux amd64, NVIDIA Container Toolkit, CUDA 12.4, Vulkan 1.3",
-        "simulator_versions": {"mani-skill": "3.0.1", "torch": "2.5.1"},
+        "simulator_versions": {"mani-skill": "3.0.1", "torch": "2.6.0"},
         "host": (
             "NVIDIA driver compatible with CUDA 12.4 and a Vulkan-capable physical "
             "device exposed to the container"

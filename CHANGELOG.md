@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Align ManiSkill and learned-policy extras with the validated PyTorch 2.6.0,
+  torchvision 0.21.0, CUDA 12.4 runtime instead of resolving an unbounded CUDA
+  dependency on fresh installations.
 - Avoid duplicate branch push CI, cancel superseded container runs, and cache
   simulator dependencies independently from the changing NyssaBench wheel.
 - Pin and validate a homogeneous 20/20 retained MuJoCo simulator-CI baseline.
