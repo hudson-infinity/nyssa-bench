@@ -27,10 +27,13 @@ ENV NYSSA_CONTAINER_PROFILE=core \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+RUN python -m pip install --no-cache-dir \
+    "numpy>=1.26" "pydantic>=2.6" "pyyaml>=6.0"
+
 COPY dist/*.whl /tmp/nyssa-dist/
 RUN wheel="$(find /tmp/nyssa-dist -maxdepth 1 -name '*.whl' -print -quit)" \
     && test -n "${wheel}" \
-    && python -m pip install --no-cache-dir "${wheel}" \
+    && python -m pip install --no-cache-dir --no-deps "${wheel}" \
     && python -m pip check \
     && rm -rf /tmp/nyssa-dist \
     && useradd --create-home --uid 10001 nyssa \

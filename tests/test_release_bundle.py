@@ -194,12 +194,27 @@ def test_release_dockerfiles_install_wheels_and_record_oci_identity(
     text = (ROOT / dockerfile).read_text(encoding="utf-8")
 
     assert "COPY dist/*.whl" in text
+    assert "--no-deps" in text
+    assert text.index("pip install --no-cache-dir") < text.index("COPY dist/*.whl")
     assert "pip install -e" not in text
     assert "COPY . ." not in text
     assert "org.opencontainers.image.version" in text
     assert "org.opencontainers.image.revision" in text
     assert "org.opencontainers.image.created" in text
     assert "USER nyssa" in text
+
+
+def test_heavy_simulator_dependencies_are_cached_below_the_wheel_layer() -> None:
+    mujoco = (ROOT / "docker/Dockerfile.mujoco").read_text(encoding="utf-8")
+    maniskill = (ROOT / "docker/Dockerfile.maniskill").read_text(encoding="utf-8")
+
+    assert mujoco.index('"mujoco==${MUJOCO_VERSION}"') < mujoco.index("COPY dist/*.whl")
+    assert maniskill.index('"torch==${TORCH_VERSION}"') < maniskill.index(
+        "COPY dist/*.whl"
+    )
+    assert maniskill.index('"mani-skill==${MANISKILL_VERSION}"') < maniskill.index(
+        "COPY dist/*.whl"
+    )
 
 
 def test_release_workflow_publishes_attested_images_and_bundle() -> None:

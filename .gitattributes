@@ -12,6 +12,7 @@
 *.css text eol=lf
 *.js text eol=lf
 *.sh text eol=lf
+docker/Dockerfile* text eol=lf
 
 *.gif binary
 *.jpg binary
