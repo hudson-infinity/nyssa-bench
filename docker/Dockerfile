@@ -2,6 +2,12 @@ ARG PYTHON_VERSION=3.11
 FROM python:${PYTHON_VERSION}-slim-bookworm
 
 ARG PYTHON_VERSION
+
+RUN python -m pip install --no-cache-dir \
+    "numpy>=1.26" "pydantic>=2.6" "pyyaml>=6.0" \
+    && useradd --create-home --uid 10001 nyssa \
+    && install -d -o nyssa -g nyssa /workspace
+
 ARG NYSSA_VERSION
 ARG NYSSA_COMMIT
 ARG NYSSA_BUILD_DATE
@@ -27,17 +33,12 @@ ENV NYSSA_CONTAINER_PROFILE=core \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-RUN python -m pip install --no-cache-dir \
-    "numpy>=1.26" "pydantic>=2.6" "pyyaml>=6.0"
-
 COPY dist/*.whl /tmp/nyssa-dist/
 RUN wheel="$(find /tmp/nyssa-dist -maxdepth 1 -name '*.whl' -print -quit)" \
     && test -n "${wheel}" \
     && python -m pip install --no-cache-dir --no-deps "${wheel}" \
     && python -m pip check \
-    && rm -rf /tmp/nyssa-dist \
-    && useradd --create-home --uid 10001 nyssa \
-    && install -d -o nyssa -g nyssa /workspace
+    && rm -rf /tmp/nyssa-dist
 
 USER nyssa
 WORKDIR /workspace

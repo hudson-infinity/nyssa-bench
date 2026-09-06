@@ -117,6 +117,7 @@ def test_pr_ci_avoids_duplicate_push_runs_and_cancels_stale_containers() -> None
     assert "push:\n    branches: [main]" in ci
     assert "pull_request:" in ci
     assert "cancel-in-progress: true" in containers
+    assert "name: Container package" in containers
     assert "nyssa_bench/release_bundle.py" not in containers
     assert "tests/test_release_bundle.py" not in containers
 
