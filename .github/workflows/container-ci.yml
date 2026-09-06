@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   package:
+    name: Container package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
