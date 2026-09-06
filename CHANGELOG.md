@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Avoid duplicate branch push CI, cancel superseded container runs, and cache
+  simulator dependencies independently from the changing NyssaBench wheel.
 - Pin and validate a homogeneous 20/20 retained MuJoCo simulator-CI baseline.
 - Add a hardware calibration preregistration contract with factorial conditions,
   safety/governance, recovery arms, evidence completeness, and claim gating.

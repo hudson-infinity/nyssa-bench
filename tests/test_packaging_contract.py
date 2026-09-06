@@ -28,9 +28,7 @@ def test_distribution_identity_and_version_are_single_sourced() -> None:
     assert project["name"] == "nyssa-bench"
     assert project["dynamic"] == ["version"]
     assert "version" not in project
-    assert pyproject["tool"]["hatch"]["version"]["path"] == (
-        "nyssa_bench/version.py"
-    )
+    assert pyproject["tool"]["hatch"]["version"]["path"] == ("nyssa_bench/version.py")
     assert validate_release_version(f"v{__version__}") == __version__
     with pytest.raises(ValueError, match="does not match package version"):
         validate_release_version("v9.9.9")
@@ -110,6 +108,19 @@ def test_release_workflow_uses_oidc_and_protected_indices() -> None:
     assert "working-directory: ${{ runner.temp }}" in workflow
 
 
+def test_pr_ci_avoids_duplicate_push_runs_and_cancels_stale_containers() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    containers = (ROOT / ".github/workflows/container-ci.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "push:\n    branches: [main]" in ci
+    assert "pull_request:" in ci
+    assert "cancel-in-progress: true" in containers
+    assert "nyssa_bench/release_bundle.py" not in containers
+    assert "tests/test_release_bundle.py" not in containers
+
+
 def test_optional_dependency_errors_use_release_install_commands() -> None:
     source = "\n".join(
         path.read_text(encoding="utf-8")
@@ -118,5 +129,14 @@ def test_optional_dependency_errors_use_release_install_commands() -> None:
 
     assert "uv sync --extra" not in source
     assert "pip install -e" not in source
-    for extra in ("dataset", "diffusion", "experimental", "lerobot", "maniskill", "mujoco", "robomimic", "vla"):
+    for extra in (
+        "dataset",
+        "diffusion",
+        "experimental",
+        "lerobot",
+        "maniskill",
+        "mujoco",
+        "robomimic",
+        "vla",
+    ):
         assert f"nyssa-bench[{extra}]" in source or extra in {"diffusion", "vla"}

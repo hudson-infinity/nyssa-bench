@@ -86,6 +86,11 @@ smoke with replay capture before using the image for a claim.
 ## Build locally
 
 Build the wheel first. Dockerfiles never install the source tree editable.
+Simulator and base dependencies are installed below the changing wheel layer,
+so BuildKit can reuse the large ManiSkill/CUDA and MuJoCo dependency layers when
+only NyssaBench source changes. The final wheel installation uses `--no-deps`
+and `pip check`, preventing that optimization from silently omitting required
+runtime packages.
 
 ```bash
 uv build

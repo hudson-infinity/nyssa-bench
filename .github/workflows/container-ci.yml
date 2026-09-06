@@ -7,14 +7,16 @@ on:
       - ".github/workflows/release.yml"
       - "docker/**"
       - "nyssa_bench/container_smoke.py"
-      - "nyssa_bench/release_bundle.py"
-      - "tests/test_release_bundle.py"
       - "pyproject.toml"
       - "uv.lock"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: container-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   package:
