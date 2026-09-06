@@ -55,6 +55,23 @@ must remain distinct from dependency, driver, renderer, timeout, and runner
 failures. A changed simulator, driver, rendering backend, task, or runner class
 starts a new baseline window.
 
+The first MuJoCo baseline is pinned in
+[`claims/mujoco_ci_baseline.json`](../claims/mujoco_ci_baseline.json). It records
+20 consecutive successful workflow runs, each retained smoke-artifact hash, and
+the common execution contract. All runs used Python 3.11.16, MuJoCo 3.12.0,
+Gymnasium 1.3.0, OSMesa, the same hosted Azure Linux x86-64 image,
+InvertedPendulum, exact state/RNG restoration, action-noise stress, and two
+episodes. The observed infrastructure pass rate is 100%.
+
+Validate the committed baseline with:
+
+```bash
+uv run python scripts/validate_simulator_ci_baseline.py
+```
+
+This completes the MuJoCo flakiness requirement only. It does not provide GPU
+ManiSkill execution or authorize the combined simulator-CI claim.
+
 The workflow does not use partial `uv sync` commands. It installs one built
 wheel with one complete extra, runs `pip check`, and records `pip freeze`, which
 makes accidental dependency removal or undeclared runtime imports visible.

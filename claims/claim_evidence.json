@@ -325,11 +325,17 @@
       "authorized_public_assertion": false,
       "issue_ids": [19],
       "source_paths": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/ci.yml",
+        ".github/workflows/installed-simulators.yml",
+        "claims/mujoco_ci_baseline.json"
       ],
-      "test_paths": [],
+      "test_paths": [
+        "tests/test_simulator_ci_baseline.py",
+        "tests/test_simulator_smoke.py"
+      ],
       "artifact_requirements": [
         "scheduled MuJoCo integration logs",
+        "validated 20-run MuJoCo flakiness baseline",
         "GPU ManiSkill integration logs",
         "retained simulator result packs"
       ],
@@ -338,7 +344,8 @@
         "Measure flakiness before making simulator jobs required gates."
       ],
       "limitations": [
-        "Current pull-request CI proves Python behavior and mocked contracts, not full GPU simulator execution."
+        "MuJoCo has a validated 20-run installed-wheel baseline, but no capable GPU ManiSkill run has executed.",
+        "Pull-request container registration checks are not a replacement for GPU simulator execution and replay evidence."
       ]
     },
     {

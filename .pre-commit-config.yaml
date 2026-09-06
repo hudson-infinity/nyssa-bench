@@ -83,6 +83,13 @@ repos:
         pass_filenames: false
         files: ^(configs/hardware/.*\.json|docs/hardware_calibration\.md|nyssa_bench/hardware_study/.*\.py|scripts/generate_hardware_study_candidate\.py)$
 
+      - id: validate-simulator-ci-baseline
+        name: validate the retained simulator CI baseline
+        entry: python scripts/validate_simulator_ci_baseline.py
+        language: system
+        pass_filenames: false
+        files: ^(claims/mujoco_ci_baseline\.json|docs/simulator_ci\.md|scripts/validate_simulator_ci_baseline\.py|tests/test_simulator_ci_baseline\.py)$
+
       - id: validate-release-version
         name: validate package release version
         entry: python scripts/validate_release_version.py

@@ -52,6 +52,7 @@ RELEASE_PATHS = (
     "CHANGELOG.md",
     "claims/claim_evidence.json",
     "claims/phase1_credibility.json",
+    "claims/mujoco_ci_baseline.json",
     "docs/api_stability.md",
     "docs/docker.md",
     "docs/installation.md",
