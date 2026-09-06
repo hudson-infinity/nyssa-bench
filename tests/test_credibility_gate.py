@@ -292,7 +292,7 @@ def _complete_evidence(root: Path, interval: list[float]) -> list[EvidenceRefere
             root,
             "hardware",
             "hardware_calibration",
-            [_hardware_validation()],
+            [_hardware_validation(), _hardware_study_report()],
             {"prespecified": True},
         ),
         _evidence(
@@ -515,6 +515,15 @@ def _hardware_validation() -> dict[str, Any]:
         "comparison_ready": True,
         "claim_ready": True,
         "issues": [],
+    }
+
+
+def _hardware_study_report() -> dict[str, Any]:
+    return {
+        "format": "nyssa-hardware-calibration-report-v1",
+        "status": "claim_ready",
+        "claim_ready": True,
+        "study_id": "hardware-v1",
     }
 
 

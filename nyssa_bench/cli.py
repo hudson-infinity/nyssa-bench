@@ -32,6 +32,11 @@ from nyssa_bench.policy_tracks import (
     load_policy_track_registry,
     write_policy_track_report,
 )
+from nyssa_bench.hardware_study import (
+    evaluate_hardware_study,
+    load_hardware_study,
+    write_hardware_study_report,
+)
 from nyssa_bench.baselines.simple_bc import (
     train_knn_bc,
     train_linear_bc,
@@ -256,6 +261,11 @@ def main(argv: list[str] | None = None) -> int:
     policy_tracks_parser.add_argument("registry")
     policy_tracks_parser.add_argument("--out", required=True)
     policy_tracks_parser.add_argument("--repo-root", default=".")
+
+    hardware_study_parser = subparsers.add_parser("audit-hardware-study")
+    hardware_study_parser.add_argument("study")
+    hardware_study_parser.add_argument("--out", required=True)
+    hardware_study_parser.add_argument("--repo-root", default=".")
 
     benchmark_audit_parser = subparsers.add_parser("audit-benchmark")
     benchmark_audit_parser.add_argument("spec")
@@ -722,6 +732,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"policy_track_html: {paths['html']}")
         print(f"policy_track_status: {report['status']}")
         return 0 if report["release_ready"] else 2
+
+    if args.command == "audit-hardware-study":
+        study = load_hardware_study(args.study)
+        report = evaluate_hardware_study(study, root=args.repo_root)
+        paths = write_hardware_study_report(report, args.out)
+        print(f"hardware_study_report: {paths['json']}")
+        print(f"hardware_study_html: {paths['html']}")
+        print(f"hardware_study_status: {report['status']}")
+        return 0 if report["claim_ready"] else 2
 
     if args.command == "audit-benchmark":
         spec = load_benchmark_validity_spec(args.spec)

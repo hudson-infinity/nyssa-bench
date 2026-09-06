@@ -36,6 +36,7 @@ Start here:
 - [External scenario packages](external_scenarios.md)
 - [Real and reconstructed evidence ingestion](real_evidence_ingestion.md)
 - [Paired sim-real studies](sim_real_study.md)
+- [Hardware calibration and preregistration](hardware_calibration.md)
 - [Pairwise evaluation protocol](pairwise_evaluation_protocol.md)
 - [Policy regression gates](policy_regression_gates.md)
 - [VLA robustness protocol](vla_robustness_protocol.md)

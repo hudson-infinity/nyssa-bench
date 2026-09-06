@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a hardware calibration preregistration contract with factorial conditions,
+  safety/governance, recovery arms, evidence completeness, and claim gating.
 - Add a checkpoint-bound policy-track registry and native conformance,
   provenance, leakage, paired-run, replay, and failure-evidence audit.
 - Add a strict 12-task reference benchmark candidate, protected five-dimension

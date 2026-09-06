@@ -429,9 +429,15 @@
       "source_paths": [
         "nyssa_bench/research/sim_real_correlation.py",
         "nyssa_bench/real_evidence",
-        "nyssa_bench/simreal"
+        "nyssa_bench/simreal",
+        "nyssa_bench/hardware_study",
+        "configs/hardware/nyssa_hardware_calibration_v0_1.json"
       ],
-      "test_paths": [],
+      "test_paths": [
+        "tests/test_hardware_study.py",
+        "tests/test_real_evidence_ingestion.py",
+        "tests/test_sim_real_study.py"
+      ],
       "artifact_requirements": [
         "preregistered hardware study",
         "versioned paired sim-real analysis",
@@ -443,6 +449,7 @@
         "Report a well-powered positive or negative held-out result."
       ],
       "limitations": [
+        "The hardware study is a draft with no preregistration receipt, real trial packages, paired analysis, or predictive validity report.",
         "No current result pack supports a sim-real predictive claim."
       ]
     },

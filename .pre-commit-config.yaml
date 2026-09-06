@@ -76,6 +76,13 @@ repos:
         pass_filenames: false
         files: ^(configs/policy_tracks/.*\.json|docs/policy_tracks\.md|nyssa_bench/policy_tracks/.*\.py|scripts/generate_policy_track_candidate\.py)$
 
+      - id: validate-hardware-study-candidate
+        name: validate the generated hardware-study candidate
+        entry: python scripts/generate_hardware_study_candidate.py --check
+        language: system
+        pass_filenames: false
+        files: ^(configs/hardware/.*\.json|docs/hardware_calibration\.md|nyssa_bench/hardware_study/.*\.py|scripts/generate_hardware_study_candidate\.py)$
+
       - id: validate-release-version
         name: validate package release version
         entry: python scripts/validate_release_version.py

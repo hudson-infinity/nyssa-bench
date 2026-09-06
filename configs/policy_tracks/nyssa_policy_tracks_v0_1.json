@@ -35,7 +35,7 @@
           -1.0,
           -1.0
         ],
-        "action_representation": "normalized_pd_ee_delta_pose",
+        "action_representation": "pd_ee_delta_pose",
         "action_upper_bounds": [
           1.0,
           1.0,
@@ -113,7 +113,7 @@
           -1.0,
           -1.0
         ],
-        "action_representation": "normalized_pd_ee_delta_pose",
+        "action_representation": "pd_ee_delta_pose",
         "action_upper_bounds": [
           1.0,
           1.0,
@@ -201,7 +201,7 @@
           -1.0,
           -1.0
         ],
-        "action_representation": "normalized_pd_ee_delta_pose",
+        "action_representation": "pd_ee_delta_pose",
         "action_upper_bounds": [
           1.0,
           1.0,
@@ -289,7 +289,7 @@
           -1.0,
           -1.0
         ],
-        "action_representation": "normalized_pd_ee_delta_pose",
+        "action_representation": "pd_ee_delta_pose",
         "action_upper_bounds": [
           1.0,
           1.0,
@@ -378,7 +378,7 @@
           -1.0,
           -1.0
         ],
-        "action_representation": "normalized_pd_ee_delta_pose",
+        "action_representation": "pd_ee_delta_pose",
         "action_upper_bounds": [
           1.0,
           1.0,
