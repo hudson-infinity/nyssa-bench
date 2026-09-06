@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Pin and validate a homogeneous 20/20 retained MuJoCo simulator-CI baseline.
 - Add a hardware calibration preregistration contract with factorial conditions,
   safety/governance, recovery arms, evidence completeness, and claim gating.
 - Add a checkpoint-bound policy-track registry and native conformance,
