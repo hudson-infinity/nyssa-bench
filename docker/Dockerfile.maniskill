@@ -1,11 +1,31 @@
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
+ARG TORCH_VERSION=2.5.1
+ARG MANISKILL_VERSION=3.0.1
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       ca-certificates ffmpeg libegl1 libgl1 libglib2.0-0 libvulkan1 \
+       mesa-vulkan-drivers python3 python3-pip \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m pip install --no-cache-dir \
+       "torch==${TORCH_VERSION}" --index-url https://download.pytorch.org/whl/cu124 \
+    && python3 -m pip install --no-cache-dir \
+       "mani-skill==${MANISKILL_VERSION}" \
+       "numpy>=1.26,<2.0" \
+       "pydantic>=2.6" \
+       "pyyaml>=6.0" \
+       "gymnasium>=0.29" \
+       "imageio>=2.34" \
+       "imageio-ffmpeg>=0.5" \
+       "packaging>=23.0" \
+    && useradd --create-home --uid 10001 nyssa \
+    && install -d -o nyssa -g nyssa /workspace
+
 ARG NYSSA_VERSION
 ARG NYSSA_COMMIT
 ARG NYSSA_BUILD_DATE
 ARG TARGETPLATFORM
-ARG TORCH_VERSION=2.5.1
-ARG MANISKILL_VERSION=3.0.1
 
 LABEL org.opencontainers.image.title="NyssaBench ManiSkill" \
       org.opencontainers.image.description="CUDA and Vulkan ManiSkill evaluation runtime for NyssaBench" \
@@ -35,32 +55,12 @@ ENV NYSSA_CONTAINER_PROFILE=maniskill \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       ca-certificates ffmpeg libegl1 libgl1 libglib2.0-0 libvulkan1 \
-       mesa-vulkan-drivers python3 python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN python3 -m pip install --no-cache-dir \
-      "torch==${TORCH_VERSION}" --index-url https://download.pytorch.org/whl/cu124 \
-    && python3 -m pip install --no-cache-dir \
-       "mani-skill==${MANISKILL_VERSION}" \
-       "numpy>=1.26,<2.0" \
-       "pydantic>=2.6" \
-       "pyyaml>=6.0" \
-       "gymnasium>=0.29" \
-       "imageio>=2.34" \
-       "imageio-ffmpeg>=0.5" \
-       "packaging>=23.0"
-
 COPY dist/*.whl /tmp/nyssa-dist/
 RUN wheel="$(find /tmp/nyssa-dist -maxdepth 1 -name '*.whl' -print -quit)" \
     && test -n "${wheel}" \
     && python3 -m pip install --no-cache-dir --no-deps "${wheel}" \
     && python3 -m pip check \
-    && rm -rf /tmp/nyssa-dist \
-    && useradd --create-home --uid 10001 nyssa \
-    && install -d -o nyssa -g nyssa /workspace
+    && rm -rf /tmp/nyssa-dist
 
 USER nyssa
 WORKDIR /workspace

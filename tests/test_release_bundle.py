@@ -196,6 +196,8 @@ def test_release_dockerfiles_install_wheels_and_record_oci_identity(
     assert "COPY dist/*.whl" in text
     assert "--no-deps" in text
     assert text.index("pip install --no-cache-dir") < text.index("COPY dist/*.whl")
+    assert text.index("pip install --no-cache-dir") < text.index("ARG NYSSA_VERSION")
+    assert text.index("ARG NYSSA_BUILD_DATE") < text.index("COPY dist/*.whl")
     assert "pip install -e" not in text
     assert "COPY . ." not in text
     assert "org.opencontainers.image.version" in text
