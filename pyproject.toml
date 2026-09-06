@@ -69,8 +69,9 @@ maniskill = [
   "gymnasium>=0.29",
   "imageio>=2.34",
   "imageio-ffmpeg>=0.5",
-  "mani-skill>=3.0",
+  "mani-skill==3.0.1",
   "packaging>=23.0",
+  "torch==2.6.0",
 ]
 mujoco = [
   "gymnasium>=0.29",
@@ -92,15 +93,15 @@ vla = [
   "pillow>=10.0",
   "safetensors>=0.4",
   "timm>=0.9",
-  "torch>=2.2",
-  "torchvision>=0.17",
+  "torch==2.6.0",
+  "torchvision==0.21.0",
   "transformers>=4.40",
 ]
 diffusion = [
   "diffusers>=0.27",
   "einops>=0.7",
-  "torch>=2.2",
-  "torchvision>=0.17",
+  "torch==2.6.0",
+  "torchvision==0.21.0",
 ]
 experimental = [
   "genesis-world>=0.2.0",
@@ -115,7 +116,7 @@ all = [
   "imageio-ffmpeg>=0.5",
   "jinja2>=3.1",
   "lerobot>=0.1.0",
-  "mani-skill>=3.0",
+  "mani-skill==3.0.1",
   "matplotlib>=3.8",
   "mujoco>=3.0",
   "numpy>=1.26,<2.0",
@@ -127,8 +128,8 @@ all = [
   "robomimic>=0.3.0",
   "safetensors>=0.4",
   "timm>=0.9",
-  "torch>=2.2",
-  "torchvision>=0.17",
+  "torch==2.6.0",
+  "torchvision==0.21.0",
   "transformers>=4.40",
 ]
 full = [
@@ -142,7 +143,7 @@ full = [
   "imageio-ffmpeg>=0.5",
   "jinja2>=3.1",
   "lerobot>=0.1.0",
-  "mani-skill>=3.0",
+  "mani-skill==3.0.1",
   "matplotlib>=3.8",
   "mujoco>=3.0",
   "pandas>=2.1",
@@ -153,8 +154,8 @@ full = [
   "robomimic>=0.3.0",
   "safetensors>=0.4",
   "timm>=0.9",
-  "torch>=2.2",
-  "torchvision>=0.17",
+  "torch==2.6.0",
+  "torchvision==0.21.0",
   "transformers>=4.40",
 ]
 

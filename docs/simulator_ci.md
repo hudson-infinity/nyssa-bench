@@ -34,10 +34,13 @@ The `maniskill-gpu` job uses `[self-hosted, linux, x64, gpu]` and runs only when
 `workflow_dispatch` explicitly requests it. It installs the built wheel with the
 `maniskill` extra, checks dependencies, imports the real package, performs the
 same state/action/stressor/seed checks, and requires one MP4 per smoke episode.
+The extra pins ManiSkill 3.0.1 and PyTorch 2.6.0 so a fresh runner cannot select
+an unvalidated CUDA runtime newer than the CUDA 12.4 container contract.
 
 No hosted CPU fallback is allowed. If Hudson does not have a compatible GPU
 runner online, the job remains unexecuted and the claim matrix continues to mark
-simulator-backed ManiSkill CI as planned.
+simulator-backed ManiSkill CI as planned. A WSL runner does not qualify because
+upstream ManiSkill does not support GPU simulation or rendering under WSL.
 
 ## Failure diagnostics
 

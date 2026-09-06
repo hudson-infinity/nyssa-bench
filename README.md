@@ -102,9 +102,13 @@ evaluation runs capture video by default. Use Python 3.10 for ManiSkill/Linux
 runs. Some ManiSkill planning dependencies
 publish wheels for CPython 3.10 but not newer Python ABIs, so Python 3.12 can
 fail during dependency resolution.
-The ManiSkill install path pins NumPy below 2.0 because ManiSkill
-motion-planning dependencies such as `toppra` include compiled extensions that
-can fail with a NumPy 2 ABI mismatch.
+The ManiSkill install path uses the same validated ManiSkill 3.0.1 and PyTorch
+2.6.0 runtime as the CUDA 12.4 container. The VLA and diffusion extras pair that
+PyTorch release with torchvision 0.21.0. These constraints prevent a fresh
+installation from silently selecting a newer CUDA runtime than the documented
+driver contract. NumPy remains below 2.0 because ManiSkill motion-planning
+dependencies such as `toppra` include compiled extensions that can fail with a
+NumPy 2 ABI mismatch.
 
 ```bash
 uv python install 3.10
@@ -180,8 +184,10 @@ On macOS, MuJoCo smoke runs usually need the Python extras plus native GLFW:
 brew install glfw
 ```
 
-ManiSkill video-backed result packs are expected to run on Linux machines with
-a working NVIDIA/Vulkan stack.
+ManiSkill video-backed result packs are expected to run on native Linux machines
+with a working NVIDIA/Vulkan stack. Upstream ManiSkill supports CPU simulation
+under WSL but not GPU simulation or rendering, so WSL cannot produce the replay
+evidence required for public NyssaBench claims.
 On managed notebooks such as Lightning AI, ManiSkill may fail with
 `Failed to find a supported physical device "cuda:0"` if the session has no
 compatible render device. Select a GPU/Vulkan-capable runtime, or set

@@ -13,7 +13,7 @@ Tagged releases publish three images to GitHub Container Registry:
 | --- | --- | --- | --- |
 | Core | `ghcr.io/hudson-infinity/nyssa-bench-core` | `linux/amd64`, `linux/arm64` | Python 3.11, core wheel |
 | MuJoCo | `ghcr.io/hudson-infinity/nyssa-bench-mujoco` | `linux/amd64`, `linux/arm64` | Python 3.11, MuJoCo 3.12.0, Gymnasium 1.3.0, OSMesa, EGL, FFmpeg |
-| ManiSkill | `ghcr.io/hudson-infinity/nyssa-bench-maniskill` | `linux/amd64` | Python 3.10, ManiSkill 3.0.1, PyTorch 2.5.1 CUDA 12.4, Vulkan 1.3, FFmpeg |
+| ManiSkill | `ghcr.io/hudson-infinity/nyssa-bench-maniskill` | `linux/amd64` | Python 3.10, ManiSkill 3.0.1, PyTorch 2.6.0 CUDA 12.4, Vulkan 1.3, FFmpeg |
 
 The ManiSkill image requires the NVIDIA Container Toolkit, a host driver
 compatible with CUDA 12.4, and a Vulkan-capable physical device exposed to the

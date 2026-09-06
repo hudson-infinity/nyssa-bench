@@ -59,3 +59,18 @@ def test_cli_compatibility_extra_does_not_duplicate_base_runtime():
     pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
 
     assert pyproject["project"]["optional-dependencies"]["cli"] == []
+
+
+def test_gpu_extras_share_the_validated_pytorch_runtime():
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    extras = pyproject["project"]["optional-dependencies"]
+
+    assert "mani-skill==3.0.1" in extras["maniskill"]
+    assert "torch==2.6.0" in extras["maniskill"]
+    for extra in ("vla", "diffusion", "all", "full"):
+        assert "torch==2.6.0" in extras[extra]
+        assert "torchvision==0.21.0" in extras[extra]
+
+    dockerfile = Path("docker/Dockerfile.maniskill").read_text(encoding="utf-8")
+    assert "ARG TORCH_VERSION=2.6.0" in dockerfile
+    assert "ARG MANISKILL_VERSION=3.0.1" in dockerfile

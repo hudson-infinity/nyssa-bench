@@ -281,8 +281,8 @@ def _container_environment(monkeypatch: pytest.MonkeyPatch, profile: str) -> Non
         versions.update({"mujoco": "3.12.0", "gymnasium": "1.3.0"})
     else:
         monkeypatch.setenv("NYSSA_CONTAINER_MANISKILL", "3.0.1")
-        monkeypatch.setenv("NYSSA_CONTAINER_TORCH", "2.5.1")
-        versions.update({"mani-skill": "3.0.1", "torch": "2.5.1+cu124"})
+        monkeypatch.setenv("NYSSA_CONTAINER_TORCH", "2.6.0")
+        versions.update({"mani-skill": "3.0.1", "torch": "2.6.0+cu124"})
     monkeypatch.setattr(container_smoke, "package_versions", lambda: versions)
 
 
