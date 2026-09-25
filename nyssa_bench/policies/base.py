@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from nyssa_bench.failures.protocol import FailureEventDraft
+from nyssa_bench.utils.imports import load_module_from_path
 
 
 @runtime_checkable
@@ -54,13 +54,7 @@ class Policy(ABC):
 
 
 def load_policy_from_path(path: str | Path) -> PolicyLike:
-    path = Path(path)
-    spec = spec_from_file_location(path.stem, path)
-    if spec is None or spec.loader is None:
-        raise ValueError(f"Could not load policy module from {path}")
-
-    module = module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = load_module_from_path(path)
 
     if hasattr(module, "create_policy"):
         policy = module.create_policy()

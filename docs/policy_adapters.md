@@ -51,9 +51,10 @@ documented in the production guide; do not use them to conceal missing
 checkpoints or training/evaluation overlap.
 
 Environment model values use `module:attribute` or `file.py:attribute`. A class
-is instantiated with no arguments; a function/object is used directly. Use a
-class factory for model construction rather than pointing at a zero-argument
-function and expecting it to be invoked.
+is instantiated with no arguments. A function that accepts no arguments and
+cannot accept a positional observation is invoked as a factory. Functions that
+accept an observation (including an optional observation) and callable model
+objects are used directly. Absolute Windows file paths are supported.
 
 ```bash
 NYSSA_OPENVLA_POLICY=my_project.policies:OpenVLAPolicyFactory \
@@ -71,6 +72,12 @@ uv run nyssa run \
 
 A direct Python file passed to `--policy` is a different loader: it invokes
 `create_policy()` or instantiates `PolicyAdapter` from that file.
+File-loaded policies, experts, and monitors may use dataclasses with deferred
+annotations. Modules from different paths have distinct import identities.
+
+For `experiment`, built-in policy IDs retain their existing output folder names.
+File references use a filename stem plus a stable hash of the reference under
+the requested output directory; the recorded policy reference stays unchanged.
 
 ## Model Call Resolution
 
@@ -85,11 +92,10 @@ External models must enforce those contracts before simulator execution.
 
 ## Lifecycle Forwarding
 
-`scripted_oracle`, `bc_policy`, and `task_bc_policy` forward `reset` and `close`
-to their controller/model where implemented. RoboMimic calls its episode reset
-methods. The current LeRobot, diffusion, and OpenVLA hooks do not forward model
-reset/close. Use a direct custom `Policy` when the external model needs strict
-lifecycle management or richer metadata.
+`scripted_oracle`, `bc_policy`, `task_bc_policy`, LeRobot, diffusion, and OpenVLA
+forward `reset` and `close` to their controller/model where implemented. Reset
+receives `task` and `seed` only when its signature accepts them, so a
+parameterless `reset()` is supported. RoboMimic calls its episode reset methods.
 
 ## Counterfactual State
 

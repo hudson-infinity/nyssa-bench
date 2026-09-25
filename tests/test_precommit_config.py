@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import yaml
 
@@ -34,3 +35,13 @@ def test_precommit_config_covers_fast_and_pre_push_checks():
 def test_ci_executes_commit_stage_hooks():
     workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "pre-commit run --all-files --show-diff-on-failure" in workflow
+
+
+def test_result_archive_hook_matches_zip_paths():
+    payload = yaml.safe_load(Path(".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hook = next(
+        hook for repository in payload["repos"] for hook in repository["hooks"]
+        if hook["id"] == "no-result-zips"
+    )
+    assert re.search(hook["files"], "benchmark_results/run_results_001.zip")
+    assert not re.search(hook["files"], "benchmark_results/run_results_001Xzip")

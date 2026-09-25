@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
@@ -25,7 +27,8 @@ class ExperimentRunner:
         cells = tuple(cells)
         counts: dict[Path, int] = {}
         for cell in cells:
-            counts[cell.run_dir] = counts.get(cell.run_dir, 0) + 1
+            resolved = cell.run_dir.resolve()
+            counts[resolved] = counts.get(resolved, 0) + 1
         duplicates = sorted(path for path, count in counts.items() if count > 1)
         if duplicates:
             raise ValueError(
@@ -53,13 +56,21 @@ def policy_seed_cells(
         ExperimentCell(
             policy=policy,
             seed=int(seed),
-            run_dir=root / policy / f"seed_{seed}",
+            run_dir=root / _policy_directory_name(policy) / f"seed_{seed}",
             enable_verifier=enable_verifier,
             enable_recovery=enable_recovery,
         )
         for policy in policies
         for seed in seeds
     )
+
+
+def _policy_directory_name(policy: str) -> str:
+    if re.fullmatch(r"[A-Za-z0-9_-]+", policy):
+        return policy
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "_", Path(policy).stem).strip("_") or "policy"
+    digest = hashlib.sha256(policy.encode("utf-8")).hexdigest()[:12]
+    return f"{stem[:64]}_{digest}"
 
 
 def ablation_cells(

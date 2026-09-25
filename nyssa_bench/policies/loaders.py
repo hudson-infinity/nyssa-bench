@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import inspect
 from importlib import import_module
-from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any
+
+from nyssa_bench.utils.imports import load_module_from_path
 
 
 def load_callable_from_env(env_var: str) -> Any | None:
@@ -13,7 +14,19 @@ def load_callable_from_env(env_var: str) -> Any | None:
     if not value:
         return None
     loaded = load_object(value)
-    return loaded() if isinstance(loaded, type) else loaded
+    if isinstance(loaded, type):
+        return loaded()
+    if inspect.isfunction(loaded) or inspect.ismethod(loaded):
+        try:
+            signature = inspect.signature(loaded)
+            signature.bind()
+        except (TypeError, ValueError):
+            return loaded
+        try:
+            signature.bind(object())
+        except TypeError:
+            return loaded()
+    return loaded
 
 
 def load_object(path: str) -> Any:
@@ -21,14 +34,11 @@ def load_object(path: str) -> Any:
         raise ValueError(
             f"Expected object path as module:attribute or file.py:attribute, got {path!r}"
         )
-    module_ref, _, attr = path.partition(":")
+    module_ref, _, attr = path.rpartition(":")
+    if not module_ref or not attr:
+        raise ValueError(f"Expected a module or file and an attribute, got {path!r}")
     if module_ref.endswith(".py") or Path(module_ref).exists():
-        module_path = Path(module_ref)
-        spec = spec_from_file_location(module_path.stem, module_path)
-        if spec is None or spec.loader is None:
-            raise ValueError(f"Could not load module from {module_path}")
-        module = module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = load_module_from_path(module_ref)
     else:
         module = import_module(module_ref)
     return getattr(module, attr)

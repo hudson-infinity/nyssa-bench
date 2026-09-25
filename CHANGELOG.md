@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Fix episode-source omission/duplication and avoid traversing per-task copies
+  beneath aggregate exports; decode BC checkpoints once per load.
+- Preserve repeated episode identities in HDF5, reject non-finite RoboMimic
+  features, and compute observation variance without cancellation.
+- Propagate malformed checkpoint and prediction errors instead of silently
+  substituting zero actions.
+- Support dataclasses in file-loaded policies, experts, and monitors, Windows
+  object references, zero-argument factories, and parameterless model resets.
+- Keep file-policy experiment outputs inside the selected directory and reject
+  equivalent output paths before executing any run.
+- Repair the result-archive hook's ZIP filename filter.
 - Align ManiSkill and learned-policy extras with the validated PyTorch 2.6.0,
   torchvision 0.21.0, CUDA 12.4 runtime instead of resolving an unbounded CUDA
   dependency on fresh installations.

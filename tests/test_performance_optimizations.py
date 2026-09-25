@@ -5,9 +5,16 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 
 from nyssa_bench import PolicyRunner, Suite
 from nyssa_bench.baselines.features import flatten_observation
+from nyssa_bench.baselines.simple_bc import (
+    load_bc_policy,
+    train_knn_bc_from_episodes,
+    train_linear_bc_from_episodes,
+    train_sequence_knn_bc_from_episodes,
+)
 from nyssa_bench.core.episode import EpisodeResult
 from nyssa_bench.engines.base import NyssaEngine
 from nyssa_bench.experts import ExpertProvider
@@ -20,6 +27,27 @@ from nyssa_bench.stressors import (
     StressorSpec,
 )
 from nyssa_bench.stressors.robustness import _bootstrap_auc, _normalized_auc
+
+
+@pytest.mark.parametrize("train", [
+    train_linear_bc_from_episodes,
+    train_knn_bc_from_episodes,
+    train_sequence_knn_bc_from_episodes,
+])
+def test_checkpoint_dispatch_reads_and_decodes_file_once(tmp_path: Path, monkeypatch, train):
+    policy = train([{"steps": [{"observation": _observation(), "action": [0.25]}]}], feature_dim=1)
+    checkpoint = policy.save(tmp_path / "model.json")
+    calls = []
+    original = Path.read_text
+
+    def read_text(path, *args, **kwargs):
+        calls.append(path)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    restored = load_bc_policy(checkpoint)
+    assert calls == [checkpoint]
+    assert np.allclose(restored.predict_action(_observation()), policy.predict_action(_observation()))
 
 
 class _ExplodingTail(list[Any]):
