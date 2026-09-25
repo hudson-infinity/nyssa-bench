@@ -361,6 +361,32 @@ def test_experiment_matrix_expansion_and_duplicate_protection(tmp_path: Path) ->
     assert executed == before_duplicate
 
 
+def test_experiment_file_policies_stay_inside_output_directory(tmp_path: Path) -> None:
+    policies = [str(tmp_path / "external" / "policy.py"), "../policy.py", "other/policy.py"]
+    out = tmp_path / "results"
+    cells = policy_seed_cells(
+        policies=policies, seeds=[0], out_dir=out,
+        enable_verifier=False, enable_recovery=False,
+    )
+    assert [cell.policy for cell in cells] == policies
+    assert len({cell.run_dir for cell in cells}) == len(policies)
+    for cell in cells:
+        assert cell.run_dir.resolve().is_relative_to(out.resolve())
+        assert cell.run_dir.parent.parent == out
+
+
+def test_experiment_rejects_aliases_of_same_output_before_execution(tmp_path: Path) -> None:
+    calls = []
+    runner = ExperimentRunner(lambda cell: calls.append(cell))
+    cells = [
+        ExperimentCell("a", 0, tmp_path / "run"),
+        ExperimentCell("b", 0, tmp_path / "subdirectory" / ".." / "run"),
+    ]
+    with pytest.raises(ValueError, match="duplicate experiment run directory"):
+        runner.execute(object(), cells)
+    assert calls == []
+
+
 def test_counterfactual_branches_use_shared_transition_lifecycle() -> None:
     calls: list[str | None] = []
 

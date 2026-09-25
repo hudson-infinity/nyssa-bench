@@ -952,13 +952,9 @@ def make_expert_provider(provider: str | Path | ExpertProvider | None) -> Expert
 
 
 def _load_expert_from_path(path: Path) -> ExpertProvider:
-    import importlib.util
+    from nyssa_bench.utils.imports import load_module_from_path
 
-    spec = importlib.util.spec_from_file_location("nyssa_user_expert", path)
-    if spec is None or spec.loader is None:
-        raise ValueError(f"Could not load expert provider from {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = load_module_from_path(path)
     factory = getattr(module, "create_expert_provider", None)
     if callable(factory):
         provider = factory()

@@ -29,6 +29,19 @@ The original bounds are stored in the HDF5 `data` group's
 `nyssa_action_transform` attribute. Use `export-task-robomimic` when tasks have
 different action contracts.
 
+RoboMimic observation features must be finite. Variance checks use a streaming
+stable calculation so small changes around large offsets remain measurable.
+
+The generic HDF5 exporter retains `episode_NNNN` group names for unique episode
+indices. Repeated indices receive `_duplicate_NNNN` suffixes; each group records
+`task_id`, `episode_index`, and `seed` attributes to preserve episode identity
+across tasks and runs. Existing unique-index exports need no migration.
+
+Training and task export commands discover `episodes.json` consistently in
+directories and ZIP archives. An aggregate file supersedes per-task copies in
+its own subtree; independent sibling runs remain included. Generated
+`recovery_dataset` subdirectories and similarly named files are excluded.
+
 JSON and JSONL episode exports preserve the complete
 `nyssa-failure-ledger-v1` payload. Legacy failed episodes with only a flat
 failure label receive a terminal-only migration event when loaded for export.

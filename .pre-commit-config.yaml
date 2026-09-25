@@ -32,7 +32,7 @@ repos:
         name: prevent committing benchmark result archives
         entry: python scripts/validate_no_result_zips.py
         language: system
-        files: ^.*\\.zip$
+        files: ^.*\.zip$
         pass_filenames: true
 
       - id: validate-nyssa-configs

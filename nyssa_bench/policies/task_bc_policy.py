@@ -12,6 +12,7 @@ from nyssa_bench.policies.loaders import (
     call_model,
     load_callable_from_env,
     require_model,
+    reset_model,
 )
 
 
@@ -31,9 +32,7 @@ class TaskBCPolicy(Policy):
         )
 
     def reset(self, task: Any | None = None, seed: int | None = None) -> None:
-        reset = getattr(self.model, "reset", None)
-        if callable(reset):
-            reset(task=task, seed=seed)
+        reset_model(self.model, task=task, seed=seed)
 
     def act(self, observation: dict[str, Any]) -> Any:
         return call_model(

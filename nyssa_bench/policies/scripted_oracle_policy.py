@@ -8,6 +8,7 @@ from nyssa_bench.policies.loaders import (
     call_model,
     load_callable_from_env,
     require_model,
+    reset_model,
 )
 
 
@@ -27,9 +28,7 @@ class ScriptedOraclePolicy(Policy):
         )
 
     def reset(self, task: Any | None = None, seed: int | None = None) -> None:
-        reset = getattr(self.controller, "reset", None)
-        if callable(reset):
-            reset(task=task, seed=seed)
+        reset_model(self.controller, task=task, seed=seed)
 
     def act(self, observation: dict[str, Any]) -> Any:
         return call_model(

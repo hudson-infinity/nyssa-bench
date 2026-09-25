@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, TypeAlias
 
 import numpy as np
@@ -29,6 +29,10 @@ class LinearBCPolicy:
     @classmethod
     def load(cls, path: str | Path) -> "LinearBCPolicy":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls._from_payload(payload)
+
+    @classmethod
+    def _from_payload(cls, payload: dict[str, Any]) -> "LinearBCPolicy":
         return cls(
             weights=np.asarray(payload["weights"], dtype=float),
             bias=np.asarray(payload["bias"], dtype=float),
@@ -82,6 +86,10 @@ class KNNBCPolicy:
     @classmethod
     def load(cls, path: str | Path) -> "KNNBCPolicy":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls._from_payload(payload)
+
+    @classmethod
+    def _from_payload(cls, payload: dict[str, Any]) -> "KNNBCPolicy":
         return cls(
             features=np.asarray(payload["features"], dtype=float),
             actions=np.asarray(payload["actions"], dtype=float),
@@ -143,6 +151,10 @@ class SequenceKNNBCPolicy:
     @classmethod
     def load(cls, path: str | Path) -> "SequenceKNNBCPolicy":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls._from_payload(payload)
+
+    @classmethod
+    def _from_payload(cls, payload: dict[str, Any]) -> "SequenceKNNBCPolicy":
         return cls(
             features=np.asarray(payload["features"], dtype=float),
             action_sequences=np.asarray(payload["action_sequences"], dtype=float),
@@ -185,18 +197,18 @@ class TaskRoutedLinearBCPolicy:
     def predict_action(self, observation: dict[str, Any]) -> Any:
         if not self.current_task_id:
             raise RuntimeError("Task-routed BC policy was used before reset(task=...)")
-        try:
-            return self._model_for_task(self.current_task_id).predict_action(observation)
-        except KeyError:
+        model = self._model_for_task(self.current_task_id)
+        if model is None:
             return _zero_action(observation)
+        return model.predict_action(observation)
 
-    def _model_for_task(self, task_id: str) -> BCModel:
+    def _model_for_task(self, task_id: str) -> BCModel | None:
         key = _checkpoint_key(task_id)
         if key not in self._models:
             path = self.checkpoint_dir / f"{key}.json"
             if not path.exists():
                 if self.missing_task == "zero":
-                    raise KeyError(key)
+                    return None
                 raise RuntimeError(
                     f"Task BC checkpoint not found for task '{task_id}': {path}. "
                     "Train one checkpoint per task under NYSSA_TASK_BC_DIR or set NYSSA_TASK_BC_MISSING=zero."
@@ -390,11 +402,11 @@ def load_bc_policy(path: str | Path) -> BCModel:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     checkpoint_format = str(payload.get("format", "nyssa-linear-bc-v1"))
     if checkpoint_format == "nyssa-linear-bc-v1":
-        return LinearBCPolicy.load(path)
+        return LinearBCPolicy._from_payload(payload)
     if checkpoint_format == "nyssa-knn-bc-v1":
-        return KNNBCPolicy.load(path)
+        return KNNBCPolicy._from_payload(payload)
     if checkpoint_format == "nyssa-sequence-knn-bc-v1":
-        return SequenceKNNBCPolicy.load(path)
+        return SequenceKNNBCPolicy._from_payload(payload)
     raise RuntimeError(f"Unsupported BC checkpoint format: {checkpoint_format}")
 
 
@@ -509,28 +521,18 @@ def _load_episode_zip(path: Path) -> list[dict[str, Any]]:
 
 def _episode_zip_members(archive: zipfile.ZipFile) -> list[str]:
     candidates = sorted(
-        name
-        for name in archive.namelist()
-        if name.endswith("episodes.json") and "recovery_dataset" not in {part.lower() for part in name.split("/")}
+        entry.filename
+        for entry in archive.infolist()
+        if not entry.is_dir()
+        and PurePosixPath(entry.filename).name == "episodes.json"
+        and "recovery_dataset" not in {part.lower() for part in PurePosixPath(entry.filename).parts}
     )
-    root_members = [name for name in candidates if _looks_like_root_episode_file(name)]
-    return root_members or candidates
-
-
-def _looks_like_root_episode_file(name: str) -> bool:
-    parent = name.rsplit("/", 1)[0]
-    leaf = parent.rsplit("/", 1)[-1]
-    return leaf not in {
-        "maniskill_pick_cube",
-        "maniskill_push_cube",
-        "maniskill_stack_cube",
-        "maniskill_pick_cube_joint",
-        "maniskill_push_cube_joint",
-        "maniskill_stack_cube_joint",
-        "mujoco_reacher",
-        "mujoco_pusher",
-        "mujoco_inverted_pendulum",
-    }
+    # An aggregate supersedes only its own descendants, regardless of task name.
+    directories = {PurePosixPath(name).parent for name in candidates}
+    return [
+        name for name in candidates
+        if not any(parent in directories for parent in PurePosixPath(name).parent.parents)
+    ]
 
 
 def _episode_files(path: Path) -> list[Path]:
@@ -538,14 +540,13 @@ def _episode_files(path: Path) -> list[Path]:
         return [path]
     if not path.exists():
         return []
-    root_episodes = path / "episodes.json"
-    if root_episodes.exists():
-        return [root_episodes]
-    return sorted(
-        candidate
-        for candidate in path.rglob("episodes.json")
-        if "recovery_dataset" not in {part.lower() for part in candidate.parts}
-    )
+    files = []
+    for directory, subdirectories, filenames in os.walk(path):
+        subdirectories[:] = [name for name in subdirectories if name.lower() != "recovery_dataset"]
+        if "episodes.json" in filenames:
+            files.append(Path(directory) / "episodes.json")
+            subdirectories.clear()  # Skip per-task copies beneath this aggregate.
+    return sorted(files)
 
 
 def _flatten_bc_observation(observation: dict[str, Any], feature_dim: int) -> np.ndarray:

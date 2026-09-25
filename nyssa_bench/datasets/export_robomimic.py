@@ -132,10 +132,12 @@ def validate_robomimic_observations(
 
 
 def robomimic_observation_quality(episodes: list[EpisodeResult], *, feature_dim: int) -> dict[str, Any]:
+    if feature_dim <= 0:
+        raise ValueError("feature_dim must be positive")
     total_steps = 0
     payload_steps = 0
-    feature_sum = np.zeros(feature_dim, dtype=float)
-    feature_square_sum = np.zeros(feature_dim, dtype=float)
+    feature_mean = np.zeros(feature_dim, dtype=float)
+    feature_m2 = np.zeros(feature_dim, dtype=float)
     for episode in episodes:
         for step in episode.steps:
             observation = _without_simulator_state(step.observation)
@@ -143,12 +145,18 @@ def robomimic_observation_quality(episodes: list[EpisodeResult], *, feature_dim:
             if observation_numeric_values(observation, max_values=1):
                 payload_steps += 1
             features = flatten_observation(observation, feature_dim)
-            feature_sum += features
-            feature_square_sum += np.square(features)
+            if not np.all(np.isfinite(features)):
+                raise ValueError(
+                    f"RoboMimic observation contains non-finite features at "
+                    f"task={episode.task_id!r}, episode={episode.episode_index}"
+                )
+            # Welford's update avoids cancellation for large observation offsets.
+            delta = features - feature_mean
+            feature_mean += delta / total_steps
+            feature_m2 += delta * (features - feature_mean)
 
     if total_steps:
-        mean = feature_sum / total_steps
-        variance = np.maximum(feature_square_sum / total_steps - np.square(mean), 0.0)
+        variance = np.maximum(feature_m2 / total_steps, 0.0)
         variance_max = float(np.max(variance))
         active_features = int(np.count_nonzero(variance > MIN_FEATURE_VARIANCE))
     else:
