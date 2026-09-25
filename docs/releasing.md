@@ -22,6 +22,12 @@ pushing the first tag.
 
 ## Version contract
 
+Normal version bumps are proposed by Release Please after successful main CI.
+Conventional PR titles determine the bump, and the version PR updates the
+changelog and package version together. See [GitHub automation](github_automation.md)
+for the release PR, explicit CI dispatch, and squash-merge flow. The existing
+protected publishing environments still govern PyPI and TestPyPI publication.
+
 `nyssa_bench/version.py` is the only package-version source. Hatch reads it
 through `[tool.hatch.version]`, and the CLI exposes it through `nyssa --version`.
 The release workflow rejects a tag unless it exactly equals `v<version>`.

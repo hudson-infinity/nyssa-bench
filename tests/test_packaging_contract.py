@@ -34,6 +34,18 @@ def test_distribution_identity_and_version_are_single_sourced() -> None:
         validate_release_version("v9.9.9")
 
 
+def test_release_manifest_cannot_drift_from_package_version(tmp_path, monkeypatch):
+    import scripts.validate_release_version as validator
+
+    (tmp_path / "pyproject.toml").write_text(
+        (ROOT / "pyproject.toml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / ".release-please-manifest.json").write_text('{".": "9.9.9"}')
+    monkeypatch.setattr(validator, "ROOT", tmp_path)
+    with pytest.raises(ValueError, match="manifest must match"):
+        validator.validate_release_version()
+
+
 def test_package_metadata_uses_hudson_identity_and_public_urls() -> None:
     project = _pyproject()["project"]
 

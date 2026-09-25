@@ -1,0 +1,49 @@
+name: PR automation
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft, labeled, unlabeled]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Optional PR number to label and evaluate (0 only synchronizes labels)
+        default: "0"
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  statuses: write
+  actions: write
+
+concurrency:
+  group: pr-automation-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || inputs.pr_number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  automate:
+    name: PR automation
+    runs-on: ubuntu-latest
+    steps:
+      # Privileged jobs execute only code already merged into the default branch.
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+      - uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.user.login == 'dependabot[bot]'
+        id: dependabot
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          UPDATE_TYPE: ${{ steps.dependabot.outputs.update-type }}
+          MAINTAINER_CHANGES: ${{ steps.dependabot.outputs.maintainer-changes }}
+        with:
+          script: |
+            await require('./scripts/github/pr.cjs').run({github, context, core});

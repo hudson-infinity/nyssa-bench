@@ -308,6 +308,13 @@ and replay evidence required by the benchmark tier.
 
 ## Pull Request Expectations
 
+Use a conventional PR title (`fix:`, `feat:`, `docs:`, `ci:`, and similar).
+Add `!` for an intentional breaking change. PRs merge by squash only after
+required CI passes; the title becomes the squash commit title and determines
+the next automated version bump. Add `automerge` to opt in, or `hold` to block
+the merge bot. See [GitHub automation](docs/github_automation.md) for label,
+Dependabot, release PR, and CI-gate behavior.
+
 Open a draft while work or required simulator validation is incomplete. Mark it
 ready when the diff is scoped, checks pass, and required artifacts are
 available. A reviewable PR should:
