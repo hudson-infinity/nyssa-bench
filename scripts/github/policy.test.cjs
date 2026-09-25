@@ -149,17 +149,41 @@ test('dependency eligibility must be verified for the current SHA', async () => 
   const args = mockMerge();
   args.pr.user.login = 'dependabot[bot]';
   args.pr.labels = [{name: 'automerge:dependencies'}];
-  args.github.rest.repos = {getCombinedStatusForRef: async input => {
+  const files = args.github.paginate;
+  args.github.rest.repos = {listCommitStatusesForRef: async input => {
     assert.equal(input.ref, 'abc');
-    return {data: {statuses: []}};
+    return [];
   }};
+  args.github.paginate = async (method, input) => method === args.github.rest.repos.listCommitStatusesForRef
+    ? method(input) : files(method, input);
   assert.equal(await maybeMerge(args, 7), false);
   assert.deepEqual(args.calls, []);
-  args.github.rest.repos.getCombinedStatusForRef = async () => ({data: {statuses: [{
+  args.github.rest.repos.listCommitStatusesForRef = async () => [{
     context: 'Dependabot policy', state: 'success', description: 'Verified patch/minor update',
     creator: {login: 'github-actions[bot]'},
-  }]}});
+  }];
   assert.equal(await maybeMerge(args, 7), true);
+});
+
+test('a newer denial or another creator cannot reuse an older dependency approval', async () => {
+  for (const override of [
+    {description: 'Manual opt-in required'}, {state: 'pending'},
+    {creator: {login: 'other-user'}}, {creator: undefined},
+  ]) {
+    const args = mockMerge();
+    args.pr.user.login = 'dependabot[bot]';
+    args.pr.labels = [{name: 'automerge:dependencies'}];
+    const approved = {context: 'Dependabot policy', state: 'success',
+      description: 'Verified patch/minor update', creator: {login: 'github-actions[bot]'}};
+    const files = args.github.paginate;
+    args.github.rest.repos = {listCommitStatusesForRef: async () => [
+      {...approved, ...override}, approved,
+    ]};
+    args.github.paginate = async (method, input) => method === args.github.rest.repos.listCommitStatusesForRef
+      ? method(input) : files(method, input);
+    assert.equal(await maybeMerge(args, 7), false);
+    assert.deepEqual(args.calls, []);
+  }
 });
 
 test('label reconciliation removes stale generated labels but keeps human controls', async () => {
