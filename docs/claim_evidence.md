@@ -3,9 +3,7 @@
 NyssaBench keeps project positioning separate from research goals. The current
 public description is:
 
-> NyssaBench is an open-source failure-aware evaluation and audit framework for
-> embodied AI policies, built toward foundational infrastructure for evaluating
-> frontier robot systems.
+> NyssaBench is an open-source evaluation and audit framework for robot policies.
 
 That sentence describes the implemented framework. It does not claim validated
 frontier-policy coverage, a completed reference benchmark, simulator-backed CI,
