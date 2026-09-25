@@ -136,9 +136,11 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           BUILD_DATE=$(git show -s --format=%cI "${GITHUB_SHA}")
-          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "short_sha=${GITHUB_SHA::12}" >> "${GITHUB_OUTPUT}"
-          echo "build_date=${BUILD_DATE}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "version=${VERSION}"
+            echo "short_sha=${GITHUB_SHA::12}"
+            echo "build_date=${BUILD_DATE}"
+          } >> "${GITHUB_OUTPUT}"
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       - name: Build amd64 image for smoke testing
