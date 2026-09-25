@@ -1,875 +1,240 @@
 # NyssaBench
 
-**NyssaBench is an open-source failure-aware evaluation and audit framework for embodied AI policies, built toward foundational infrastructure for evaluating frontier robot systems.**
+[![CI](https://github.com/hudson-infinity/nyssa-bench/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hudson-infinity/nyssa-bench/actions/workflows/ci.yml)
+[Documentation](docs/index.md) · [Quickstart](#quickstart) · [Contributing](CONTRIBUTING.md) · [Apache 2.0](LICENSE)
 
-Run reproducible robot-policy benchmarks, stress-test failures, audit benchmark
-claims, compare policies, and export simulation data for training.
+NyssaBench is an open-source evaluation and audit framework for robot policies.
 
-NyssaBench is not a simulator. It is a benchmark and audit framework designed
-to measure how robot policies fail under real-world variation. It sits on top of robotics simulators
-such as ManiSkill and MuJoCo, with experimental adapter boundaries for RoboCasa
-and Genesis. Public scorecards must pass the run claim validator; experimental
-adapters and placeholder task mappings are not public benchmark claims.
+Evaluate a policy in MuJoCo or ManiSkill with controlled disturbances. Each run
+records actions, failure events, recovery attempts, and replay evidence alongside
+its metrics, so you can inspect where a policy failed and assess changes to it.
 
-Within Hudson Labs, NyssaBench is the evaluation project, not the umbrella for
-generated worlds, real-to-sim reconstruction, interpretability methods, policy
-training, or hosted products. Those systems can exchange versioned inputs and
-evidence with NyssaBench through stable interfaces. See the
-[project scope](docs/project_scope.md) before proposing a new subsystem.
-Code-level reuse and ownership decisions are pinned in the
-[adjacent-framework architecture record](docs/architecture_decisions/0001-adjacent-evaluation-frameworks.md).
-Current and milestone claims are tracked in the machine-validated
-[claim evidence matrix](docs/claim_evidence.md).
+## What you can evaluate
 
-Capability labels are evidence terms: `implemented` means code and deterministic
-tests exist; `integration_only` means an adapter path has not passed a validated
-track; `experimental` is not eligible for public benchmark claims; and `planned`
-is roadmap scope. The repository currently has no headline result pack approved
-by the claim evidence gate.
+- Run registered policies or your own Python adapter on shared task definitions
+  with reproducible episode seeds.
+- Apply visual, sensor, action, system, and dynamics stressors. Results record
+  which changes the backend actually applied.
+- Inspect temporal failure events, including collision, contact loss, and
+  stalled progress, with their supporting evidence.
+- Compare verifier and recovery interventions. Matched continuation/recovery
+  branches measure recovery effects when the components support state restoration.
+- Compare checkpoints, audit result validity, and export rollout or recovery
+  data for downstream training.
 
-Release artifacts are built and tested as installed wheels outside the source
-checkout. See [installed artifact validation](docs/installed_artifact_validation.md).
-Tagged releases also build wheel-only core, MuJoCo, and ManiSkill images plus a
-content-addressed compatibility bundle; see [Docker and release bundles](docs/docker.md).
-Real simulator checks run separately under the
-[simulator-backed CI protocol](docs/simulator_ci.md).
-The six interoperable evaluation contracts are versioned under
-[Nyssa Evaluation Protocol 0.1](docs/nyssa_evaluation_protocol.md).
-External policy authors can generate a packaged example and run strict preflight
-through the [policy conformance quickstart](docs/external_policy_quickstart.md).
-Validated real-evidence packages can be analyzed through the prespecified
-[paired sim-real study](docs/sim_real_study.md) module.
-The staged [Phase 1 credibility gate](docs/phase1_credibility_gate.md) keeps
-source-complete measurement infrastructure separate from reference-benchmark
-and predictive sim-real evidence. The committed state passes Gate A; Gates B
-and C remain missing rather than being inferred from documentation.
-The 12-task [reference benchmark candidate](docs/reference_benchmark.md) fixes
-the intended task, split, and power contracts, but remains non-claimable until
-its protected commitments and oracle/learned-policy evidence are collected.
-The [policy-track registry](docs/policy_tracks.md) similarly keeps planner,
-RoboMimic, diffusion, and VLA adapters at `integration_only` until their actual
-checkpoints and paired result packs pass the shared track audit.
-The draft [hardware calibration protocol](docs/hardware_calibration.md) freezes
-the matched sim-real design, safety, governance, exclusions, and analyses before
-any real trial can support predictive wording.
+Success, robustness, failure, recovery, safety, compute, and sim-real measurements
+remain separate in the [metric vector](docs/metrics.md).
+
+## Quickstart
+
+Use Python 3.11 and [uv](https://docs.astral.sh/uv/getting-started/installation/)
+for this MuJoCo example. Start from a source checkout and install the simulator
+and report dependencies in one environment:
 
 ```bash
-uv run nyssa credibility-gate claims/phase1_credibility.json \
-  --repo-root . \
-  --out build/credibility
+git clone https://github.com/hudson-infinity/nyssa-bench.git
+cd nyssa-bench
+uv sync --locked --python 3.11 --extra mujoco --extra reports
 ```
+
+Run three episodes of the inverted-pendulum task:
+
+```bash
+uv run nyssa run \
+  --suite mujoco_control_v0 \
+  --tasks mujoco_inverted_pendulum \
+  --engine mujoco \
+  --policy random \
+  --episodes 3 \
+  --seed 0 \
+  --out runs/quickstart \
+  --no-replay
+```
+
+Open `runs/quickstart/report.html` in a browser. The random policy is a control
+for checking the evaluation pipeline; use your own policy for performance studies.
+Remove `--tasks mujoco_inverted_pendulum` to run the whole MuJoCo control suite.
+
+`--no-replay` lets you check the pipeline before setting up rendering. To record
+videos, configure the host graphics libraries described in the
+[installation guide](docs/installation.md#rendering-system-packages), then omit
+that flag and choose a new output directory. Public result claims require replay
+evidence and the relevant validity checks.
+
+Discover the available configurations and commands:
+
+```bash
+uv run nyssa list-suites
+uv run nyssa list-tasks
+uv run nyssa list-policies
+uv run nyssa list-stressors
+uv run nyssa --help
+```
+
+### Python API
+
+The same evaluation is available from Python:
 
 ```python
 from nyssa_bench import PolicyRunner, Suite
 
-suite = Suite.load("mujoco_control_v0")
-
+suite = Suite.load("mujoco_control_v0").filter_tasks(["mujoco_inverted_pendulum"])
 runner = PolicyRunner(
     policy="random",
     engine="mujoco",
-    episodes=10,
-    seed=42,
-    out="runs/random_mujoco",
+    episodes=3,
+    seed=0,
+    out="runs/python_quickstart",
+    capture_replay=False,
 )
-
 report = runner.evaluate(suite)
-report.save("runs/random_mujoco/report.html")
+print(report.summary["success_rate"])
 ```
 
-## Install
+## Inspect and reuse a run
 
-Install the core library and the `nyssa` command from PyPI:
+Each run keeps its measurements and the evidence used to produce them together.
+Start with these files:
+
+| Artifact | Contents |
+| --- | --- |
+| `report.html` | Metrics, failure summaries, and validation status |
+| `metrics.json` | Aggregate metrics, uncertainty, and the metric vector |
+| `episodes.json` / `episodes.jsonl` | Episode identities and recorded transitions |
+| `failure_ledger.json` | Temporal failure events and supporting evidence |
+| `stressor_manifest.json` | Requested conditions, application status, and backend evidence |
+| `dataset_manifest.json` | Provenance, task contracts, and artifact hashes |
+| `run.yaml` | Run configuration and evaluation settings |
+
+Replay-enabled runs also include videos and replay pages. Recovery and
+counterfactual studies add their own records. See the
+[report guide](docs/reports.md) and [recovery workflows](docs/recovery_workflows.md).
+
+Regenerate the report or export the quickstart episodes:
 
 ```bash
-python -m pip install nyssa-bench
-nyssa --help
-nyssa --version
+uv run nyssa report runs/quickstart
+uv run nyssa export --run runs/quickstart --format jsonl
 ```
 
-The default package contains the API, CLI, bundled benchmark configuration, and
-lightweight validation dependencies. It does not install a simulator, GPU
-framework, plotting stack, dataset stack, or learned-policy framework.
+The [dataset export guide](docs/dataset_export.md) covers HDF5, RoboMimic,
+Parquet, and the lightweight LeRobot format. For evidence handoff to a learning
+system, use the [learning evidence export](docs/learning_evidence_export.md).
 
-Install one complete simulator workflow when needed:
+## Add your policy
+
+Start with a runnable state-policy example and its contract:
 
 ```bash
-python -m pip install "nyssa-bench[mujoco]"
-python -m pip install "nyssa-bench[maniskill]"
+uv run nyssa write-policy-example --kind state --out runs/policy_example
+uv run nyssa conform-policy \
+  --policy runs/policy_example/state_policy.py \
+  --policy-contract runs/policy_example/state_policy_contract.json \
+  --suite mujoco_control_v0 \
+  --task mujoco_inverted_pendulum \
+  --engine mujoco \
+  --episodes 1 \
+  --out runs/policy_example/conformance
 ```
 
-Both simulator extras include replay encoding dependencies because supported
-evaluation runs capture video by default. Use Python 3.10 for ManiSkill/Linux
-runs. Some ManiSkill planning dependencies
-publish wheels for CPython 3.10 but not newer Python ABIs, so Python 3.12 can
-fail during dependency resolution.
-The ManiSkill install path uses the same validated ManiSkill 3.0.1 and PyTorch
-2.6.0 runtime as the CUDA 12.4 container. The VLA and diffusion extras pair that
-PyTorch release with torchvision 0.21.0. These constraints prevent a fresh
-installation from silently selecting a newer CUDA runtime than the documented
-driver contract. NumPy remains below 2.0 because ManiSkill motion-planning
-dependencies such as `toppra` include compiled extensions that can fail with a
-NumPy 2 ABI mismatch.
+A policy file exposes `create_policy()` or `PolicyAdapter` and returns an
+object with `act(observation)`. The conformance check exercises metadata,
+reset behavior, observations, actions, and a small rollout before a larger study.
+
+Follow the [external policy quickstart](docs/external_policy_quickstart.md) to
+adapt the example to your checkpoint. The [adapter reference](docs/policy_adapters.md)
+covers the RoboMimic, LeRobot, diffusion, and VLA hooks. Their checkpoint and
+runtime dependencies are installed separately.
+
+## Run a study
+
+Apply a built-in action-delay condition to the quickstart task:
 
 ```bash
-uv python install 3.10
-uv venv --python 3.10 .venv
-source .venv/bin/activate
-python --version
-```
-
-For a contributor source checkout, install the canonical development and stable
-benchmark environment:
-
-```bash
-uv sync --extra all --extra dev
-```
-
-`uv sync` is exact by default. A later sync that omits an extra can remove
-packages installed by an earlier sync, so repeat the canonical command after
-pulling dependency changes. Do not run separate exact sync commands as additive
-installation steps.
-
-For a dedicated lightweight environment, select one complete workflow in a
-single command:
-
-```bash
-uv sync --extra dev --extra mujoco --extra dataset --extra video --extra reports
-uv sync --extra dev --extra maniskill --extra dataset --extra video --extra reports
-```
-
-Use the first command for MuJoCo-only work or the second for ManiSkill-only
-work. To add policy stacks to an existing lean environment without removing its
-installed packages, use one inexact sync:
-
-```bash
-uv sync --inexact --extra lerobot --extra robomimic --extra vla --extra diffusion
-```
-
-If an older environment already installed NumPy 2, reinstall the planning stack
-after pulling the latest dependency pin:
-
-```bash
-uv pip install "numpy==1.26.4"
-uv pip install --force-reinstall --no-build-isolation --no-cache-dir "toppra==0.6.3"
-```
-
-Plain `python -m pip install -e ".[all,dev]"` is the equivalent contributor
-install if you are not using `uv`. End users should use the non-editable PyPI
-commands above.
-
-Simulator video capture also requires system rendering libraries. On
-Ubuntu/Debian GPU machines, install and verify them before running public
-benchmark commands:
-
-```bash
-bash scripts/setup_rendering_linux.sh
-vulkaninfo --summary
-nvidia-smi
-```
-
-If `vulkaninfo --summary` cannot see a Vulkan device, ManiSkill can still run
-some CPU-side simulation paths but replay videos will not be produced. Public
-NyssaBench benchmark claims require MP4 replay evidence for every episode.
-If `vulkaninfo --summary` reports only `llvmpipe`, the machine is using CPU
-Vulkan. Install the NVIDIA Vulkan ICD/GL packages that match the host driver,
-for example `nvidia-utils-535` and `libnvidia-gl-535` on driver branch 535.
-MuJoCo `rgb_array` replay on headless Linux defaults to EGL when `DISPLAY` is
-missing, which avoids GLFW/X11 crashes in Colab-style sessions. If your machine
-requires a specific backend, set `MUJOCO_GL=egl` or `MUJOCO_GL=osmesa` before
-launching `nyssa`.
-
-On macOS, MuJoCo smoke runs usually need the Python extras plus native GLFW:
-
-```bash
-brew install glfw
-```
-
-ManiSkill video-backed result packs are expected to run on native Linux machines
-with a working NVIDIA/Vulkan stack. Upstream ManiSkill supports CPU simulation
-under WSL but not GPU simulation or rendering, so WSL cannot produce the replay
-evidence required for public NyssaBench claims.
-On managed notebooks such as Lightning AI, ManiSkill may fail with
-`Failed to find a supported physical device "cuda:0"` if the session has no
-compatible render device. Select a GPU/Vulkan-capable runtime, or set
-`NYSSA_MANISKILL_RENDER_DEVICE` and `NYSSA_MANISKILL_SIM_BACKEND` before
-launching `nyssa` to match the device exposed by the host. For non-public
-debugging on CPU-only sessions, set `NYSSA_MANISKILL_RENDER_MODE=none` and use
-`--no-replay`; public claims still require replay videos.
-
-When an experiment or ablation result pack is assembled, NyssaBench revalidates
-the replay artifacts currently on disk instead of trusting the status cached in
-each run's `metrics.json`. The pack manifest, scorecard, and `RESULTS.md` report
-expected, present, missing, extra, failure-clip, gallery, and duplicate-media
-counts. Failure clips and duplicate files never increase per-episode replay
-coverage, and missing or unsafe replay paths downgrade the pack to non-public.
-
-Run completeness is separate from benchmark validity. Use `nyssa
-audit-benchmark <spec> --out benchmark_validity.json`, then pass the validated
-report with `--benchmark-validity`. Missing, failed, or tampered audit evidence
-cannot satisfy the public claim gate. See
-[Benchmark validity](docs/benchmark_validity.md).
-
-Do not use `pip install -e ".[full]"` for normal benchmark runs. The `full`
-extra intentionally pulls heavy experimental stacks, including Genesis,
-RoboMimic, LeRobot, VLA, and diffusion dependencies, and native packages in
-those stacks can fail on otherwise valid MuJoCo or ManiSkill machines. Install
-only the extras for the workflow you are running.
-
-Docker images are provided under `docker/` for core, ManiSkill, and MuJoCo environments.
-
-Experimental adapters for RoboCasa and Genesis are included in the repo. Their integration contracts live in `configs/experiments/`; contract validation works without heavyweight assets, and full simulator runs require concrete task-to-scene mappings plus upstream setup. Install RoboCasa from upstream in a separate environment when working on that adapter; its current dependency stack is not compatible with the ManiSkill motion-planning NumPy 1.26 setup.
-
-## First Run
-
-The MuJoCo commands require the MuJoCo install command above. They create two
-real run directories before report, export, compare, leaderboard, and scorecard
-commands are called.
-
-```bash
-uv run nyssa list-suites
-
 uv run nyssa run \
   --suite mujoco_control_v0 \
+  --tasks mujoco_inverted_pendulum \
   --engine mujoco \
   --policy random \
-  --episodes 10 \
-  --seed 0 \
-  --out runs/random_mujoco_seed0
-
-uv run nyssa run \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy random \
-  --episodes 10 \
-  --seed 1 \
-  --out runs/random_mujoco_seed1
-
-uv run nyssa report runs/random_mujoco_seed0
-uv run nyssa export --run runs/random_mujoco_seed0 --format lerobot
-uv run nyssa export --run runs/random_mujoco_seed0 --format jsonl
-uv run nyssa compare runs/random_mujoco_seed0 runs/random_mujoco_seed1 --out reports/compare.html
-uv run nyssa leaderboard runs/random_mujoco_seed0 runs/random_mujoco_seed1 --out reports/leaderboard.json
-uv run nyssa scorecard runs/random_mujoco_seed0 runs/random_mujoco_seed1 --out benchmark_results/baselines_v0.json
-```
-
-Comparison commands validate a versioned contract before ranking runs. Suite, engine, task set, success predicates, declared stressors, episodes per task, and seed-protocol semantics must match; policy identity and concrete run seeds may differ. Incompatible runs are rejected with field-level differences. Use `--allow-incompatible` only to emit an explicitly non-comparable exploratory report or leaderboard.
-
-## Executable Stressors
-
-NyssaBench includes typed visual, sensor, action, system, and dynamics
-stressors. Apply a versioned condition with `--stressor-config`; requested and backend-confirmed
-parameters are recorded in `stressor_manifest.json`, episode artifacts, replay
-metadata, and the run manifest.
-
-```bash
-uv run nyssa list-stressors
-
-uv run nyssa run \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy random \
-  --episodes 20 \
+  --episodes 3 \
   --seed 0 \
   --stressor-config configs/stressors/action_delay_s05.yaml \
-  --out benchmark_results/action_delay/s05 \
+  --out runs/action_delay \
   --no-replay
 ```
 
-To measure whether recovery changes the outcome, add matched state-fork
-branches. This is opt-in because it executes extra simulator trajectories:
+Use the same task definitions and episode seeds across conditions. This small
+run checks the stressor pipeline; a robustness study also needs a matched clean
+condition, severity coverage, and uncertainty estimates.
+
+| Study | Guide |
+| --- | --- |
+| Clean and shifted performance across stressor severities | [Stressor protocol](docs/stressor_protocol.md) |
+| Verifier/recovery ablations and recovery-data collection | [Recovery workflows](docs/recovery_workflows.md) |
+| Recovery versus continuation from the same state | [Counterfactual recovery](docs/counterfactual_recovery.md) |
+| Policy comparisons with compatible evaluation contracts | [Policy comparison](docs/policy_comparison.md) |
+| Prespecified checkpoint pass/fail decisions | [Policy regression gates](docs/policy_regression_gates.md) |
+| Searching for failure boundaries | [Stress search](docs/stress_search.md) |
+| Training and evaluating the included BC baselines | [Learned baselines](docs/learned_baselines.md) |
+
+## Simulator support
+
+| Backend | Current scope |
+| --- | --- |
+| MuJoCo | Implemented adapter and Gymnasium control suite; installed-wheel smoke tests run in CI |
+| ManiSkill | Implemented manipulation adapter; use Python 3.10 and the documented Linux/Vulkan setup for planning and replay |
+| RoboCasa / Genesis | Experimental integration contracts; executable tasks require concrete scene mappings and upstream setup |
+
+The ManiSkill profile pins compatible versions of ManiSkill, PyTorch, and NumPy.
+GPU execution and replay need a capable host. Container metadata checks do not
+establish GPU simulator coverage.
+
+Choose a complete dependency profile in the
+[installation guide](docs/installation.md#canonical-environments).
+Use `uv sync --inexact --extra <name>` when adding extras to an existing environment;
+an exact sync can remove extras omitted from the command. The
+[Docker guide](docs/docker.md) covers the repository's container definitions.
+
+## Current evidence and limits
+
+NyssaBench is under active development. The measurement implementation has
+source and test evidence, while the reference benchmark, validated learned-policy
+tracks, and predictive hardware studies still need their required result evidence.
+The [claim evidence matrix](docs/claim_evidence.md) currently approves no headline
+benchmark result pack.
+
+[Run validation](docs/validation_protocol.md) checks completeness and recorded
+evidence. [Benchmark audits](docs/benchmark_validity.md) check the evaluation
+design, including leakage and shortcuts. The
+[Phase 1 credibility gate](docs/phase1_credibility_gate.md) records what evidence
+is present and what is missing. A smoke test or passing adapter check does not
+establish robot performance or real-world predictive validity.
+
+NyssaBench owns evaluation and evidence contracts. World generation, scene
+reconstruction, general policy training, and hosted products belong in external
+projects that connect through those contracts. See the
+[project scope](docs/project_scope.md) and
+[Nyssa Evaluation Protocol](docs/nyssa_evaluation_protocol.md).
+
+## Contribute
+
+Bug reports, task contracts, simulator adapters, and policy integrations are
+welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the validation requirements
+and [API stability](docs/api_stability.md) before changing public contracts.
+
+To add development tools to the quickstart environment and run the baseline checks:
 
 ```bash
-uv run nyssa run \
-  --suite mujoco_control_v0 \
-  --tasks mujoco_pusher \
-  --engine mujoco \
-  --policy random \
-  --episodes 20 \
-  --seed 0 \
-  --expert-provider mujoco-heuristic \
-  --enable-verifier \
-  --enable-recovery \
-  --counterfactual-repeats 5 \
-  --counterfactual-horizon 10 \
-  --counterfactual-max-branch-points 1 \
-  --out benchmark_results/mujoco_counterfactual_smoke \
-  --no-replay
+uv sync --locked --inexact --extra dev
+uv run pytest -q
+uv run pre-commit run --all-files
 ```
 
-The run writes `counterfactual_recovery.json` with matched continuation and
-recovery outcomes, restoration fidelity, RNG matching, coverage, uncertainty,
-false interventions, harmful interventions, and intervention cost. See the
-[counterfactual recovery protocol](docs/counterfactual_recovery.md) before
-interpreting qualified or unsupported branch evidence.
+Pull requests use conventional titles and squash merges after required CI passes.
+The [automation guide](docs/github_automation.md) explains version PRs,
+dependency updates, and the `automerge` and `hold` labels.
 
-Use `nyssa robustness-report` on matched severity result packs to produce clean
-and shifted success, degradation, robustness AUC, Wilson intervals, and paired
-bootstrap uncertainty. See [the Stressor Protocol](docs/stressor_protocol.md)
-for the complete schema, support matrix, severity-sweep commands, composition
-rules, and ManiSkill GPU friction limitation.
+Report vulnerabilities through [SECURITY.md](SECURITY.md). This project follows
+the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Budgeted failure-boundary studies support deterministic random,
-Latin-hypercube, and adaptive samplers with resumable state and held-out
-confirmation. Start with `nyssa stress-search-init` and see
-[Stress search](docs/stress_search.md) for the complete workflow and evidence
-requirements.
-
-Checkpoint release decisions use a versioned, prespecified regression study
-over immutable baseline and candidate result packs. The gate checks exact
-episode pairing, evidence coverage, non-inferiority, blocking safety limits, and
-confirmed failure-boundary cases, then returns `pass`, `fail`, `inconclusive`,
-or `invalid` with stable CI exit codes. See
-[Policy regression gates](docs/policy_regression_gates.md).
-
-Streaming failure detectors localize collision, grasp/contact-loss, and
-no-progress events during an episode. Their versioned contracts, capability
-checks, lifecycle, and result-pack artifacts are documented in
-[Streaming failure detectors](docs/failure_detectors.md).
-
-External runtime failure monitors can be evaluated on timestamp-aligned policy
-actions with explicit deployable or privileged input contracts. NyssaBench
-retains independently recomputable prediction evidence and can link monitor
-recommendations to counterfactual recovery branches without mixing prediction
-and recovery claims. See [External failure monitors](docs/failure_monitors.md).
-
-External world-generation and scenario systems integrate through a
-content-addressed package contract; generation remains outside this repository.
-See [External scenario packages](docs/external_scenarios.md) for validation,
-execution, protected-asset, split-lineage, and conformance-fixture details.
-
-Real-robot programs and external reconstruction systems use the separate
-[real evidence ingestion contract](docs/real_evidence_ingestion.md), which
-preserves clocks, frames, units, failure provenance, uncertainty, mismatches,
-and governance without implementing reconstruction in NyssaBench.
-
-## Recovery And Ablation Runs
-
-Use `ablate` to run base, verifier, recovery, and verifier+recovery variants
-with one command. Start small before running public-scale episodes.
-
-MuJoCo smoke ablation:
-
-```bash
-uv run nyssa ablate \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy random \
-  --seeds 0 \
-  --episodes 5 \
-  --variants base verifier recovery verifier_recovery \
-  --expert-provider mujoco-heuristic \
-  --out benchmark_results/mujoco_ablation_smoke \
-  --no-replay
-```
-
-ManiSkill smoke ablation:
-
-```bash
-uv run nyssa ablate \
-  --suite maniskill_smoke_v0 \
-  --engine maniskill \
-  --policy random \
-  --seeds 0 \
-  --episodes 5 \
-  --variants base verifier recovery verifier_recovery \
-  --expert-provider maniskill-scripted \
-  --out benchmark_results/maniskill_ablation_smoke \
-  --capture-replay
-```
-
-Useful built-in expert providers:
-
-- `none`: no expert, verifier, or recovery assistance.
-- `bounds-verifier`: rejects actions outside the live action space.
-- `maniskill-scripted`: built-in ManiSkill scripted manipulation heuristic.
-- `scripted-oracle`: alias for the built-in ManiSkill scripted expert.
-- `mujoco-heuristic`: calibrated short-horizon MuJoCo rollout verifier and recovery provider.
-- `mujoco-random-shooting`: current alias for the MuJoCo heuristic scaffold.
-- `policy:<name>`: use any registered Nyssa policy as the expert action source.
-
-MuJoCo verifier calibration can be tuned without code changes:
-
-```bash
-NYSSA_MUJOCO_ROLLOUT_HORIZON=3 \
-NYSSA_MUJOCO_ROLLOUT_MARGIN=0.25 \
-NYSSA_MUJOCO_CANDIDATES=32 \
-NYSSA_MUJOCO_PUSHER_SHAPING=5.0 \
-NYSSA_MUJOCO_ADAPTIVE_MARGIN=auto \
-NYSSA_MUJOCO_MARGIN_FRACTION=0.25 \
-NYSSA_MUJOCO_MARGIN_TOP_K=2 \
-NYSSA_MUJOCO_MARGIN_TOP_FRACTION=0.10 \
-NYSSA_MUJOCO_RECOVERY_TASKS=mujoco_pusher \
-uv run nyssa ablate ...
-```
-
-Higher `NYSSA_MUJOCO_ROLLOUT_MARGIN` rejects fewer learned-policy actions.
-Lower values make the verifier more intervention-heavy. Higher
-`NYSSA_MUJOCO_CANDIDATES` spends more simulator rollouts searching for a better
-recovery action, which is most useful on higher-dimensional tasks such as
-`mujoco_pusher`. `NYSSA_MUJOCO_PUSHER_SHAPING` adds Pusher-specific terminal
-rollout shaping from object-goal and arm-object distances when those MuJoCo
-body positions are available. Pusher also uses body-geometry guided recovery
-macro-plans: sparse local arm-control probes, approach behind the object, push
-toward the goal, and mixed approach-then-push sequences. Recovery executes the
-selected short-horizon plan instead of discarding every action after the first,
-but Pusher only commits sequential mixed plans by default so single-mode push or
-approach plans can replan every step.
-`NYSSA_MUJOCO_PUSHER_ACTION_SCALES` controls the guided action scales considered
-by the test-time planner, for example `0.5,1.0,1.5,2.0`.
-`NYSSA_MUJOCO_PUSHER_FINISH_SCALES` adds low-control push-and-settle candidates
-for near-threshold Pusher states where reducing control penalty can decide
-success.
-`NYSSA_MUJOCO_PUSHER_PLANNING_HORIZON` lets Pusher score candidates over a
-longer horizon than the execution horizon; the default is `15`.
-`NYSSA_MUJOCO_PUSHER_RECOVERY_EXECUTION_HORIZON` caps how many committed
-recovery actions run before replanning.
-`NYSSA_MUJOCO_RECOVERY_TASKS` controls where MuJoCo macro recovery is active;
-the default is `mujoco_pusher`, so full-suite `verifier_recovery` uses the
-rollout verifier on Reacher and InvertedPendulum without applying Pusher-tuned
-macro actions there. Set it to `all` or a comma-separated task list when a
-recovery planner has been validated for those tasks.
-MuJoCo rollout scoring also gives a large bonus to candidates that cross a
-task's configured `reward_threshold`, so near-success states prefer actions
-that satisfy the benchmark predicate rather than only improving shaped progress.
-`NYSSA_MUJOCO_ADAPTIVE_MARGIN=auto` switches Pusher to a margin derived from
-the near-best candidate return spread, which avoids fixed margins that are too
-large for small Pusher score gaps. `NYSSA_MUJOCO_MARGIN_TOP_FRACTION` controls
-how much of the top candidate cluster defines that local spread, unless
-`NYSSA_MUJOCO_MARGIN_TOP_K` is set. The default top-k setting is `2`, which uses
-only the best two rollout returns for local margin scale.
-
-The same hooks are available on `run` and `experiment`:
-
-```bash
-uv run nyssa run \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy random \
-  --episodes 10 \
-  --seed 0 \
-  --expert-provider mujoco-heuristic \
-  --enable-verifier \
-  --enable-recovery \
-  --out runs/mujoco_recovery_smoke \
-  --no-replay
-```
-
-Focus on a single task while debugging a weak task-specific result:
-
-```bash
-NYSSA_TASK_BC_DIR=checkpoints/recovery_bc_by_task \
-NYSSA_TASK_BC_MISSING=zero \
-NYSSA_MUJOCO_ROLLOUT_HORIZON=5 \
-NYSSA_MUJOCO_CANDIDATES=64 \
-NYSSA_MUJOCO_PUSHER_SHAPING=10.0 \
-NYSSA_MUJOCO_ADAPTIVE_MARGIN=auto \
-NYSSA_MUJOCO_MARGIN_FRACTION=0.25 \
-NYSSA_MUJOCO_MARGIN_TOP_K=2 \
-NYSSA_MUJOCO_MARGIN_TOP_FRACTION=0.10 \
-NYSSA_MUJOCO_RECOVERY_TASKS=mujoco_pusher \
-uv run nyssa ablate \
-  --suite mujoco_control_v0 \
-  --tasks mujoco_pusher \
-  --engine mujoco \
-  --policy task_bc_policy \
-  --seeds 0 \
-  --episodes 20 \
-  --variants base verifier recovery verifier_recovery \
-  --expert-provider mujoco-heuristic \
-  --out benchmark_results/mujoco_pusher_calibrated_debug \
-  --no-replay
-```
-
-Action-sequence policies can report and execute action chunks:
-
-```bash
-uv run nyssa run \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy path/to/action_chunk_policy.py \
-  --episodes 10 \
-  --seed 0 \
-  --policy-action-horizon 8 \
-  --policy-execution-horizon 4 \
-  --out runs/mujoco_action_chunk_smoke \
-  --no-replay
-```
-
-Each recovery-aware run writes:
-
-- `dataset_manifest.json`: provenance, task contracts, artifact hashes.
-- `recovery_dataset/manifest.json`: counts of supervised recovery targets and negative/context records.
-- `recovery_dataset/episodes.jsonl`: recovery context with explicit executed-action and target provenance.
-- `failure_gallery.html`: representative failed episodes and replay links.
-- `failure_ledger.json`: temporal symptoms, mechanisms, candidate causes,
-  consequences, evidence visibility, provenance, and recovery eligibility.
-- `metrics.json`: success, intervention, recovery, verifier, action-chunk, and compute metrics.
-
-Train the next task-routed BC checkpoints directly from one run directory or an
-entire ablation result root. This is the safe default for multi-task suites such
-as MuJoCo control, where tasks can have different action dimensions:
-
-Recovery dataset v2 records unsuccessful recovery attempts as
-`record_type: negative_context` with `target_valid: false`. Only actions whose
-`target_source` is `expert` or `recovery` are eligible for BC training; rejected
-policy actions remain auditable as `executed_action` and are never used as
-supervised targets. Legacy datasets are accepted only when their step metadata
-proves the action source.
-
-Recovery outcomes use `nyssa-recovery-outcomes-v1`. An attempt is counted when
-recovery is requested, but `recovery_success_rate` uses only attempts with a
-non-empty applied plan as its denominator. Success is attributed only when the
-task success predicate becomes true before a newer attempt and within the
-configured step window. The window starts at the first recovery action and is
-the larger of the configured horizon (five transitions by default) or the full
-recovery-plan length. `recovery_episode_success_rate` separately uses episodes
-with at least one applied recovery as its denominator. Configure the window for
-`run`, `experiment`, or `ablate` with `--recovery-attribution-horizon`.
-
-```bash
-uv run nyssa train-recovery-bc \
-  benchmark_results/mujoco_ablation_smoke \
-  --routing task \
-  --out-dir checkpoints/recovery_bc_by_task \
-  --merged-out benchmark_results/mujoco_recovery_training/episodes.json
-
-NYSSA_TASK_BC_DIR=checkpoints/recovery_bc_by_task \
-NYSSA_TASK_BC_MISSING=zero \
-NYSSA_MUJOCO_RECOVERY_TASKS=mujoco_pusher \
-uv run nyssa ablate \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy task_bc_policy \
-  --seeds 0 \
-  --episodes 5 \
-  --variants base verifier recovery verifier_recovery \
-  --expert-provider mujoco-heuristic \
-  --recovery-attribution-horizon 5 \
-  --out benchmark_results/mujoco_recovery_bc_ablation_smoke \
-  --no-replay
-```
-
-Closed-loop MuJoCo recovery smoke:
-
-```bash
-NYSSA_MUJOCO_RECOVERY_TASKS=mujoco_pusher \
-uv run nyssa ablate \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy random \
-  --seeds 0 \
-  --episodes 20 \
-  --variants base verifier recovery verifier_recovery \
-  --expert-provider mujoco-heuristic \
-  --out benchmark_results/mujoco_recovery_collect_v0 \
-  --no-replay
-
-uv run nyssa train-recovery-bc \
-  benchmark_results/mujoco_recovery_collect_v0 \
-  --routing task \
-  --out-dir checkpoints/recovery_bc_by_task \
-  --merged-out benchmark_results/mujoco_recovery_training_v0/episodes.json
-
-NYSSA_TASK_BC_DIR=checkpoints/recovery_bc_by_task \
-NYSSA_TASK_BC_MISSING=zero \
-uv run nyssa ablate \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy task_bc_policy \
-  --seeds 0 \
-  --episodes 20 \
-  --variants base verifier recovery verifier_recovery \
-  --expert-provider mujoco-heuristic \
-  --out benchmark_results/mujoco_recovery_bc_eval_v0 \
-  --no-replay
-
-uv run nyssa compare \
-  benchmark_results/mujoco_recovery_collect_v0/verifier_recovery/seed_0 \
-  benchmark_results/mujoco_recovery_bc_eval_v0/verifier_recovery/seed_0 \
-  --out reports/mujoco_recovery_bc_compare.html
-```
-
-For task-routed policies, emit one checkpoint per task under the existing
-`task_bc_policy` directory layout:
-
-```bash
-uv run nyssa train-recovery-bc \
-  benchmark_results/mujoco_ablation_smoke \
-  --by-task \
-  --out-dir checkpoints/bc_by_task
-
-NYSSA_TASK_BC_DIR=checkpoints/bc_by_task \
-NYSSA_TASK_BC_MISSING=zero \
-uv run nyssa run \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy task_bc_policy \
-  --episodes 10 \
-  --seed 0 \
-  --out runs/mujoco_task_recovery_bc_smoke \
-  --no-replay
-```
-
-After smoke runs pass, scale to public-claim settings:
-
-```bash
-NYSSA_MUJOCO_RECOVERY_TASKS=mujoco_pusher \
-uv run nyssa ablate \
-  --suite mujoco_control_v0 \
-  --engine mujoco \
-  --policy random \
-  --seeds 0 1 2 \
-  --episodes 100 \
-  --variants base verifier recovery verifier_recovery \
-  --expert-provider mujoco-heuristic \
-  --out benchmark_results/mujoco_ablation_v0 \
-  --capture-replay
-```
-
-Run the focused ManiSkill baseline matrix after installing the ManiSkill extras,
-collecting scripted demos, and training the repo-local BC checkpoint:
-
-```bash
-uv run nyssa experiment \
-  --suite maniskill_manipulation_v0 \
-  --engine maniskill \
-  --policies scripted_oracle \
-  --seeds 0 1 2 \
-  --episodes 100 \
-  --out benchmark_results/maniskill_manipulation_v0_demos
-
-uv run nyssa train-bc \
-  benchmark_results/maniskill_manipulation_v0_demos/scripted_oracle/seed_0/episodes.json \
-  benchmark_results/maniskill_manipulation_v0_demos/scripted_oracle/seed_1/episodes.json \
-  benchmark_results/maniskill_manipulation_v0_demos/scripted_oracle/seed_2/episodes.json \
-  --out checkpoints/bc_policy.json
-
-uv run nyssa export \
-  --run benchmark_results/maniskill_manipulation_v0_demos/scripted_oracle/seed_0 \
-  --format robomimic \
-  --out benchmark_results/maniskill_manipulation_v0_demos/scripted_oracle/seed_0/robomimic.hdf5
-
-NYSSA_BC_CHECKPOINT=checkpoints/bc_policy.json \
-uv run nyssa experiment \
-  --suite maniskill_manipulation_v0 \
-  --engine maniskill \
-  --policies random scripted_oracle bc_policy \
-  --seeds 0 1 2 \
-  --episodes 100 \
-  --out benchmark_results/maniskill_manipulation_v0
-```
-
-The run folder contains:
-
-```txt
-runs/random_mujoco_seed0/
-|-- config.yaml
-|-- run.yaml
-|-- environment.json
-|-- package_versions.json
-|-- git_info.json
-|-- metrics.json
-|-- metrics.csv
-|-- episodes.json
-|-- episodes.jsonl
-|-- dataset_manifest.json
-|-- recovery_dataset/
-|-- replay_manifest.json
-|-- replay.html
-|-- failure_gallery.html
-|-- videos/
-|-- failures/
-|-- plots/
-|-- lerobot/
-`-- report.html
-```
-
-`manifest.json` records the versioned
-`nyssa-result-pack-replay-validation-v1` audit for experiment and ablation
-packs. Episode replay paths must resolve to distinct MP4 files inside their run
-directory. `replay_manifest.json` must agree with `episodes.json`, and the
-episode denominator in `metrics.json` must agree with `run.yaml`.
-
-Import official ManiSkill motion-planning demonstrations before training
-planner-backed learned baselines:
-
-```bash
-uv run nyssa collect-maniskill-demos \
-  --env-ids PickCube-v1 PushCube-v1 StackCube-v1 \
-  --num-traj 100 \
-  --raw-dir demos/maniskill_motionplanning_raw \
-  --out benchmark_results/maniskill_manipulation_v0_planner_demos
-
-uv run nyssa import-maniskill-demos \
-  --input demos/maniskill_motionplanning \
-  --out benchmark_results/maniskill_manipulation_v0_planner_demos
-```
-
-`collect-maniskill-demos` runs ManiSkill's Panda motion-planning example and
-then imports the generated HDF5 files into Nyssa. If your installed ManiSkill
-version uses a different generator command, override it with
-`--command-template` or `NYSSA_MANISKILL_DEMO_COMMAND`. The template can use
-`{python}`, `{env_id}`, `{task_id}`, `{num_traj}`, `{raw_dir}`, and
-`{raw_task_dir}` placeholders.
-
-Evaluate behavior-cloned policies from those planner demos with the
-planner-aligned suite:
-
-```bash
-uv run nyssa train-task-bc \
-  benchmark_results/maniskill_manipulation_v0_planner_demos \
-  --out-dir checkpoints/maniskill_planner_task_bc \
-  --model sequence-knn \
-  --feature-dim 512 \
-  --action-horizon 16
-
-NYSSA_TASK_BC_DIR=checkpoints/maniskill_planner_task_bc \
-NYSSA_TASK_BC_MISSING=zero \
-uv run nyssa ablate \
-  --suite maniskill_planner_bc_v0 \
-  --engine maniskill \
-  --policy task_bc_policy \
-  --seeds 0 \
-  --episodes 20 \
-  --variants base \
-  --expert-provider maniskill-scripted \
-  --policy-action-horizon 16 \
-  --policy-execution-horizon 4 \
-  --out benchmark_results/maniskill_task_bc_smoke \
-  --capture-replay
-```
-
-`train-task-bc` accepts extracted result/import directories, direct
-`episodes.json` files, or zipped result packs. It recursively discovers nested
-`episodes.json` files and skips generated `recovery_dataset` folders.
-
-Use state-aligned demonstration replay as the validated ManiSkill teacher upper
-bound. This is an oracle/reference result, not a learned policy:
-
-```bash
-NYSSA_DEMO_REPLAY_DIR=benchmark_results/maniskill_manipulation_v0_planner_demos \
-NYSSA_DEMO_REPLAY_FEATURE_DIM=512 \
-uv run nyssa run \
-  --suite maniskill_planner_bc_v0 \
-  --engine maniskill \
-  --policy demo_replay_policy \
-  --episodes 10 \
-  --seed 0 \
-  --out runs/maniskill_demo_replay_smoke \
-  --capture-replay
-```
-
-For the repo-local BC baseline, prefer `task_bc_policy` with one checkpoint per
-task. See `docs/learned_baselines.md` for the exact training
-commands. For stronger learned baselines, use the RoboMimic export and
-`robomimic` or `task_robomimic` policy adapters documented there.
-
-For task-routed RoboMimic training, export one dataset and config per task from
-state-aligned rollout episodes containing live policy observations. Action-only
-motion-planning imports are not sufficient. The exporter rejects sources with
-less than 95% observation payload coverage or degenerate features and records
-per-task quality statistics in `task_robomimic_manifest.json`. It also maps
-every bounded simulator action to RoboMimic's required `[-1, 1]` training range
-and records the original per-task bounds. At evaluation, `task_robomimic`
-checks those bounds against the live environment and maps predictions back to
-the simulator action space. The manifest records training episode seeds, and
-the task policy refuses to evaluate those seeds unless
-`NYSSA_ALLOW_TRAINING_SEED_EVAL=1` is explicitly set for a nonpublishable
-diagnostic run.
-
-RoboMimic datasets exported before manifest format
-`nyssa-task-robomimic-export-v3` contain raw actions and must be re-exported and
-retrained. Increasing epochs on those older checkpoints cannot repair the
-action-space mismatch.
-
-Evaluate checkpoints from result-pack training sources on simulator seeds that
-do not occur in those sources. Reusing training rollout seeds is acceptable for
-a pipeline smoke test but invalidates a public generalization claim.
-
-Run seed values are namespaces, not the first element of an overlapping range.
-Under `nyssa-episode-seed-v2`, run seed `1` produces simulator episode seeds
-starting at `1000000`, while every task within that run receives the same seed
-sequence for paired analysis. Result packs generated before this protocol must
-be rerun before making an independent multi-seed claim.
-
-Failure-driven learning systems can use the versioned, content-addressed
-[learning evidence export](docs/learning_evidence_export.md). It preserves
-proposed, rejected, and executed actions, temporal failures, counterfactual
-branches, boundary context, and mandatory evaluation exclusions without
-implementing a training algorithm inside NyssaBench.
-
-Export one source directory or result ZIP:
-
-```bash
-uv run nyssa export-task-robomimic \
-  benchmark_results/maniskill_manipulation_v0_planner_demos \
-  --out-dir datasets/maniskill_robomimic_by_task \
-  --config-dir configs/generated/maniskill_robomimic_by_task \
-  --feature-dim 512 \
-  --epochs 50 \
-  --batch-size 64
-```
-
-Train the generated configs, then evaluate from the export directory directly.
-`task_robomimic` recursively discovers the latest per-task
-`model_epoch_*.pth` files and reads each checkpoint's observation feature
-dimension, so manual checkpoint copying and
-`NYSSA_ROBOMIMIC_FEATURE_DIM` are normally unnecessary:
-
-```bash
-uv run nyssa train-robomimic --config configs/generated/maniskill_robomimic_by_task/maniskill_pick_cube_bc.json
-uv run nyssa train-robomimic --config configs/generated/maniskill_robomimic_by_task/maniskill_push_cube_bc.json
-uv run nyssa train-robomimic --config configs/generated/maniskill_robomimic_by_task/maniskill_stack_cube_bc.json
-
-NYSSA_TASK_ROBOMIMIC_DIR=datasets/maniskill_robomimic_by_task \
-MUJOCO_GL=egl \
-PYOPENGL_PLATFORM=egl \
-uv run nyssa ablate \
-  --suite maniskill_planner_bc_v0 \
-  --engine maniskill \
-  --policy task_robomimic \
-  --seeds 10000 \
-  --episodes 20 \
-  --variants base \
-  --expert-provider maniskill-scripted \
-  --out benchmark_results/maniskill_task_robomimic_smoke \
-  --capture-replay
-```
-
-Validate optional simulator backends:
-
-```bash
-uv run python scripts/validate_backend.py maniskill
-uv run python scripts/validate_backend.py mujoco
-uv run python scripts/validate_backend.py robocasa
-uv run python scripts/validate_backend.py genesis
-```
-
-`robocasa` and `genesis` validate their experiment contracts by default. They only run full simulator checks after concrete task-to-scene mappings are added.
-
-Run the release check from a clean virtual environment:
-
-```bash
-uv run python scripts/release_smoke.py
-```
-
-## What Is Included In v0.1
-
-- Core benchmark API: load suite, load policy, run episodes, collect metrics, save replay videos, export datasets, generate reports.
-- Engine adapters: ManiSkill, MuJoCo, and experimental RoboCasa/Genesis adapters with explicit validation contracts.
-- Task YAML DSL for tabletop, warehouse, articulated-object, and stress-test suites.
-- Policy adapters: random, repo-local scripted heuristic, repo-local linear BC, robomimic checkpoint loading, LeRobot checkpoint loading, plus hook-only OpenVLA and diffusion adapters. External policy adapters accept `NYSSA_SCRIPTED_ORACLE_POLICY`, `NYSSA_BC_POLICY`, `NYSSA_LEROBOT_POLICY`, `NYSSA_OPENVLA_POLICY`, `NYSSA_ROBOMIMIC_POLICY`, or `NYSSA_DIFFUSION_POLICY` as `module:factory` entry points.
-- Baseline experiment command for policy/seed matrices and result-pack generation.
-- Recovery/ablation command for base, verifier, recovery, and verifier+recovery variants.
-- Expert-provider interface with built-in `bounds-verifier`, `maniskill-scripted`, `mujoco-heuristic`, and `policy:<name>` providers.
-- Action-sequence metadata and execution hooks for chunked policies.
-- Failure taxonomy, mapper-based failure labels, and aggregate metrics.
-- Typed executable stressors with deterministic severity, composition, state restoration, backend evidence, and robustness-sweep reports.
-- HTML reports, JSON metrics, recovery datasets, failure galleries, public-claim validation, and explicit unsupported-stressor handling.
-- Policy comparison reports, versioned metric vectors, and tradeoff-preserving leaderboard export.
-- Static leaderboard shell, protocol draft, scorecard structure, Docker files, and plugin API.
-- CLI, docs, examples, and tests.
-
-## Positioning
-
-NyssaBench helps robotics teams evaluate embodied AI policies under realistic variation before deploying them to real robots. It focuses on policy-agnostic evaluation, failure analysis, stress testing, replay-first reports, and dataset export rather than owning a physics engine.
+Built by Hudson Labs. Licensed under [Apache 2.0](LICENSE).
