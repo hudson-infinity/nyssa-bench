@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add weekly dependency bots, automatic PR labels, conventional-title release
+  PRs, and CI-gated squash merging with explicit downstream workflow dispatch.
+- Require applicable container checks, automation tests, and workflow linting
+  through a single aggregate CI gate; retain protected package publication.
 - Fix episode-source omission/duplication and avoid traversing per-task copies
   beneath aggregate exports; decode BC checkpoints once per load.
 - Preserve repeated episode identities in HDF5, reject non-finite RoboMimic

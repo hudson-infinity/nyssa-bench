@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    labels: [dependencies, "area:ci"]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      actions-patch-minor:
+        update-types: [minor, patch]
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    labels: [dependencies, "area:dependencies"]
+    commit-message:
+      prefix: "fix(deps)"
+    groups:
+      python-patch-minor:
+        update-types: [minor, patch]
+    # These versions are a validated simulator ABI contract, reviewed together.
+    ignore:
+      - dependency-name: torch
+      - dependency-name: torchvision
+      - dependency-name: mani-skill

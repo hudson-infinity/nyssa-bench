@@ -1,14 +1,7 @@
 name: Container CI
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/container-ci.yml"
-      - ".github/workflows/release.yml"
-      - "docker/**"
-      - "nyssa_bench/container_smoke.py"
-      - "pyproject.toml"
-      - "uv.lock"
+  workflow_call:
   workflow_dispatch:
 
 permissions:

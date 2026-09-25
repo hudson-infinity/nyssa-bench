@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import runpy
 from pathlib import Path
@@ -32,6 +33,9 @@ def validate_release_version(tag: str | None = None) -> str:
         raise ValueError("project version must be single-sourced through Hatch")
     if hatch.get("version", {}).get("path") != "nyssa_bench/version.py":
         raise ValueError("Hatch version path must be nyssa_bench/version.py")
+    manifest = ROOT / ".release-please-manifest.json"
+    if manifest.exists() and json.loads(manifest.read_text(encoding="utf-8")).get(".") != __version__:
+        raise ValueError("Release Please manifest must match nyssa_bench/version.py")
     if tag is not None and tag != f"v{__version__}":
         raise ValueError(
             f"release tag {tag!r} does not match package version v{__version__}"

@@ -95,7 +95,7 @@ repos:
         entry: python scripts/validate_release_version.py
         language: system
         pass_filenames: false
-        files: ^(pyproject\.toml|nyssa_bench/version\.py|scripts/validate_release_version\.py|\.github/workflows/release\.yml)$
+        files: ^(pyproject\.toml|nyssa_bench/version\.py|scripts/validate_release_version\.py|\.release-please-manifest\.json|release-please-config\.json|\.github/workflows/release.*\.yml)$
 
       - id: pytest
         name: run full pytest suite

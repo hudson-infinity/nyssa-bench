@@ -4,9 +4,49 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  actions: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  policy:
+    name: PR policy
+    runs-on: ubuntu-latest
+    outputs:
+      containers: ${{ steps.policy.outputs.containers }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        id: policy
+        with:
+          script: |
+            await require('./scripts/github/ci.cjs').ciPolicy({github, context, core});
+
+  automation:
+    name: Automation tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test automation decisions and GitHub API handling
+        run: node --test scripts/github/*.test.cjs
+      - name: Validate GitHub Actions workflows
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          "$(go env GOPATH)/bin/actionlint" -color
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -36,6 +76,27 @@ jobs:
             dist/
             distribution-validation.json
           if-no-files-found: error
+
+  containers:
+    needs: [policy, package]
+    if: needs.policy.outputs.containers == 'true'
+    uses: ./.github/workflows/container-ci.yml
+
+  ci-gate:
+    name: CI gate
+    if: always()
+    needs: [policy, automation, test, package, installed-artifact, containers]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Require every applicable CI job to succeed
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+          CONTAINERS_REQUIRED: ${{ needs.policy.outputs.containers }}
+        run: |
+          node -e "require('./scripts/github/policy.cjs').assertGate(JSON.parse(process.env.JOB_RESULTS), process.env.CONTAINERS_REQUIRED === 'true')"
 
   installed-artifact:
     needs: package
