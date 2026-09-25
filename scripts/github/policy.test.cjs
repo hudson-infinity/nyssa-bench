@@ -71,6 +71,7 @@ test('all checks must finish successfully and required checks must come from Act
   }
   assert.equal(policy.checksPass([...checks, {name: 'additional CI', status: 'QUEUED'}], false), false);
   assert.equal(policy.checksPass([...checks, {context: 'external/status', state: 'PENDING'}], false), false);
+  assert.equal(policy.checksPass([...checks, {context: 'PR automation', state: 'FAILURE'}], false), false);
   const skipped = {name: 'containers', status: 'COMPLETED', conclusion: 'SKIPPED'};
   assert.equal(policy.checksPass([...checks, skipped], false), true);
   assert.equal(policy.checksPass([...checks, skipped], true), false);
