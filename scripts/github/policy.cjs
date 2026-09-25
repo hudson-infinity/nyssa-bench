@@ -63,10 +63,10 @@ function checksPass(contexts, containersRequired) {
   const nameOf = check => check.name || check.context;
   if (!REQUIRED_CHECKS.every(name => contexts.some(check =>
     nameOf(check) === name && check.status === 'COMPLETED' && check.conclusion === 'SUCCESS'
-    && check.app?.slug === 'github-actions'))) return false;
+    && check.checkSuite?.app?.slug === 'github-actions'))) return false;
   return contexts.every(check => {
     if (['PR automation', 'Release PR'].includes(nameOf(check))
-        && check.app?.slug === 'github-actions') return true;
+        && check.checkSuite?.app?.slug === 'github-actions') return true;
     if (check.context) return check.state === 'SUCCESS';
     if (check.status !== 'COMPLETED') return false;
     if (check.conclusion === 'SUCCESS') return true;

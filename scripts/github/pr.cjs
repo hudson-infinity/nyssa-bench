@@ -55,7 +55,7 @@ async function maybeMerge({github, context, core}, number) {
       headRefOid mergeStateStatus mergeable reviewDecision
       commits(last: 1) { nodes { commit { statusCheckRollup {
         contexts(first: 100) { pageInfo { hasNextPage } nodes {
-          ... on CheckRun { name status conclusion app { slug } }
+          ... on CheckRun { name status conclusion checkSuite { app { slug } } }
           ... on StatusContext { context state }
         } }
       } } } }

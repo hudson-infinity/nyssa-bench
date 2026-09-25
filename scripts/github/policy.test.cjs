@@ -11,7 +11,7 @@ const pull = () => ({number: 7, state: 'open', draft: false, title: 'fix: repair
   user: {login: 'contributor'}, base: {ref: 'main'}, head: {sha: 'abc'},
   labels: [{name: 'automerge'}], additions: 10, deletions: 2});
 const passingChecks = () => policy.REQUIRED_CHECKS.map(name => ({name,
-  status: 'COMPLETED', conclusion: 'SUCCESS', app: {slug: 'github-actions'}}));
+  status: 'COMPLETED', conclusion: 'SUCCESS', checkSuite: {app: {slug: 'github-actions'}}}));
 const core = () => ({info() {}, setOutput() {}});
 
 test('conventional titles select the declared version bump', () => {
@@ -65,7 +65,7 @@ test('all checks must finish successfully and required checks must come from Act
   const checks = passingChecks();
   assert.equal(policy.checksPass(checks, false), true);
   assert.equal(policy.checksPass(checks.slice(1), false), false);
-  assert.equal(policy.checksPass(checks.map(check => ({...check, app: {slug: 'other'}})), false), false);
+  assert.equal(policy.checksPass(checks.map(check => ({...check, checkSuite: {app: {slug: 'other'}}})), false), false);
   for (const conclusion of ['FAILURE', 'CANCELLED', 'TIMED_OUT', 'NEUTRAL', 'SKIPPED', null]) {
     assert.equal(policy.checksPass([...checks, {name: 'additional CI', status: 'COMPLETED', conclusion}], false), false);
   }
