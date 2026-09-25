@@ -79,7 +79,8 @@ GitHub Actions app. Existing review and publishing protections stay in force.
 
 Use **PR automation → Run workflow** with a PR number to reconcile labels and
 retry merging after a resolved review or external check; use `0` to synchronize
-the label catalog only. A completed CI run also retries eligible PRs. If a
+the label catalog only. Completed CI runs and a 15-minute reconciliation schedule
+also retry eligible PRs after reviews, conversations, or external checks change. If a
 branch falls behind main, update it and allow CI to rerun.
 
 Use **Release PR → Run workflow** on `main` to reconcile release PRs after

@@ -6,6 +6,8 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       pr_number:

@@ -98,6 +98,10 @@ async function run(args) {
     numbers = pulls.filter(pr => pr.state === 'open' && pr.head.sha === run.head_sha).map(pr => pr.number);
   } else if (Number(context.payload.inputs?.pr_number) > 0) {
     numbers = [Number(context.payload.inputs.pr_number)];
+  } else if (context.eventName === 'schedule') {
+    const pulls = await github.paginate(github.rest.pulls.list,
+      {...context.repo, state: 'open', base: 'main', per_page: 100});
+    numbers = pulls.filter(mergeEligible).map(pr => pr.number);
   }
   for (const number of numbers) {
     const pr = (await github.rest.pulls.get({...context.repo, pull_number: number})).data;
