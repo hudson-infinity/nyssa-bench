@@ -1,6 +1,7 @@
 'use strict';
 
 const {conventionalTitle, needsContainers} = require('./policy.cjs');
+const {readMergeState} = require('./api.cjs');
 
 async function pullFiles(github, repo, pr) {
   if (pr.changed_files > 3000) throw new Error('PR exceeds the GitHub file-list limit; refusing an incomplete CI decision.');
@@ -22,6 +23,8 @@ async function ciPolicy({github, context, core}) {
   if (pr) {
     pr = (await github.rest.pulls.get({...context.repo, pull_number: pr.number})).data;
     conventionalTitle(pr.title, pr.body || '');
+    // Exercise the merge bot's actual read query with the CI token as well.
+    await readMergeState(github, context.repo, pr.number);
     const files = await pullFiles(github, context.repo, pr);
     core.setOutput('containers', String(needsContainers(files)));
     core.info(`Validated PR #${pr.number}; container CI required: ${needsContainers(files)}`);

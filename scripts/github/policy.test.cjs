@@ -161,6 +161,7 @@ test('CI policy recognizes dispatched bot PRs and renamed container inputs', asy
   let page = 0;
   const github = {paginate: async () => ++page === 1 ? [pr]
     : [{filename: 'archive/Dockerfile', previous_filename: 'docker/Dockerfile'}],
+  graphql: async () => ({repository: {pullRequest: {headRefOid: 'abc'}}}),
   rest: {pulls: {list() {}, listFiles() {}, get: async () => ({data: pr})}}};
   await ciPolicy({github, context: {repo: {owner: 'owner', repo: 'repo'}, payload: {},
     ref: 'refs/heads/release-please--branches--main', sha: 'abc'},

@@ -3,6 +3,7 @@
 const catalog = require('../../.github/labels.json');
 const {conventionalTitle, managedLabels, dependencyAutomerge, mergeEligible, checksPass, needsContainers} = require('./policy.cjs');
 const {pullFiles} = require('./ci.cjs');
+const {readMergeState} = require('./api.cjs');
 
 async function syncCatalog(github, repo) {
   const existing = new Map((await github.paginate(github.rest.issues.listLabelsForRepo,
@@ -50,18 +51,7 @@ async function maybeMerge({github, context, core}, number) {
         && check.creator?.login === 'github-actions[bot]')) return false;
   }
   const files = await pullFiles(github, repo, pr);
-  const result = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
-    repository(owner: $owner, name: $repo) { pullRequest(number: $number) {
-      headRefOid mergeStateStatus mergeable reviewDecision
-      commits(last: 1) { nodes { commit { statusCheckRollup {
-        contexts(first: 100) { pageInfo { hasNextPage } nodes {
-          ... on CheckRun { name status conclusion checkSuite { app { slug } } }
-          ... on StatusContext { context state }
-        } }
-      } } } }
-    } }
-  }`, {...repo, number});
-  const state = result.repository.pullRequest;
+  const state = await readMergeState(github, repo, number);
   const contexts = state.commits.nodes[0]?.commit.statusCheckRollup?.contexts;
   if (state.headRefOid !== pr.head.sha || state.mergeable !== 'MERGEABLE'
       || state.mergeStateStatus !== 'CLEAN' || state.reviewDecision === 'CHANGES_REQUESTED'
