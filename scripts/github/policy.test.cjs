@@ -92,6 +92,26 @@ function mockMerge(overrides = {}) {
   return {github, context: {repo: {owner: 'owner', repo: 'repo'}}, core: core(), calls, pr, state};
 }
 
+test('superseded workflow runs cannot satisfy or permanently block current checks', () => {
+  const inRun = (checks, runNumber, workflow = 'CI') => checks.map((check, index) => ({
+    ...check, databaseId: runNumber * 100 + index,
+    checkSuite: {app: {slug: 'github-actions'}, workflowRun: {runNumber, workflow: {id: workflow}}},
+  }));
+  const old = inRun([
+    ...passingChecks().map(check => ({...check, conclusion: 'CANCELLED'})),
+    {name: 'installed-artifact', status: 'COMPLETED', conclusion: 'CANCELLED'},
+    {name: 'containers', status: 'COMPLETED', conclusion: 'SKIPPED'},
+  ], 1);
+  const current = inRun(passingChecks(), 2);
+  assert.equal(policy.checksPass([...old, ...current], true), true);
+  assert.equal(policy.checksPass([...inRun(passingChecks(), 1), ...current.slice(0, -1)], true), false);
+  assert.equal(policy.checksPass([...current, ...inRun([
+    {name: 'external CI', status: 'COMPLETED', conclusion: 'FAILURE'},
+  ], 1, 'other workflow')], true), false);
+  assert.equal(policy.checksPass([...current, {...current[0], databaseId: 299, conclusion: 'FAILURE'}], true), false);
+  assert.equal(policy.checksPass([...current, {...current[0], databaseId: 199, conclusion: 'FAILURE'}], true), true);
+});
+
 test('merge uses squash, exact checked SHA, and explicitly starts post-merge CI', async () => {
   const args = mockMerge();
   assert.equal(await maybeMerge(args, 7), true);

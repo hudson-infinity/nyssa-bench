@@ -59,7 +59,27 @@ function mergeEligible(pr) {
       || (pr.user.login === 'dependabot[bot]' && labels.has('automerge:dependencies')));
 }
 
+function currentChecks(contexts) {
+  const workflowKey = check => check.checkSuite?.workflowRun?.workflow?.id;
+  const latestRuns = new Map();
+  for (const check of contexts) {
+    const key = workflowKey(check);
+    if (key) latestRuns.set(key, Math.max(latestRuns.get(key) || 0, check.checkSuite.workflowRun.runNumber));
+  }
+  const current = contexts.filter(check => !workflowKey(check)
+    || check.checkSuite.workflowRun.runNumber === latestRuns.get(workflowKey(check)));
+  const latestJobs = new Map();
+  for (const check of current) {
+    if (!workflowKey(check) || !check.databaseId) continue;
+    const key = `${workflowKey(check)}:${check.name}`;
+    latestJobs.set(key, Math.max(latestJobs.get(key) || 0, check.databaseId));
+  }
+  return current.filter(check => !workflowKey(check) || !check.databaseId
+    || check.databaseId === latestJobs.get(`${workflowKey(check)}:${check.name}`));
+}
+
 function checksPass(contexts, containersRequired) {
+  contexts = currentChecks(contexts);
   const nameOf = check => check.name || check.context;
   if (!REQUIRED_CHECKS.every(name => contexts.some(check =>
     nameOf(check) === name && check.status === 'COMPLETED' && check.conclusion === 'SUCCESS'
@@ -86,4 +106,4 @@ function assertGate(results, containersRequired) {
 }
 
 module.exports = {REQUIRED_CHECKS, conventionalTitle, needsContainers, managedLabels,
-  dependencyAutomerge, mergeEligible, checksPass, assertGate};
+  dependencyAutomerge, mergeEligible, currentChecks, checksPass, assertGate};

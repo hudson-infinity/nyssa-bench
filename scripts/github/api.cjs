@@ -6,7 +6,10 @@ async function readMergeState(github, repo, number) {
       headRefOid mergeStateStatus mergeable reviewDecision
       commits(last: 1) { nodes { commit { statusCheckRollup {
         contexts(first: 100) { pageInfo { hasNextPage } nodes {
-          ... on CheckRun { name status conclusion checkSuite { app { slug } } }
+          ... on CheckRun {
+            databaseId name status conclusion
+            checkSuite { app { slug } workflowRun { runNumber workflow { id } } }
+          }
           ... on StatusContext { context state }
         } }
       } } } }
