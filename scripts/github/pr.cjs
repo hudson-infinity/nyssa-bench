@@ -45,10 +45,13 @@ async function maybeMerge({github, context, core}, number) {
   const pr = (await github.rest.pulls.get({...repo, pull_number: number})).data;
   if (!mergeEligible(pr)) return false;
   if (!pr.labels.some(label => label.name === 'automerge')) {
-    const status = (await github.rest.repos.getCombinedStatusForRef({...repo, ref: pr.head.sha})).data;
-    if (!status.statuses.some(check => check.context === 'Dependabot policy'
-        && check.state === 'success' && check.description === 'Verified patch/minor update'
-        && check.creator?.login === 'github-actions[bot]')) return false;
+    // Combined status responses omit the creator. Individual statuses include
+    // it and arrive newest first; an older approval must never override a denial.
+    const statuses = await github.paginate(github.rest.repos.listCommitStatusesForRef,
+      {...repo, ref: pr.head.sha, per_page: 100});
+    const decision = statuses.find(check => check.context === 'Dependabot policy');
+    if (decision?.state !== 'success' || decision.description !== 'Verified patch/minor update'
+        || decision.creator?.login !== 'github-actions[bot]') return false;
   }
   const files = await pullFiles(github, repo, pr);
   const state = await readMergeState(github, repo, number);
