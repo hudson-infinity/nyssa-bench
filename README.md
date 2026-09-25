@@ -185,9 +185,8 @@ condition, severity coverage, and uncertainty estimates.
 | ManiSkill | Implemented manipulation adapter; use Python 3.10 and the documented Linux/Vulkan setup for planning and replay |
 | RoboCasa / Genesis | Experimental integration contracts; executable tasks require concrete scene mappings and upstream setup |
 
-The ManiSkill profile pins compatible versions of ManiSkill, PyTorch, and NumPy.
-GPU execution and replay need a capable host. Container metadata checks do not
-establish GPU simulator coverage.
+The project pins ManiSkill and PyTorch versions. GPU execution and replay need
+a capable host. Container metadata checks do not establish GPU simulator coverage.
 
 Choose a complete dependency profile in the
 [installation guide](docs/installation.md#canonical-environments).
