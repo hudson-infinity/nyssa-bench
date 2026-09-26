@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.0.1](https://github.com/hudson-infinity/nyssa-bench/compare/v0.0.1...v0.0.1) (2026-09-26)
+
+
+### Features
+
+* **ci:** automate dependency PRs and version releases ([#91](https://github.com/hudson-infinity/nyssa-bench/issues/91)) ([f95a3f0](https://github.com/hudson-infinity/nyssa-bench/commit/f95a3f09498206b42c2161b6258ef4973ffe9997))
+
+
+### Bug Fixes
+
+* **ci:** verify individual Dependabot status records ([#97](https://github.com/hudson-infinity/nyssa-bench/issues/97)) ([89ea7f0](https://github.com/hudson-infinity/nyssa-bench/commit/89ea7f07c6534e390f4650edb9784df459c25727))
+* **deps:** bump aiohttp from 3.14.1 to 3.14.3 ([#101](https://github.com/hudson-infinity/nyssa-bench/issues/101)) ([d51cbfe](https://github.com/hudson-infinity/nyssa-bench/commit/d51cbfe84801e882efa4a25adafbfe9d6442f8eb))
+* **deps:** bump anyio from 4.14.1 to 4.14.2 ([#99](https://github.com/hudson-infinity/nyssa-bench/issues/99)) ([37e9b07](https://github.com/hudson-infinity/nyssa-bench/commit/37e9b072bac6bb5d9bab0e6900b8374146147245))
+* **deps:** bump gitpython from 3.1.50 to 3.1.59 ([#98](https://github.com/hudson-infinity/nyssa-bench/issues/98)) ([88035ee](https://github.com/hudson-infinity/nyssa-bench/commit/88035ee628bd5dbae4962085768bdef1dd03649b))
+* **deps:** bump numpy from 1.26.4 to 2.2.6 ([#93](https://github.com/hudson-infinity/nyssa-bench/issues/93)) ([904249d](https://github.com/hudson-infinity/nyssa-bench/commit/904249d0664a2f882bcbefe8553316ba4c0728d5))
+* **deps:** bump setuptools from 82.0.1 to 83.0.0 ([#100](https://github.com/hudson-infinity/nyssa-bench/issues/100)) ([c39ce2f](https://github.com/hudson-infinity/nyssa-bench/commit/c39ce2f018242b49966f3c512c3286b2c884379a))
+* **deps:** bump the python-patch-minor group with 11 updates ([#92](https://github.com/hudson-infinity/nyssa-bench/issues/92)) ([1158ed0](https://github.com/hudson-infinity/nyssa-bench/commit/1158ed0824e51ec50651b482e4dbb63985b561bd))
+* **deps:** bump types-pyyaml from 6.0.12.20260518 to 6.0.12.20260906 ([#94](https://github.com/hudson-infinity/nyssa-bench/issues/94)) ([2c77700](https://github.com/hudson-infinity/nyssa-bench/commit/2c77700bd621876b0d133f09b41c7c2f2345443c))
+* **release:** start PyPI releases at 0.0.1 ([#104](https://github.com/hudson-infinity/nyssa-bench/issues/104)) ([0837733](https://github.com/hudson-infinity/nyssa-bench/commit/0837733e9e3769e8015c7db9fbc5bec5a7047df9))
+* **release:** verify published package installations ([#103](https://github.com/hudson-infinity/nyssa-bench/issues/103)) ([12dea88](https://github.com/hudson-infinity/nyssa-bench/commit/12dea882d392ad55df76ead2992692ee3ccb9bbe))
+
+## Changelog
+
 ## Unreleased
 
 - Set the first PyPI release to 0.0.1 and pin the initial release PR to that
