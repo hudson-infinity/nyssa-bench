@@ -29,11 +29,11 @@ attestation alongside each image.
 
 ## Immutable identity
 
-A `v0.1.0` release publishes at least these tags:
+A `v0.0.1` release publishes at least these tags:
 
 ```text
-0.1.0
-0.1.0-<12-character-commit>
+0.0.1
+0.0.1-<12-character-commit>
 ```
 
 Stable releases may also update `latest`. Release candidates do not. Scientific

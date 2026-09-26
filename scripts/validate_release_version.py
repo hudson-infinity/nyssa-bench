@@ -36,6 +36,15 @@ def validate_release_version(tag: str | None = None) -> str:
     manifest = ROOT / ".release-please-manifest.json"
     if manifest.exists() and json.loads(manifest.read_text(encoding="utf-8")).get(".") != __version__:
         raise ValueError("Release Please manifest must match nyssa_bench/version.py")
+    config_path = ROOT / "release-please-config.json"
+    if config_path.exists():
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        release_as = config.get("packages", {}).get(".", {}).get("release-as")
+        if release_as and release_as != __version__.split("rc")[0]:
+            raise ValueError(
+                "Release Please release-as must match the stable package version; "
+                "remove the initial override after publishing 0.0.1"
+            )
     if tag is not None and tag != f"v{__version__}":
         raise ValueError(
             f"release tag {tag!r} does not match package version v{__version__}"

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Set the first PyPI release to 0.0.1 and pin the initial release PR to that
+  version; NEP retains its independent 0.1.0 protocol version.
 - Add weekly dependency bots, automatic PR labels, conventional-title release
   PRs, and CI-gated squash merging with explicit downstream workflow dispatch.
 - Require applicable container checks, automation tests, and workflow linting
@@ -64,7 +66,7 @@
 - Execute ManiSkill collection templates with the active interpreter and
   shell-safe placeholders.
 
-## 0.1.0
+## Initial development scaffold (unreleased)
 
 - Initial benchmark harness scaffold.
 - Dummy engine, ManiSkill/MuJoCo adapter boundaries, and experimental RoboCasa/Genesis boundaries.
