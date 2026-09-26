@@ -5,6 +5,7 @@ __pycache__/
 .pytest-tmp/
 .pytest-*/
 .venv/
+.uv-cache/
 .release-venv/
 dist/
 build/

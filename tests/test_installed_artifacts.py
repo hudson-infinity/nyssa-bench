@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
+import tarfile
 
 import pytest
 
 from nyssa_bench.package_resources import config_root, policy_example_root, resource_root
 from nyssa_bench.packaging_smoke import run_packaging_smoke
-from scripts.validate_distributions import validate_distributions
+from scripts.validate_distributions import _validate_sdist, validate_distributions
 
 
 def test_resource_resolver_finds_source_bundles() -> None:
@@ -41,3 +43,21 @@ def test_packaging_smoke_generates_complete_integration_pack(tmp_path: Path) -> 
 def test_distribution_validator_requires_exactly_two_artifacts() -> None:
     with pytest.raises(ValueError, match="one wheel and one"):
         validate_distributions([])
+
+
+@pytest.mark.parametrize(
+    "member_name",
+    [
+        "nyssa_bench-0.0.1/.uv-cache/cache.json",
+        "nyssa_bench-0.0.1/examples/policies/checkpoints/.uv-cache/cache.json",
+    ],
+)
+def test_source_distribution_rejects_build_cache(tmp_path: Path, member_name: str) -> None:
+    path = tmp_path / "nyssa_bench-0.0.1.tar.gz"
+    with tarfile.open(path, "w:gz") as archive:
+        member = tarfile.TarInfo(member_name)
+        member.size = 2
+        archive.addfile(member, BytesIO(b"{}"))
+
+    with pytest.raises(ValueError, match="forbidden content"):
+        _validate_sdist(path)

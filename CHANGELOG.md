@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.0.1rc1
+
+First release candidate for TestPyPI qualification. The first stable PyPI
+version will be 0.0.1. This package release does not promote missing learned
+policy, GPU simulator, or real-world benchmark evidence to validated status.
+
+- Exclude local uv build caches from source distributions and reject cache
+  contents during release validation, including inside example checkpoints.
 
 - Set the first PyPI release to 0.0.1 and pin the initial release PR to that
   version; NEP retains its independent 0.1.0 protocol version.
