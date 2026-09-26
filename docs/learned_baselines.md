@@ -100,6 +100,28 @@ diagnostic pipeline fallback and cannot support a learned-policy claim.
 
 ## Train BC
 
+### Collect official ManiSkill demonstrations
+
+On a host with the ManiSkill motion-planning dependencies installed, collect
+and import demonstrations in one command:
+
+```bash
+uv run nyssa collect-maniskill-demos \
+  --env-ids PickCube-v1 PushCube-v1 StackCube-v1 \
+  --num-traj 100 \
+  --raw-dir demos/maniskill_motionplanning_raw \
+  --out benchmark_results/maniskill_manipulation_v0_planner_demos
+```
+
+The command runs ManiSkill's Panda motion-planning example and imports the
+generated HDF5 files. Override its generator with `--command-template` or
+`NYSSA_MANISKILL_DEMO_COMMAND` when an upstream version needs a different
+command. Templates accept `{python}`, `{env_id}`, `{task_id}`, `{num_traj}`,
+`{raw_dir}`, and `{raw_task_dir}`. Observation coverage requirements still apply
+before using the imported data for training.
+
+### Train from collected episodes
+
 Generate or import demonstrations first. The repo-local `scripted_oracle` is a
 lightweight heuristic and should not be used as a strong demo source unless it
 clearly solves the target suite. For stronger ManiSkill demos, generate official
@@ -277,6 +299,26 @@ uv run nyssa import-maniskill-demos \
 
 This writes `episodes.json`, `episodes.jsonl`, `manifest.json`, and per-task
 episode files under the output directory.
+
+To check whether imported successful demonstrations execute in the live
+environment, use the task-routed replay controller:
+
+```bash
+NYSSA_DEMO_REPLAY_DIR=benchmark_results/maniskill_manipulation_v0_planner_demos \
+NYSSA_DEMO_REPLAY_FEATURE_DIM=512 \
+uv run nyssa run \
+  --suite maniskill_planner_bc_v0 \
+  --engine maniskill \
+  --policy demo_replay_policy \
+  --episodes 10 \
+  --seed 0 \
+  --out runs/maniskill_demo_replay_smoke \
+  --capture-replay
+```
+
+Demonstration replay can restore a recorded privileged initial state. Treat it
+as a reference-controller check; it does not establish learned-policy
+generalization or a validated benchmark upper bound.
 
 When evaluating BC trained from official ManiSkill Panda motion-planning demos,
 use `maniskill_planner_bc_v0`. The official demo generator records actions in

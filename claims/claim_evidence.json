@@ -17,7 +17,7 @@
     {
       "path": "README.md",
       "claim_id": "current_public_positioning",
-      "text": "NyssaBench is an open-source failure-aware evaluation and audit framework for embodied AI policies, built toward foundational infrastructure for evaluating frontier robot systems."
+      "text": "NyssaBench is an open-source evaluation and audit framework for robot policies."
     }
   ],
   "forbidden_assertions": [
@@ -30,7 +30,7 @@
       "claim_id": "current_public_positioning",
       "status": "implemented",
       "evidence_tier": "source_verified",
-      "wording": "NyssaBench is an open-source failure-aware evaluation and audit framework for embodied AI policies, built toward foundational infrastructure for evaluating frontier robot systems.",
+      "wording": "NyssaBench is an open-source evaluation and audit framework for robot policies.",
       "authorized_public_assertion": true,
       "issue_ids": [23, 25],
       "source_paths": [
