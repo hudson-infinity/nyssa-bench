@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,6 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 CI
 from nyssa_bench import __version__
 from nyssa_bench.cli import main
 from scripts.validate_release_version import validate_release_version
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,6 +44,42 @@ def test_release_manifest_cannot_drift_from_package_version(tmp_path, monkeypatc
     monkeypatch.setattr(validator, "ROOT", tmp_path)
     with pytest.raises(ValueError, match="manifest must match"):
         validator.validate_release_version()
+
+
+@pytest.mark.parametrize(
+    ("version", "release_as", "valid"),
+    [
+        ("0.0.1", "0.0.1", True),
+        ("0.0.1rc1", "0.0.1", True),
+        ("0.0.1", "0.1.0", False),
+        ("0.0.2", "0.0.1", False),
+        ("0.0.2", None, True),
+    ],
+)
+def test_initial_release_override_cannot_skip_or_repeat_a_version(
+    tmp_path, monkeypatch, version, release_as, valid
+):
+    import scripts.validate_release_version as validator
+
+    (tmp_path / "pyproject.toml").write_text(
+        (ROOT / "pyproject.toml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / ".release-please-manifest.json").write_text(
+        json.dumps({".": version}), encoding="utf-8"
+    )
+    package = {"release-type": "python"}
+    if release_as is not None:
+        package["release-as"] = release_as
+    (tmp_path / "release-please-config.json").write_text(
+        json.dumps({"packages": {".": package}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(validator, "ROOT", tmp_path)
+    monkeypatch.setattr(validator, "__version__", version)
+    if valid:
+        assert validator.validate_release_version(f"v{version}") == version
+    else:
+        with pytest.raises(ValueError, match="release-as must match"):
+            validator.validate_release_version()
 
 
 def test_package_metadata_uses_hudson_identity_and_public_urls() -> None:

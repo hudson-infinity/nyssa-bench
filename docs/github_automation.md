@@ -55,8 +55,15 @@ Major bumps are honored even before version 1.0.
 
 `nyssa_bench/version.py` remains the package-version source. The release bot
 updates it, `CHANGELOG.md`, and `.release-please-manifest.json` together; the
-version validator rejects manifest drift. The bootstrap SHA starts automated
-release history after the already-recorded 0.1.0 development work.
+version validator rejects manifest drift. The first stable package release is
+`0.0.1`. The package configuration temporarily sets `release-as: 0.0.1` so
+unreleased feature commits cannot advance the first release to 0.1.0 or 0.0.2.
+Remove that override in a follow-up PR after 0.0.1 has been published and
+verified; subsequent releases then use conventional version bumps. The
+validator rejects an override that disagrees with the package's stable version.
+The bootstrap SHA limits the initial changelog to recent development work and
+does not imply a prior published release. NEP remains independently versioned
+at `0.1.0`.
 
 Bot-created version PRs receive explicit CI and labeling dispatches. When a
 version PR is merged and main CI passes, Release Please creates its version tag
@@ -76,6 +83,13 @@ and auto-merge enabled, and squash titles set to the PR title. Actions needs
 permission to create PRs; individual workflows request only their required
 permissions. Keep the five required checks above strict and pinned to the
 GitHub Actions app. Existing review and publishing protections stay in force.
+
+If the release action reports that Actions cannot create pull requests, check
+the organization's Actions policy before retrying. A repository cannot enable
+this permission when its organization disallows it. An organization
+administrator must permit it first, then enable PR creation for this repository;
+default workflow permissions can remain read-only. Until then, prepare version
+PRs manually and use the same CI and protected publication flow.
 
 Use **PR automation → Run workflow** with a PR number to reconcile labels and
 retry merging after a resolved review or external check; use `0` to synchronize
