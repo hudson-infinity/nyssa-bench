@@ -350,3 +350,19 @@ jobs:
           name: python-distributions
           path: dist
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  verify-testpypi:
+    name: Verify TestPyPI installation
+    if: contains(github.ref_name, 'rc')
+    needs: [build, publish-testpypi]
+    uses: ./.github/workflows/verify-published-release.yml
+    with:
+      index: testpypi
+
+  verify-pypi:
+    name: Verify PyPI installation
+    if: ${{ !contains(github.ref_name, 'rc') }}
+    needs: [build, publish-pypi]
+    uses: ./.github/workflows/verify-published-release.yml
+    with:
+      index: pypi
