@@ -44,6 +44,10 @@ and [existing-project guide](https://docs.pypi.org/trusted-publishers/adding-a-p
 
 ## Version contract
 
+The first stable PyPI package version is **0.0.1**. Its TestPyPI candidate is
+`0.0.1rc1`. NEP's independent protocol version remains `0.1.0`; do not rename
+its schemas or conformance fixtures when changing the package version.
+
 Normal version bumps are proposed by Release Please after successful main CI.
 Conventional PR titles determine the bump, and the version PR updates the
 changelog and package version together. See [GitHub automation](github_automation.md)
@@ -59,7 +63,7 @@ Validate locally before creating a tag:
 ```bash
 uv run python scripts/validate_claim_evidence.py
 uv run python scripts/validate_credibility.py
-uv run python scripts/validate_release_version.py --tag v0.1.0rc1
+uv run python scripts/validate_release_version.py --tag v0.0.1
 uv build
 uvx twine check --strict dist/*
 uv run python scripts/validate_distributions.py dist/*
@@ -73,17 +77,23 @@ scientifically complete.
 
 Update `nyssa_bench/version.py`, `.release-please-manifest.json`, and `CHANGELOG.md`
 in a reviewed pull request. The manifest version must match the package version.
-Do not change version metadata on the tag itself. The versions below are
-examples; choose an unused version and validate its matching tag.
+Do not change version
+metadata on the tag itself. The commands below use the required initial version;
+when preparing the candidate, validate `--tag v0.0.1rc1` instead.
+
+The temporary `release-as: 0.0.1` setting in `release-please-config.json`
+prevents automatic bumps from skipping the first release. Keep it through
+candidate qualification and the stable release. Once 0.0.1 is published and
+verified, remove the override in a separate PR to resume conventional bumps.
 
 ## Release candidate
 
-Create a PEP 440 release-candidate version such as `0.1.0rc1`, merge it, and tag
+Create the PEP 440 release-candidate version `0.0.1rc1`, merge it, and tag
 the exact main commit:
 
 ```bash
-git tag -s v0.1.0rc1 -m "NyssaBench 0.1.0rc1"
-git push origin v0.1.0rc1
+git tag -s v0.0.1rc1 -m "NyssaBench 0.0.1rc1"
+git push origin v0.0.1rc1
 ```
 
 The workflow builds a wheel and source distribution, runs strict metadata
@@ -109,7 +119,7 @@ artifact into `dist/` and run from the matching tag checkout:
 ```bash
 python scripts/verify_published_release.py \
   --index testpypi \
-  --version 0.1.0rc1 \
+  --version 0.0.1rc1 \
   --dist-dir dist \
   --out /tmp/nyssa-testpypi-verification
 ```
@@ -133,8 +143,8 @@ the changelog, merge that release pull request, and create the matching signed
 tag:
 
 ```bash
-git tag -s v0.1.0 -m "NyssaBench 0.1.0"
-git push origin v0.1.0
+git tag -s v0.0.1 -m "NyssaBench 0.0.1"
+git push origin v0.0.1
 ```
 
 Stable tags run the same build and installed-wheel jobs, then wait at the
