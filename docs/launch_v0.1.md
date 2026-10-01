@@ -1,6 +1,6 @@
-# v0.1 Launch Checklist
+# Initial 0.0.1 Launch Checklist
 
-NyssaBench v0.1 is ready to launch when these checks pass from a clean checkout:
+NyssaBench 0.0.1 is ready to launch when these checks pass from a clean checkout:
 
 ```bash
 uv run python scripts/release_smoke.py
@@ -22,8 +22,8 @@ treat stale local result files as source artifacts.
 Tag and publish:
 
 ```bash
-git tag -s v0.1.0rc1 -m "NyssaBench 0.1.0rc1"
-git push origin v0.1.0rc1
+git tag -s v0.0.1rc1 -m "NyssaBench 0.0.1rc1"
+git push origin v0.0.1rc1
 ```
 
 Qualify the TestPyPI candidate before creating the stable signed tag. Follow
@@ -33,11 +33,11 @@ environment.
 Announcement draft:
 
 ```text
-We are open-sourcing NyssaBench v0.1, an evaluation and failure-analysis framework for embodied AI policies under real-world variation.
+We are open-sourcing NyssaBench 0.0.1, an evaluation and failure-analysis framework for embodied AI policies under real-world variation.
 
 It lets robotics teams run reproducible manipulation benchmarks, stress-test policies, generate replay-first HTML reports, classify failure modes, compare policy versions, and export trajectories for training.
 
-The v0.1 release includes ManiSkill and MuJoCo adapter paths, task YAML specs, policy adapter entry points, LeRobot-style export, reports, and release checks.
+The 0.0.1 release includes ManiSkill and MuJoCo adapter paths, task YAML specs, policy adapter entry points, LeRobot-style export, reports, and release checks.
 
 Repo: https://github.com/hudson-infinity/nyssa-bench
 ```
