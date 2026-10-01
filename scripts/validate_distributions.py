@@ -51,6 +51,7 @@ REQUIRED_SDIST_SUFFIXES = {
 FORBIDDEN_PARTS = {
     ".git",
     ".venv",
+    ".uv-cache",
     "benchmark_results",
     "checkpoints",
     "dist",
@@ -143,7 +144,9 @@ def _validate_members(names: list[str], sizes: dict[str, int]) -> None:
                 or "/examples/policies/checkpoints/" in name
             )
         )
-        if forbidden and not allowed_example_checkpoint:
+        if allowed_example_checkpoint:
+            forbidden.remove("checkpoints")
+        if forbidden:
             raise ValueError(f"distribution contains forbidden content: {name}")
         if name.lower().endswith(".zip"):
             raise ValueError(f"distribution contains a result archive: {name}")
